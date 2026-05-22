@@ -1,0 +1,41 @@
+# Visual Studio / .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vs/*
+*.ncrunch*
+*.ReSharper*/
+_ReSharper*/
+*.DotSettings.user
+
+# Rider
+.idea/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# Build results
+*.dll
+*.exe
+*.pdb
+*.cache
+*.zip
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Workspace
+ScriptSyncPilot.code-workspace

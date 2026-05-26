@@ -34,6 +34,7 @@ This document outlines the architecture, data model, components, integrations, a
 - `UI` — Desktop UI (WPF/WinUI or cross-platform Electron/MAUI) and optional Web UI (SPA + WebSocket).
 
 Components map to repository modules/services:
+- `ScriptSyncPilot.ControllerHost` — host for the Controller; provides a Windows desktop GUI for interactive device management and a headless/CLI host for service scenarios. Hosts adapters (Buttplug, BLE, TCP) and enforces firmware/version policies.
 - `ScriptSyncPilot.Core` — library with scheduler, timeline model, transport, and plugin interfaces.
 - `ScriptSyncPilot.Editor` — desktop editor app (timeline, track inspector, import/export).
 - `ScriptSyncPilot.Player` — lightweight player app/embed for playback with video controls.
@@ -43,6 +44,7 @@ Components map to repository modules/services:
 ## Controller — single authoritative output for devices
 
 - The `Controller` (part of `ScriptSyncPilot.Core`) is the single authoritative output that sends commands to physical devices. All adapters, UIs, and external inputs MUST route device commands through the Controller rather than directly driving hardware.
+- The Controller is hosted by `ScriptSyncPilot.ControllerHost`, which provides both a Windows desktop GUI implementation (for interactive device management, firmware checks, and on-screen status) and a headless/CLI host for automated or service scenarios. All UI and adapter integrations should interact with the Controller via the host's public APIs rather than opening device transports directly.
 - Responsibilities of the Controller:
   - Host and manage the Buttplug client instance (or other device SDK clients) used to communicate with toys such as The Handy.
   - Enforce firmware/version and capability checks before sending commands, and provide an upgrade/compatibility policy surface to the UI.
@@ -140,7 +142,7 @@ Example snippet:
 
 - `docs/SPEC.md` (this file).
 - `docs/schema/script.schema.json` (JSON Schema).
-- Project skeleton folders: `ScriptSyncPilot.Core`, `ScriptSyncPilot.Editor`, `ScriptSyncPilot.Player`, `ScriptSyncPilot.Devices`, `ScriptSyncPilot.API`.
+- Project skeleton folders: `ScriptSyncPilot.ControllerHost`, `ScriptSyncPilot.Core`, `ScriptSyncPilot.Editor`, `ScriptSyncPilot.Player`, `ScriptSyncPilot.Devices`, `ScriptSyncPilot.API`.
 - A minimal prototype: Core library + ButtplugAdapter + a CLI player that can load a JSON script and print scheduled commands (no device connected).
 
 ## Next Steps

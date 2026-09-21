@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -25,6 +26,7 @@ public sealed class MpvSession : IDisposable
 
     private NamedPipeClientStream? _pipe;
     private CancellationTokenSource? _readCts;
+    private volatile bool _disposed;
 
     public bool IsPaused { get; private set; } = true;
     public double PositionSeconds { get; private set; }
@@ -89,9 +91,16 @@ public sealed class MpvSession : IDisposable
         catch (IOException)
         {
         }
+        catch (SocketException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
         finally
         {
-            Disconnected?.Invoke();
+            if (!_disposed)
+                Disconnected?.Invoke();
         }
     }
 
@@ -118,6 +127,7 @@ public sealed class MpvSession : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _readCts?.Cancel();
         _pipe?.Dispose();
     }

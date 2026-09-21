@@ -13,7 +13,8 @@ public sealed class MainForm : Form
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
-    private readonly NumericUpDown _offsetBox = new() { Minimum = -2000, Maximum = 2000, Increment = 10 };
+    private readonly TrackBar _offsetSlider = new() { Minimum = -1000, Maximum = 1000, TickFrequency = 100, SmallChange = 10, LargeChange = 100 };
+    private readonly Label _offsetValue = new() { AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, MinimumSize = new Size(72, 0) };
     private readonly Button _startButton = new() { Text = "Load Script + Sync" };
     private readonly Button _stopButton = new() { Text = "Stop", Enabled = false };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill };
@@ -24,6 +25,7 @@ public sealed class MainForm : Form
 
     private HandyApiClient? _handy;
     private MpvSession? _mpv;
+    private CancellationTokenSource? _offsetChangeCts;
     private long _clockOffsetMs;
     private bool _hsspReady;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -38,7 +40,8 @@ public sealed class MainForm : Form
         _connectionKeyBox.Text = _settings.ConnectionKey;
         _mpvPipeBox.Text = _settings.MpvIpcPipe;
         _scriptPathBox.Text = _settings.LastScriptPath;
-        _offsetBox.Value = Math.Clamp(_settings.OffsetMs, (int)_offsetBox.Minimum, (int)_offsetBox.Maximum);
+        _offsetSlider.Value = Math.Clamp(_settings.OffsetMs, _offsetSlider.Minimum, _offsetSlider.Maximum);
+        UpdateOffsetLabel();
 
         var browseScript = new Button { Text = "Browse…" };
         browseScript.Click += (_, _) =>
@@ -65,7 +68,12 @@ public sealed class MainForm : Form
         AddRow("Connection key", _connectionKeyBox);
         AddRow("mpv IPC pipe", _mpvPipeBox);
         AddRow("Funscript", _scriptPathBox, browseScript);
-        AddRow("Offset (ms)", _offsetBox);
+        var offsetPanel = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, AutoSize = true };
+        offsetPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        offsetPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        offsetPanel.Controls.Add(_offsetSlider, 0, 0);
+        offsetPanel.Controls.Add(_offsetValue, 1, 0);
+        AddRow("Offset (ms)", offsetPanel);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
         buttons.Controls.Add(_startButton);
@@ -78,7 +86,11 @@ public sealed class MainForm : Form
 
         _startButton.Click += async (_, _) => await StartAsync();
         _stopButton.Click += (_, _) => Stop();
-        _offsetBox.ValueChanged += async (_, _) => await OnOffsetChangedAsync();
+        _offsetSlider.ValueChanged += async (_, _) =>
+        {
+            UpdateOffsetLabel();
+            await OnOffsetChangedAsync();
+        };
         _syncTimer.Tick += async (_, _) => await OnSyncTickAsync();
 
         FormClosing += (_, _) =>
@@ -87,7 +99,7 @@ public sealed class MainForm : Form
             _settings.ConnectionKey = _connectionKeyBox.Text;
             _settings.MpvIpcPipe = _mpvPipeBox.Text;
             _settings.LastScriptPath = _scriptPathBox.Text;
-            _settings.OffsetMs = (int)_offsetBox.Value;
+            _settings.OffsetMs = _offsetSlider.Value;
             _settings.Save();
             Stop();
         };
@@ -167,7 +179,9 @@ public sealed class MainForm : Form
         DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _clockOffsetMs;
 
     private long DeviceTimeMs(double mpvPositionSeconds) =>
-        (long)(mpvPositionSeconds * 1000) + (int)_offsetBox.Value;
+        (long)(mpvPositionSeconds * 1000) + _offsetSlider.Value;
+
+    private void UpdateOffsetLabel() => _offsetValue.Text = $"{_offsetSlider.Value:+#;-#;0} ms";
 
     private double _lastKnownPos;
     private readonly Stopwatch _sincePosUpdate = Stopwatch.StartNew();
@@ -235,10 +249,21 @@ public sealed class MainForm : Form
     private async Task OnOffsetChangedAsync()
     {
         if (!_hsspReady || _handy is null || _mpv is not { IsPaused: false }) return;
+
+        _offsetChangeCts?.Cancel();
+        _offsetChangeCts?.Dispose();
+        _offsetChangeCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        var ct = _offsetChangeCts.Token;
+        var offsetMs = _offsetSlider.Value;
+
         try
         {
-            await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
-            Log($"Offset changed to {_offsetBox.Value} ms.");
+            await Task.Delay(100, ct);
+            await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: ct);
+            Log($"Offset changed to {offsetMs} ms.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
         }
         catch (HandyApiException ex)
         {
@@ -249,6 +274,9 @@ public sealed class MainForm : Form
     private void Stop()
     {
         _syncTimer.Stop();
+        _offsetChangeCts?.Cancel();
+        _offsetChangeCts?.Dispose();
+        _offsetChangeCts = null;
         if (_hsspReady) _ = _handy?.HsspStopAsync(CancellationToken.None);
         _hsspReady = false;
         _mpv?.Dispose();

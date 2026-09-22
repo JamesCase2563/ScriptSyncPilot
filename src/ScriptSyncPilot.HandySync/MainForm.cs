@@ -202,7 +202,7 @@ public sealed class MainForm : Form
                 await _handy.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
-            catch (HandyApiException ex)
+            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
             {
                 Log($"Resync failed: {ex.Message}");
             }

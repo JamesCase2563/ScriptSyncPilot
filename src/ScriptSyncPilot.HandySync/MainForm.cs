@@ -154,7 +154,7 @@ public sealed class MainForm : Form
             _stopButton.Enabled = true;
             SetStatus("Playing");
         }
-        catch (Exception ex) when (ex is HandyApiException or IOException or InvalidDataException or HttpRequestException)
+        catch (Exception ex) when (ex is HandyApiException or IOException or InvalidDataException or HttpRequestException or TaskCanceledException)
         {
             Log($"Error: {ex.Message}");
             SetStatus("Error");

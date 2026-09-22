@@ -65,12 +65,7 @@ public sealed class MainForm : Form
         AddRow("Connection key", _connectionKeyBox);
         AddRow("mpv IPC pipe", _mpvPipeBox);
         AddRow("Funscript", _scriptPathBox, browseScript);
-        var offsetPanel = new TableLayoutPanel { ColumnCount = 2, Dock = DockStyle.Fill, AutoSize = true };
-        offsetPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        offsetPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        offsetPanel.Controls.Add(_offsetSlider, 0, 0);
-        offsetPanel.Controls.Add(_offsetValue, 1, 0);
-        AddRow("Offset (ms)", offsetPanel);
+        AddRow("Offset (ms)", _offsetSlider, _offsetValue);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
         buttons.Controls.Add(_startButton);

@@ -193,7 +193,7 @@ public sealed class MainForm : Form
                 await _handy.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
-            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
+            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
                 Log($"Resync failed: {ex.Message}");
             }
@@ -218,7 +218,7 @@ public sealed class MainForm : Form
                 SetStatus("Playing");
             }
         }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Play/stop failed: {ex.Message}");
         }
@@ -231,7 +231,7 @@ public sealed class MainForm : Form
         {
             await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
         }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Drift correction failed: {ex.Message}");
         }
@@ -256,7 +256,7 @@ public sealed class MainForm : Form
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
         }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Offset resync failed: {ex.Message}");
         }

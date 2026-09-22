@@ -13,8 +13,16 @@ public sealed class Funscript
     public static Funscript Load(string path)
     {
         var json = File.ReadAllText(path);
-        var doc = JsonSerializer.Deserialize<FunscriptFile>(json, JsonOpts)
-                  ?? throw new InvalidDataException("Empty or invalid funscript.");
+        FunscriptFile doc;
+         try
+         {
+             doc = JsonSerializer.Deserialize<FunscriptFile>(json, JsonOpts)
+                   ?? throw new InvalidDataException("Empty or invalid funscript.");
+         }
+         catch (JsonException ex)
+         {
+             throw new InvalidDataException("Invalid funscript JSON.", ex);
+         }
         if (doc.Actions is null || doc.Actions.Count == 0)
             throw new InvalidDataException("Funscript has no actions.");
 

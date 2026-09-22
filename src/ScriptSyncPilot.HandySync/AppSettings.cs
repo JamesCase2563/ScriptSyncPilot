@@ -31,8 +31,15 @@ public sealed class AppSettings
 
     public void Save()
     {
-        var dir = Path.GetDirectoryName(FilePath)!;
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+         try
+         {
+             var dir = Path.GetDirectoryName(FilePath)!;
+             Directory.CreateDirectory(dir);
+             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+         }
+         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+         {
+             // ignore failures (best-effort persistence)
+         }
     }
 }

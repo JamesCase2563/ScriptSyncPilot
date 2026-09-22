@@ -16,17 +16,18 @@ public sealed class HandyApiException(string message) : Exception(message);
 /// </summary>
 public sealed class HandyApiClient : IDisposable
 {
+    private const string ApplicationId = "LGtuDB6Ikqu4s65pK7eoshlqkDV_ziiG";
     private const string BaseUrl = "https://www.handyfeeling.com/api/handy-rest/v3/";
     private const string HostingUploadUrl = "https://www.handyfeeling.com/api/hosting/v2/upload";
 
     private readonly HttpClient _http;
     private readonly HttpClient _hostingHttp = new();
 
-    public HandyApiClient(string apiKey, string connectionKey)
+    public HandyApiClient(string connectionKey)
     {
         _http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _http.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+        _http.DefaultRequestHeaders.Add("X-Api-Key", ApplicationId);
         _http.DefaultRequestHeaders.Add("X-Connection-Key", connectionKey);
     }
 

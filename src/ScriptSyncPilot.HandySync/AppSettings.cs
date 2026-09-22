@@ -5,7 +5,6 @@ namespace ScriptSyncPilot.HandySync;
 /// <summary>Small persisted settings blob, kept separate from any runtime session state.</summary>
 public sealed class AppSettings
 {
-    public string ApiKey { get; set; } = "";
     public string ConnectionKey { get; set; } = "";
     public string MpvIpcPipe { get; set; } = @"\\.\pipe\vrheadtrack";
     public int OffsetMs { get; set; }

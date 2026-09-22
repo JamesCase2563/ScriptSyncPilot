@@ -9,7 +9,6 @@ namespace ScriptSyncPilot.HandySync;
 /// </summary>
 public sealed class MainForm : Form
 {
-    private readonly TextBox _apiKeyBox = new() { PlaceholderText = "Handy application API key" };
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -36,7 +35,6 @@ public sealed class MainForm : Form
         Width = 720;
         Height = 560;
 
-        _apiKeyBox.Text = _settings.ApiKey;
         _connectionKeyBox.Text = _settings.ConnectionKey;
         _mpvPipeBox.Text = _settings.MpvIpcPipe;
         _scriptPathBox.Text = _settings.LastScriptPath;
@@ -64,7 +62,6 @@ public sealed class MainForm : Form
             if (extra != null) layout.Controls.Add(extra, 2, row);
         }
 
-        AddRow("API key", _apiKeyBox);
         AddRow("Connection key", _connectionKeyBox);
         AddRow("mpv IPC pipe", _mpvPipeBox);
         AddRow("Funscript", _scriptPathBox, browseScript);
@@ -95,7 +92,6 @@ public sealed class MainForm : Form
 
         FormClosing += (_, _) =>
         {
-            _settings.ApiKey = _apiKeyBox.Text;
             _settings.ConnectionKey = _connectionKeyBox.Text;
             _settings.MpvIpcPipe = _mpvPipeBox.Text;
             _settings.LastScriptPath = _scriptPathBox.Text;
@@ -126,7 +122,7 @@ public sealed class MainForm : Form
         try
         {
             SetStatus("Connecting to Handy…");
-            _handy = new HandyApiClient(_apiKeyBox.Text.Trim(), _connectionKeyBox.Text.Trim());
+            _handy = new HandyApiClient(_connectionKeyBox.Text.Trim());
 
             if (!await _handy.IsConnectedAsync(_lifetimeCts.Token))
                 throw new HandyApiException("Device reports not connected. Check the connection key.");

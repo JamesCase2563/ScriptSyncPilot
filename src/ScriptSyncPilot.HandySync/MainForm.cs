@@ -218,7 +218,7 @@ public sealed class MainForm : Form
                 SetStatus("Playing");
             }
         }
-        catch (HandyApiException ex)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
         {
             Log($"Play/stop failed: {ex.Message}");
         }
@@ -231,7 +231,7 @@ public sealed class MainForm : Form
         {
             await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
         }
-        catch (HandyApiException ex)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
         {
             Log($"Drift correction failed: {ex.Message}");
         }
@@ -256,7 +256,7 @@ public sealed class MainForm : Form
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
         }
-        catch (HandyApiException ex)
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException)
         {
             Log($"Offset resync failed: {ex.Message}");
         }

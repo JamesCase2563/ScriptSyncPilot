@@ -53,6 +53,8 @@ public sealed class HandyApiClient : IDisposable
     /// </summary>
     public async Task<long> EstimateClockOffsetMsAsync(int samples, CancellationToken ct)
     {
+        if (samples <= 0) throw new ArgumentOutOfRangeException(nameof(samples), "Samples must be >= 1.");
+
         long total = 0;
         for (var i = 0; i < samples; i++)
         {

@@ -43,7 +43,7 @@ public sealed class Funscript
         var sb = new System.Text.StringBuilder();
         sb.AppendLine(); // reserved metadata line, left blank
         foreach (var a in Actions)
-            sb.Append(a.At).Append(',').Append(a.Pos).Append('\n');
+            sb.Append(a.At).Append(',').Append(a.Pos).AppendLine();
         return sb.ToString();
     }
 

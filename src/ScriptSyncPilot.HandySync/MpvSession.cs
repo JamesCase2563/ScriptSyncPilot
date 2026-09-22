@@ -82,7 +82,8 @@ public sealed class MpvSession : IDisposable
             {
                 var line = await reader.ReadLineAsync(ct);
                 if (line is null) break; // pipe closed: mpv exited
-                HandleLine(line);
+                try { HandleLine(line); }
+                catch (JsonException) { /* ignore malformed/partial IPC lines */ }
             }
         }
         catch (OperationCanceledException)

@@ -171,7 +171,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _startButton.Enabled = true;
+            _startButton.Enabled = !_hsspReady;
         }
     }
 
@@ -284,6 +284,7 @@ public sealed class MainForm : Form
         _handy?.Dispose();
         _handy = null;
         _stopButton.Enabled = false;
+        _startButton.Enabled = true;
         SetStatus("Idle");
     }
 }

@@ -11,4 +11,8 @@
     <SupportedOSPlatform>windows</SupportedOSPlatform>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ScriptSyncPilot.Common\ScriptSyncPilot.Common.csproj" />
+  </ItemGroup>
+
 </Project>

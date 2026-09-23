@@ -61,7 +61,15 @@ public sealed class MpvSession : IDisposable
     }
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
-        SendAsync(new { command = new object[] { "seek", seconds, "absolute" } }, ct);
+        SendAsync(new { command = new object[] { "seek", seconds, "absolute+exact" } }, ct);
+
+    /// <summary>Seeks by a relative offset (negative to go backwards), frame-accurate rather than keyframe-snapped.</summary>
+    public Task SeekRelativeAsync(double deltaSeconds, CancellationToken ct) =>
+        SendAsync(new { command = new object[] { "seek", deltaSeconds, "relative+exact" } }, ct);
+
+    /// <summary>Steps exactly one video frame; also pauses, mirroring mpv's own frame-step behavior.</summary>
+    public Task StepFrameAsync(bool forward, CancellationToken ct) =>
+        SendAsync(new { command = new object[] { forward ? "frame-step" : "frame-back-step" } }, ct);
 
     public Task SetPauseAsync(bool paused, CancellationToken ct) =>
         SendAsync(new { command = new object[] { "set_property", "pause", paused } }, ct);

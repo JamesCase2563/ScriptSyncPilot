@@ -23,6 +23,13 @@ public sealed class MainForm : Form
     private readonly Label _timeLabel = new() { AutoSize = true, Text = "0.000 / 0.000 s", MinimumSize = new Size(140, 0) };
     private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, Value = 100, TickStyle = TickStyle.None, Width = 200 };
 
+    private readonly Button _back10SButton = new() { Text = "◀◀ 10s", Enabled = false };
+    private readonly Button _back1SButton = new() { Text = "◀ 1s", Enabled = false };
+    private readonly Button _backFrameButton = new() { Text = "◀ frame", Enabled = false };
+    private readonly Button _forwardFrameButton = new() { Text = "frame ▶", Enabled = false };
+    private readonly Button _forward1SButton = new() { Text = "1s ▶", Enabled = false };
+    private readonly Button _forward10SButton = new() { Text = "10s ▶▶", Enabled = false };
+
     private Funscript _script = new();
     private string? _scriptPath;
     private bool _dirty;
@@ -42,9 +49,13 @@ public sealed class MainForm : Form
         _pipeBox.Text = _settings.MpvIpcPipe;
 
         Controls.Add(_timeline);
+        Controls.Add(BuildStepBar());
         Controls.Add(BuildTransportBar());
         Controls.Add(_log);
         Controls.Add(BuildMenu());
+
+        KeyPreview = true;
+        KeyDown += OnFormKeyDown;
 
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.ScriptChanged += (_, _) => { _dirty = true; UpdateTitle(); };
@@ -53,6 +64,12 @@ public sealed class MainForm : Form
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
         _attachButton.Click += async (_, _) => await AttachExistingAsync();
         _playPauseButton.Click += async (_, _) => await TogglePlayPauseAsync();
+        _back10SButton.Click += async (_, _) => await StepAsync(-10);
+        _back1SButton.Click += async (_, _) => await StepAsync(-1);
+        _backFrameButton.Click += async (_, _) => await StepFrameAsync(forward: false);
+        _forwardFrameButton.Click += async (_, _) => await StepFrameAsync(forward: true);
+        _forward1SButton.Click += async (_, _) => await StepAsync(1);
+        _forward10SButton.Click += async (_, _) => await StepAsync(10);
 
         _timeline.LoadScript(_script, 60);
         UpdateTitle();
@@ -100,6 +117,25 @@ public sealed class MainForm : Form
         bar.Controls.Add(_timeLabel);
         bar.Controls.Add(new Label { Text = "  Zoom:", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
         bar.Controls.Add(_zoomSlider);
+        return bar;
+    }
+
+    private Control BuildStepBar()
+    {
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(6, 0, 6, 6), FlowDirection = FlowDirection.LeftToRight };
+        bar.Controls.Add(_back10SButton);
+        bar.Controls.Add(_back1SButton);
+        bar.Controls.Add(_backFrameButton);
+        bar.Controls.Add(_forwardFrameButton);
+        bar.Controls.Add(_forward1SButton);
+        bar.Controls.Add(_forward10SButton);
+        bar.Controls.Add(new Label
+        {
+            Text = "  Shortcuts: Left/Right = frame, Shift = 1s, Ctrl = 10s",
+            AutoSize = true,
+            Margin = new Padding(12, 8, 3, 0),
+            ForeColor = SystemColors.GrayText,
+        });
         return bar;
     }
 
@@ -234,8 +270,19 @@ public sealed class MainForm : Form
 
         _mpv = mpv;
         _activePipe = pipe;
-        _playPauseButton.Enabled = true;
+        SetPlaybackControlsEnabled(true);
         Log($"Attached to mpv IPC pipe '{pipe}'.");
+    }
+
+    private void SetPlaybackControlsEnabled(bool enabled)
+    {
+        _playPauseButton.Enabled = enabled;
+        _back10SButton.Enabled = enabled;
+        _back1SButton.Enabled = enabled;
+        _backFrameButton.Enabled = enabled;
+        _forwardFrameButton.Enabled = enabled;
+        _forward1SButton.Enabled = enabled;
+        _forward10SButton.Enabled = enabled;
     }
 
     private void OnMpvPositionChanged(double seconds)
@@ -266,9 +313,65 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             Log($"mpv disconnected ('{_activePipe}').");
-            _playPauseButton.Enabled = false;
+            SetPlaybackControlsEnabled(false);
             _mpv = null;
         });
+    }
+
+    // Relative seek by whole seconds (positive or negative); single-frame steps go through StepFrameAsync.
+    private async Task StepAsync(double deltaSeconds)
+    {
+        if (_mpv is null) return;
+        try
+        {
+            await _mpv.SeekRelativeAsync(deltaSeconds, _lifetimeCts.Token);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            Log($"Seek failed: {ex.Message}");
+        }
+    }
+
+    private async Task StepFrameAsync(bool forward)
+    {
+        if (_mpv is null) return;
+        try
+        {
+            await _mpv.StepFrameAsync(forward, _lifetimeCts.Token);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            Log($"Frame step failed: {ex.Message}");
+        }
+    }
+
+    private void OnFormKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (_mpv is null) return;
+        switch (e.KeyCode)
+        {
+            case Keys.Left when e.Control:
+                _ = StepAsync(-10);
+                break;
+            case Keys.Right when e.Control:
+                _ = StepAsync(10);
+                break;
+            case Keys.Left when e.Shift:
+                _ = StepAsync(-1);
+                break;
+            case Keys.Right when e.Shift:
+                _ = StepAsync(1);
+                break;
+            case Keys.Left:
+                _ = StepFrameAsync(forward: false);
+                break;
+            case Keys.Right:
+                _ = StepFrameAsync(forward: true);
+                break;
+            default:
+                return;
+        }
+        e.Handled = true;
     }
 
     private async Task TogglePlayPauseAsync()

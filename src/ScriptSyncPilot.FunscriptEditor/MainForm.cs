@@ -22,7 +22,7 @@ public sealed class MainForm : Form
     private readonly Button _attachButton = new() { Text = "Attach" };
     private readonly Button _playPauseButton = new() { Text = "Play", Enabled = false };
     private readonly Label _timeLabel = new() { AutoSize = true, Text = "0.000 / 0.000 s", MinimumSize = new Size(140, 0) };
-    private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, Value = 100, TickStyle = TickStyle.None, Width = 200 };
+    private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, TickStyle = TickStyle.None, Value = 100 };
 
     private readonly Button _back10SButton = new() { Text = "◀◀ 10s", Enabled = false };
     private readonly Button _back1SButton = new() { Text = "◀ 1s", Enabled = false };
@@ -51,6 +51,7 @@ public sealed class MainForm : Form
 
         Controls.Add(_timeline);
         Controls.Add(BuildStepBar());
+        Controls.Add(BuildZoomBar());
         Controls.Add(BuildTransportBar());
         Controls.Add(BuildFilesBar());
         Controls.Add(_log);
@@ -154,9 +155,18 @@ public sealed class MainForm : Form
         bar.Controls.Add(_attachButton);
         bar.Controls.Add(_playPauseButton);
         bar.Controls.Add(_timeLabel);
-        bar.Controls.Add(new Label { Text = "  Zoom:", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
-        bar.Controls.Add(_zoomSlider);
         return bar;
+    }
+
+    private Control BuildZoomBar()
+    {
+        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 1, AutoSize = true, Padding = new Padding(6, 0, 6, 0) };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.Controls.Add(new Label { Text = "Zoom", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 12, 6, 3) }, 0, 0);
+        _zoomSlider.Dock = DockStyle.Fill;
+        layout.Controls.Add(_zoomSlider, 1, 0);
+        return layout;
     }
 
     private Control BuildStepBar()

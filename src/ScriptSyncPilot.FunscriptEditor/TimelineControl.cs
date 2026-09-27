@@ -38,13 +38,14 @@ public sealed class TimelineControl : Control
 
     public event Action<double>? SeekRequested;
     public event EventHandler? ScriptChanged;
+    public event EventHandler? ZoomChanged;
 
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public double PixelsPerSecond
     {
         get => _pixelsPerSecond;
-        set => SetZoom(value, CenterSeconds());
+        set => SetZoom(value, _playheadSeconds);
     }
 
     public TimelineControl()
@@ -95,7 +96,26 @@ public sealed class TimelineControl : Control
         _viewStartSeconds = centerSeconds - ViewportSeconds() / 2;
         ClampViewStart();
         UpdateScrollBar();
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
+    }
+
+    // Keeps anchorSeconds under anchorX, so whatever is beneath the cursor stays beneath it while zooming.
+    private void ZoomAt(double pixelsPerSecond, double anchorSeconds, double anchorX)
+    {
+        _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
+        _viewStartSeconds = anchorSeconds - anchorX / _pixelsPerSecond;
+        ClampViewStart();
+        UpdateScrollBar();
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    /// <summary>Wheel zoom anchored at a client-space X. Public because WinForms sends wheel input to the focused control, not the hovered one.</summary>
+    public void ZoomByWheel(int delta, int clientX)
+    {
+        var anchorX = Math.Clamp(clientX, 0, BarLeft);
+        ZoomAt(_pixelsPerSecond * Math.Pow(1.15, delta / 120.0), XToTime(anchorX), anchorX);
     }
 
     private void ClampViewStart()
@@ -145,17 +165,16 @@ public sealed class TimelineControl : Control
         if (actions.Count > 0)
         {
             using var linePen = new Pen(Color.FromArgb(90, 170, 255), 2);
+            var clipLeft = -50f;
+            var clipRight = BarLeft + 50f;
             PointF? prev = null;
             for (var i = 0; i < actions.Count; i++)
             {
-                var x = (float)TimeToX(actions[i].At / 1000.0);
-                if (x < -50 || x > BarLeft + 50)
-                {
-                    prev = new PointF(x, (float)PosToY(actions[i].Pos));
-                    continue;
-                }
-                var pt = new PointF(x, (float)PosToY(actions[i].Pos));
-                if (prev is { } p0) g.DrawLine(linePen, p0, pt);
+                var pt = new PointF((float)TimeToX(actions[i].At / 1000.0), (float)PosToY(actions[i].Pos));
+                // Draw whenever any part of the segment can be visible, otherwise a segment running to an
+                // off-screen neighbour is dropped and the line appears to stop at the window edge.
+                if (prev is { } p0 && Math.Max(p0.X, pt.X) >= clipLeft && Math.Min(p0.X, pt.X) <= clipRight)
+                    g.DrawLine(linePen, ClipX(p0, pt, clipLeft, clipRight), ClipX(pt, p0, clipLeft, clipRight));
                 prev = pt;
             }
 
@@ -181,6 +200,17 @@ public sealed class TimelineControl : Control
         PaintValueBar(g);
 
         base.OnPaint(e);
+    }
+
+    // GDI+ degrades on extreme coordinates, which a far-off neighbour produces at high zoom, so trim to the visible span.
+    private static PointF ClipX(PointF p, PointF other, float left, float right)
+    {
+        if (p.X >= left && p.X <= right) return p;
+        var targetX = p.X < left ? left : right;
+        var dx = other.X - p.X;
+        if (Math.Abs(dx) < 0.0001f) return new PointF(targetX, p.Y);
+        var t = Math.Clamp((targetX - p.X) / dx, 0f, 1f);
+        return new PointF(targetX, p.Y + (other.Y - p.Y) * t);
     }
 
     private void PaintValueBar(Graphics g)
@@ -210,11 +240,7 @@ public sealed class TimelineControl : Control
         }
     }
 
-    protected override void OnMouseWheel(MouseEventArgs e)
-    {
-        var factor = Math.Pow(1.15, e.Delta / 120.0);
-        SetZoom(_pixelsPerSecond * factor, XToTime(e.X));
-    }
+    protected override void OnMouseWheel(MouseEventArgs e) => ZoomByWheel(e.Delta, e.X);
 
     protected override void OnMouseDown(MouseEventArgs e)
     {

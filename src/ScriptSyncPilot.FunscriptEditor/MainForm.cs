@@ -39,6 +39,8 @@ public sealed class MainForm : Form
     private Process? _ownedMpvProcess;
     private CancellationTokenSource _lifetimeCts = new();
     private string? _activePipe;
+    private bool _syncingZoom;
+    private TimelineWheelFilter? _wheelFilter;
 
     public MainForm()
     {
@@ -62,7 +64,19 @@ public sealed class MainForm : Form
 
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.ScriptChanged += (_, _) => { _dirty = true; UpdateTitle(); };
-        _zoomSlider.ValueChanged += (_, _) => _timeline.PixelsPerSecond = _zoomSlider.Value;
+        _timeline.ZoomChanged += (_, _) =>
+        {
+            _syncingZoom = true;
+            _zoomSlider.Value = (int)Math.Clamp(_timeline.PixelsPerSecond, _zoomSlider.Minimum, _zoomSlider.Maximum);
+            _syncingZoom = false;
+        };
+        _zoomSlider.ValueChanged += (_, _) =>
+        {
+            if (!_syncingZoom) _timeline.PixelsPerSecond = _zoomSlider.Value;
+        };
+
+        _wheelFilter = new TimelineWheelFilter(_timeline);
+        Application.AddMessageFilter(_wheelFilter);
 
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
         _attachButton.Click += async (_, _) => await AttachExistingAsync();
@@ -86,6 +100,7 @@ public sealed class MainForm : Form
             _settings.MpvIpcPipe = _pipeBox.Text;
             if (_scriptPath is not null) _settings.LastScriptPath = _scriptPath;
             _settings.Save();
+            if (_wheelFilter is not null) Application.RemoveMessageFilter(_wheelFilter);
             ShutdownPlayback();
         };
     }

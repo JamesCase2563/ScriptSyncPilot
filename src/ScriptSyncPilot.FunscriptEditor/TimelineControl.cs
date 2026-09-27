@@ -9,7 +9,8 @@ namespace ScriptSyncPilot.FunscriptEditor;
 /// changes its time, clamped so it cannot cross its neighbors. Double-click on
 /// empty track space adds a point; Delete removes the selected one. Clicking
 /// or dragging on empty track space scrubs the playhead and raises
-/// <see cref="SeekRequested"/>.
+/// <see cref="SeekRequested"/>. Clicking the value bar to the right inserts a
+/// point at the current playhead time, at the clicked value.
 /// </summary>
 public sealed class TimelineControl : Control
 {
@@ -17,6 +18,7 @@ public sealed class TimelineControl : Control
     private const int HitRadius = 8;
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
+    private const int ValueBarWidth = 40;
     private const double MinPixelsPerSecond = 5;
     private const double MaxPixelsPerSecond = 2000;
 
@@ -32,6 +34,7 @@ public sealed class TimelineControl : Control
     private int? _selectedIndex;
     private bool _scrubbing;
     private bool _suppressScrollEvent;
+    private int? _hoverBarPos;
 
     public event Action<double>? SeekRequested;
     public event EventHandler? ScriptChanged;
@@ -84,7 +87,7 @@ public sealed class TimelineControl : Control
 
     private double CenterSeconds() => _viewStartSeconds + ViewportSeconds() / 2;
 
-    private double ViewportSeconds() => Math.Max(1, ClientSize.Width) / _pixelsPerSecond;
+    private double ViewportSeconds() => Math.Max(1, TrackAreaWidth) / _pixelsPerSecond;
 
     private void SetZoom(double pixelsPerSecond, double centerSeconds)
     {
@@ -116,6 +119,8 @@ public sealed class TimelineControl : Control
     private int TrackTop => TopMargin;
     private int TrackBottom => ClientSize.Height - BottomMargin - TopMargin;
     private int TrackHeight => Math.Max(1, TrackBottom - TrackTop);
+    private int TrackAreaWidth => Math.Max(1, ClientSize.Width - ValueBarWidth);
+    private int BarLeft => TrackAreaWidth;
 
     private double TimeToX(double seconds) => (seconds - _viewStartSeconds) * _pixelsPerSecond;
     private double XToTime(double x) => _viewStartSeconds + x / _pixelsPerSecond;
@@ -132,7 +137,7 @@ public sealed class TimelineControl : Control
             for (var p = 0; p <= 100; p += 25)
             {
                 var y = (float)PosToY(p);
-                g.DrawLine(gridPen, 0, y, ClientSize.Width, y);
+                g.DrawLine(gridPen, 0, y, BarLeft, y);
             }
         }
 
@@ -144,7 +149,7 @@ public sealed class TimelineControl : Control
             for (var i = 0; i < actions.Count; i++)
             {
                 var x = (float)TimeToX(actions[i].At / 1000.0);
-                if (x < -50 || x > ClientSize.Width + 50)
+                if (x < -50 || x > BarLeft + 50)
                 {
                     prev = new PointF(x, (float)PosToY(actions[i].Pos));
                     continue;
@@ -157,7 +162,7 @@ public sealed class TimelineControl : Control
             for (var i = 0; i < actions.Count; i++)
             {
                 var x = TimeToX(actions[i].At / 1000.0);
-                if (x < -PointRadius || x > ClientSize.Width + PointRadius) continue;
+                if (x < -PointRadius || x > BarLeft + PointRadius) continue;
                 var y = PosToY(actions[i].Pos);
                 var selected = i == _selectedIndex;
                 using var brush = new SolidBrush(selected ? Color.Orange : Color.White);
@@ -169,11 +174,40 @@ public sealed class TimelineControl : Control
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
             var x = (float)TimeToX(_playheadSeconds);
-            if (x >= 0 && x <= ClientSize.Width)
+            if (x >= 0 && x <= BarLeft)
                 g.DrawLine(playPen, x, 0, x, TrackBottom);
         }
 
+        PaintValueBar(g);
+
         base.OnPaint(e);
+    }
+
+    private void PaintValueBar(Graphics g)
+    {
+        var barRect = new Rectangle(BarLeft, TrackTop, ValueBarWidth, TrackHeight);
+        using (var gradient = new System.Drawing.Drawing2D.LinearGradientBrush(
+                   barRect, Color.FromArgb(230, 230, 230), Color.FromArgb(40, 40, 40), System.Drawing.Drawing2D.LinearGradientMode.Vertical))
+            g.FillRectangle(gradient, barRect);
+
+        using (var tickPen = new Pen(Color.FromArgb(90, 90, 90)))
+        using (var font = new Font(Font.FontFamily, 7f))
+        using (var textBrush = new SolidBrush(Color.Black))
+        {
+            for (var p = 0; p <= 100; p += 25)
+            {
+                var y = (float)PosToY(p);
+                g.DrawLine(tickPen, barRect.Left, y, barRect.Left + 6, y);
+                g.DrawString(p.ToString(), font, textBrush, barRect.Left + 7, y - 6);
+            }
+        }
+
+        if (_hoverBarPos is { } hoverPos)
+        {
+            var y = (float)PosToY(hoverPos);
+            using var hoverPen = new Pen(Color.Orange, 2);
+            g.DrawLine(hoverPen, barRect.Left, y, barRect.Right, y);
+        }
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
@@ -186,6 +220,12 @@ public sealed class TimelineControl : Control
     {
         Focus();
         if (e.Button != MouseButtons.Left) return;
+
+        if (e.X >= BarLeft)
+        {
+            InsertAtPlayhead(e.Y);
+            return;
+        }
 
         var hit = HitTest(e.Location);
         if (hit is { } index)
@@ -205,6 +245,7 @@ public sealed class TimelineControl : Control
     protected override void OnMouseDoubleClick(MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
+        if (e.X >= BarLeft) return;
         if (HitTest(e.Location) is not null) return;
 
         var at = (int)Math.Round(Math.Clamp(XToTime(e.X), 0, _durationSeconds) * 1000);
@@ -216,6 +257,15 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (e.X >= BarLeft && _draggingIndex is null && !_scrubbing)
+        {
+            _hoverBarPos = YToPos(e.Y);
+            Cursor = Cursors.Hand;
+            Invalidate();
+            return;
+        }
+        if (_hoverBarPos is not null) { _hoverBarPos = null; Cursor = Cursors.Default; Invalidate(); }
+
         if (_draggingIndex is { } index)
         {
             var actions = _script.Actions;
@@ -231,6 +281,16 @@ public sealed class TimelineControl : Control
         else if (_scrubbing)
         {
             Seek(e.X);
+        }
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        if (_hoverBarPos is not null)
+        {
+            _hoverBarPos = null;
+            Cursor = Cursors.Default;
+            Invalidate();
         }
     }
 
@@ -260,6 +320,22 @@ public sealed class TimelineControl : Control
         var seconds = Math.Clamp(XToTime(x), 0, _durationSeconds);
         _playheadSeconds = seconds;
         SeekRequested?.Invoke(seconds);
+        Invalidate();
+    }
+
+    private void InsertAtPlayhead(int y)
+    {
+        var pos = YToPos(y);
+        var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, _durationSeconds) * 1000);
+        _script.AddOrReplace(new FunscriptAction(at, pos));
+        var actions = _script.Actions;
+        for (var i = 0; i < actions.Count; i++)
+        {
+            if (actions[i].At != at) continue;
+            _selectedIndex = i;
+            break;
+        }
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 

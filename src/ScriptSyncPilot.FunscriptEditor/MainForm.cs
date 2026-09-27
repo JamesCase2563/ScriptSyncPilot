@@ -15,7 +15,8 @@ public sealed class MainForm : Form
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Height = 90 };
 
-    private readonly TextBox _videoPathBox = new() { ReadOnly = true, Width = 260 };
+    private readonly TextBox _videoPathBox = new() { ReadOnly = true };
+    private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
     private readonly TextBox _pipeBox = new() { Width = 220 };
     private readonly Button _launchButton = new() { Text = "Launch mpv" };
     private readonly Button _attachButton = new() { Text = "Attach" };
@@ -51,6 +52,7 @@ public sealed class MainForm : Form
         Controls.Add(_timeline);
         Controls.Add(BuildStepBar());
         Controls.Add(BuildTransportBar());
+        Controls.Add(BuildFilesBar());
         Controls.Add(_log);
         Controls.Add(BuildMenu());
 
@@ -72,6 +74,8 @@ public sealed class MainForm : Form
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
 
         _timeline.LoadScript(_script, 60);
+        if (_settings.LastScriptPath.Length > 0 && File.Exists(_settings.LastScriptPath))
+            LoadScriptFrom(_settings.LastScriptPath);
         UpdateTitle();
 
         FormClosing += (_, e) =>
@@ -89,10 +93,10 @@ public sealed class MainForm : Form
     {
         var menu = new MenuStrip();
         var file = new ToolStripMenuItem("File");
-        file.DropDownItems.Add("New", null, (_, _) => NewScript());
+        file.DropDownItems.Add("New Funscript", null, (_, _) => NewScript());
         file.DropDownItems.Add("Open Funscript…", null, (_, _) => OpenScript());
-        file.DropDownItems.Add("Save", null, (_, _) => SaveScript(false));
-        file.DropDownItems.Add("Save As…", null, (_, _) => SaveScript(true));
+        file.DropDownItems.Add("Save Funscript", null, (_, _) => SaveScript(false));
+        file.DropDownItems.Add("Save Funscript As…", null, (_, _) => SaveScript(true));
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("Open Video…", null, (_, _) => OpenVideo());
         file.DropDownItems.Add(new ToolStripSeparator());
@@ -101,14 +105,49 @@ public sealed class MainForm : Form
         return menu;
     }
 
+    private Control BuildFilesBar()
+    {
+        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 3, AutoSize = true, Padding = new Padding(6) };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        void AddRow(string label, Control field, Control buttons)
+        {
+            var row = layout.RowCount++;
+            layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) }, 0, row);
+            field.Dock = DockStyle.Fill;
+            layout.Controls.Add(field, 1, row);
+            layout.Controls.Add(buttons, 2, row);
+        }
+
+        var openVideo = new Button { Text = "Open…", AutoSize = true };
+        openVideo.Click += (_, _) => OpenVideo();
+        var videoButtons = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0) };
+        videoButtons.Controls.Add(openVideo);
+
+        var openScript = new Button { Text = "Open…", AutoSize = true };
+        openScript.Click += (_, _) => OpenScript();
+        var newScript = new Button { Text = "New", AutoSize = true };
+        newScript.Click += (_, _) => NewScript();
+        var saveScript = new Button { Text = "Save", AutoSize = true };
+        saveScript.Click += (_, _) => SaveScript(false);
+        var saveScriptAs = new Button { Text = "Save As…", AutoSize = true };
+        saveScriptAs.Click += (_, _) => SaveScript(true);
+        var scriptButtons = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0) };
+        scriptButtons.Controls.Add(newScript);
+        scriptButtons.Controls.Add(openScript);
+        scriptButtons.Controls.Add(saveScript);
+        scriptButtons.Controls.Add(saveScriptAs);
+
+        AddRow("Video", _videoPathBox, videoButtons);
+        AddRow("Funscript", _scriptPathBox, scriptButtons);
+        return layout;
+    }
+
     private Control BuildTransportBar()
     {
-        var browseVideo = new Button { Text = "Video…" };
-        browseVideo.Click += (_, _) => OpenVideo();
-
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(6), FlowDirection = FlowDirection.LeftToRight };
-        bar.Controls.Add(browseVideo);
-        bar.Controls.Add(_videoPathBox);
         bar.Controls.Add(_launchButton);
         bar.Controls.Add(new Label { Text = "  mpv IPC pipe:", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
         bar.Controls.Add(_pipeBox);
@@ -146,8 +185,11 @@ public sealed class MainForm : Form
         _log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
     }
 
-    private void UpdateTitle() =>
+    private void UpdateTitle()
+    {
+        _scriptPathBox.Text = _scriptPath ?? "";
         Text = $"ScriptSyncPilot – Funscript Editor – {(_scriptPath is null ? "untitled" : Path.GetFileName(_scriptPath))}{(_dirty ? " *" : "")}";
+    }
 
     private bool ConfirmDiscardChanges() =>
         MessageBox.Show(this, "Discard unsaved changes?", "ScriptSyncPilot", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
@@ -167,14 +209,19 @@ public sealed class MainForm : Form
         if (_dirty && !ConfirmDiscardChanges()) return;
         using var dlg = new OpenFileDialog { Filter = "Funscript|*.funscript;*.json|All files|*.*" };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        LoadScriptFrom(dlg.FileName);
+    }
+
+    private void LoadScriptFrom(string path)
+    {
         try
         {
-            _script = Funscript.Load(dlg.FileName);
-            _scriptPath = dlg.FileName;
+            _script = Funscript.Load(path);
+            _scriptPath = path;
             _dirty = false;
             _timeline.LoadScript(_script, Math.Max(60, _mpv?.DurationSeconds ?? 60));
             UpdateTitle();
-            Log($"Loaded funscript with {_script.Actions.Count} actions from {dlg.FileName}.");
+            Log($"Loaded funscript with {_script.Actions.Count} actions from {path}.");
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
         {

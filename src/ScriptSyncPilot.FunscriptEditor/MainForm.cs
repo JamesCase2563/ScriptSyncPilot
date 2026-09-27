@@ -64,12 +64,7 @@ public sealed class MainForm : Form
 
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.ScriptChanged += (_, _) => { _dirty = true; UpdateTitle(); };
-        _timeline.ZoomChanged += (_, _) =>
-        {
-            _syncingZoom = true;
-            _zoomSlider.Value = (int)Math.Clamp(_timeline.PixelsPerSecond, _zoomSlider.Minimum, _zoomSlider.Maximum);
-            _syncingZoom = false;
-        };
+        _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
         {
             if (!_syncingZoom) _timeline.PixelsPerSecond = _zoomSlider.Value;
@@ -88,7 +83,7 @@ public sealed class MainForm : Form
         _forward1SButton.Click += async (_, _) => await StepAsync(1);
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
 
-        _timeline.LoadScript(_script, 60);
+        _timeline.LoadScript(_script);
         if (_settings.LastScriptPath.Length > 0 && File.Exists(_settings.LastScriptPath))
             LoadScriptFrom(_settings.LastScriptPath);
         UpdateTitle();
@@ -175,13 +170,30 @@ public sealed class MainForm : Form
 
     private Control BuildZoomBar()
     {
-        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 1, AutoSize = true, Padding = new Padding(6, 0, 6, 0) };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 3, RowCount = 1, AutoSize = true, Padding = new Padding(6, 0, 6, 0) };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = "Zoom", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 12, 6, 3) }, 0, 0);
         _zoomSlider.Dock = DockStyle.Fill;
         layout.Controls.Add(_zoomSlider, 1, 0);
+
+        var fit = new Button { Text = "Fit All", AutoSize = true, Margin = new Padding(6, 8, 3, 3) };
+        fit.Click += (_, _) => _timeline.ZoomToFit();
+        layout.Controls.Add(fit, 2, 0);
         return layout;
+    }
+
+    // The fit-to-window zoom is the slider's floor, and it moves with the duration and the window width.
+    private void SyncZoomSlider()
+    {
+        _syncingZoom = true;
+        var min = Math.Max(1, (int)Math.Ceiling(_timeline.MinPixelsPerSecond));
+        var max = Math.Max(min + 1, (int)Math.Ceiling(_timeline.MaxPixelsPerSecond));
+        _zoomSlider.Maximum = max;
+        _zoomSlider.Minimum = min;
+        _zoomSlider.Value = (int)Math.Clamp(Math.Round(_timeline.PixelsPerSecond), min, max);
+        _syncingZoom = false;
     }
 
     private Control BuildStepBar()
@@ -225,7 +237,7 @@ public sealed class MainForm : Form
         _script = new Funscript();
         _scriptPath = null;
         _dirty = false;
-        _timeline.LoadScript(_script, Math.Max(60, _mpv?.DurationSeconds ?? 60));
+        _timeline.LoadScript(_script);
         UpdateTitle();
     }
 
@@ -244,7 +256,7 @@ public sealed class MainForm : Form
             _script = Funscript.Load(path);
             _scriptPath = path;
             _dirty = false;
-            _timeline.LoadScript(_script, Math.Max(60, _mpv?.DurationSeconds ?? 60));
+            _timeline.LoadScript(_script);
             UpdateTitle();
             Log($"Loaded funscript with {_script.Actions.Count} actions from {path}.");
         }

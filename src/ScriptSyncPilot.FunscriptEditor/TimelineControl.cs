@@ -19,13 +19,13 @@ public sealed class TimelineControl : Control
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
     private const int ValueBarWidth = 40;
-    private const double MinPixelsPerSecond = 5;
-    private const double MaxPixelsPerSecond = 2000;
+    private const double AbsoluteMaxPixelsPerSecond = 2000;
+    private const double FallbackDurationSeconds = 60;
 
     private readonly HScrollBar _scrollBar = new() { Dock = DockStyle.Bottom, Height = 17 };
 
     private Funscript _script = new();
-    private double _durationSeconds = 60;
+    private double _mediaDurationSeconds;
     private double _pixelsPerSecond = 100;
     private double _viewStartSeconds;
     private double _playheadSeconds;
@@ -48,6 +48,31 @@ public sealed class TimelineControl : Control
         set => SetZoom(value, _playheadSeconds);
     }
 
+    /// <summary>
+    /// A script normally ends before its video does, so the axis spans whichever is longer.
+    /// Taking the max rather than the media duration also keeps a script that outruns its
+    /// video (or has no video at all) fully reachable instead of clipped off the end.
+    /// </summary>
+    [System.ComponentModel.Browsable(false)]
+    public double DurationSeconds
+    {
+        get
+        {
+            var scriptEnd = _script.Actions.Count > 0 ? _script.Actions[^1].At / 1000.0 : 0;
+            var longest = Math.Max(scriptEnd, _mediaDurationSeconds);
+            return longest > 0 ? longest : FallbackDurationSeconds;
+        }
+    }
+
+    /// <summary>Zoom at which the whole duration fits the track area; zooming out further would only add empty space.</summary>
+    [System.ComponentModel.Browsable(false)]
+    public double MinPixelsPerSecond => Math.Max(0.001, TrackAreaWidth / DurationSeconds);
+
+    [System.ComponentModel.Browsable(false)]
+    public double MaxPixelsPerSecond => Math.Max(MinPixelsPerSecond, AbsoluteMaxPixelsPerSecond);
+
+    public void ZoomToFit() => ZoomAt(MinPixelsPerSecond, 0, 0);
+
     public TimelineControl()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
@@ -62,14 +87,12 @@ public sealed class TimelineControl : Control
         };
     }
 
-    public void LoadScript(Funscript script, double durationSeconds)
+    public void LoadScript(Funscript script)
     {
         _script = script;
-        _durationSeconds = Math.Max(1, durationSeconds);
         _selectedIndex = null;
         _draggingIndex = null;
-        UpdateScrollBar();
-        Invalidate();
+        ReclampZoom();
     }
 
     public void SetPlayhead(double seconds)
@@ -78,11 +101,19 @@ public sealed class TimelineControl : Control
         Invalidate();
     }
 
-    public void UpdateDuration(double durationSeconds)
+    public void UpdateDuration(double mediaDurationSeconds)
     {
-        _durationSeconds = Math.Max(1, durationSeconds);
+        _mediaDurationSeconds = mediaDurationSeconds > 0 ? mediaDurationSeconds : 0;
+        ReclampZoom();
+    }
+
+    /// <summary>Re-applies the zoom limits after anything that changes the duration or the track width.</summary>
+    private void ReclampZoom()
+    {
+        _pixelsPerSecond = Math.Clamp(_pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
         ClampViewStart();
         UpdateScrollBar();
+        ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 
@@ -120,7 +151,7 @@ public sealed class TimelineControl : Control
 
     private void ClampViewStart()
     {
-        var maxStart = Math.Max(0, _durationSeconds - ViewportSeconds());
+        var maxStart = Math.Max(0, DurationSeconds - ViewportSeconds());
         _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, maxStart);
     }
 
@@ -129,7 +160,7 @@ public sealed class TimelineControl : Control
         _suppressScrollEvent = true;
         var viewport = ViewportSeconds();
         _scrollBar.Minimum = 0;
-        _scrollBar.Maximum = (int)Math.Ceiling(_durationSeconds);
+        _scrollBar.Maximum = (int)Math.Ceiling(DurationSeconds);
         _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport));
         _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20));
         _scrollBar.Value = Math.Clamp((int)_viewStartSeconds, 0, Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
@@ -274,7 +305,7 @@ public sealed class TimelineControl : Control
         if (e.X >= BarLeft) return;
         if (HitTest(e.Location) is not null) return;
 
-        var at = (int)Math.Round(Math.Clamp(XToTime(e.X), 0, _durationSeconds) * 1000);
+        var at = (int)Math.Round(Math.Clamp(XToTime(e.X), 0, DurationSeconds) * 1000);
         var pos = YToPos(e.Y);
         _script.AddOrReplace(new FunscriptAction(at, pos));
         ScriptChanged?.Invoke(this, EventArgs.Empty);
@@ -296,7 +327,7 @@ public sealed class TimelineControl : Control
         {
             var actions = _script.Actions;
             var minAt = index > 0 ? actions[index - 1].At + 1 : 0;
-            var maxAt = index < actions.Count - 1 ? actions[index + 1].At - 1 : (int)(_durationSeconds * 1000);
+            var maxAt = index < actions.Count - 1 ? actions[index + 1].At - 1 : (int)(DurationSeconds * 1000);
             var at = Math.Clamp((int)Math.Round(XToTime(e.X) * 1000), Math.Min(minAt, maxAt), Math.Max(minAt, maxAt));
             var pos = YToPos(e.Y);
             var newIndex = _script.UpdateAt(index, new FunscriptAction(at, pos));
@@ -343,7 +374,7 @@ public sealed class TimelineControl : Control
 
     private void Seek(int x)
     {
-        var seconds = Math.Clamp(XToTime(x), 0, _durationSeconds);
+        var seconds = Math.Clamp(XToTime(x), 0, DurationSeconds);
         _playheadSeconds = seconds;
         SeekRequested?.Invoke(seconds);
         Invalidate();
@@ -352,7 +383,7 @@ public sealed class TimelineControl : Control
     private void InsertAtPlayhead(int y)
     {
         var pos = YToPos(y);
-        var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, _durationSeconds) * 1000);
+        var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
         _script.AddOrReplace(new FunscriptAction(at, pos));
         var actions = _script.Actions;
         for (var i = 0; i < actions.Count; i++)
@@ -383,7 +414,6 @@ public sealed class TimelineControl : Control
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        ClampViewStart();
-        UpdateScrollBar();
+        ReclampZoom();
     }
 }

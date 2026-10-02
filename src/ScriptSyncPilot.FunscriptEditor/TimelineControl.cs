@@ -267,7 +267,7 @@ public sealed class TimelineControl : Control
         {
             var y = (float)PosToY(hoverPos);
             using var hoverPen = new Pen(Color.Orange, 2);
-            g.DrawLine(hoverPen, barRect.Left, y, barRect.Right, y);
+            g.DrawLine(hoverPen, 0, y, barRect.Right, y);
         }
     }
 

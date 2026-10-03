@@ -58,7 +58,6 @@ public sealed class MainForm : Form
             using var dlg = new OpenFileDialog { Filter = "Funscript|*.funscript;*.json|All files|*.*" };
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
-                _scriptPathBox.Text = dlg.FileName;
                 LoadScript(dlg.FileName);
             }
         };
@@ -129,23 +128,23 @@ public sealed class MainForm : Form
 
     private void LoadScript(string path)
     {
+        Funscript script;
         try
         {
-            var script = Funscript.Load(path);
+            script = Funscript.Load(path);
             if (script.Actions.Count == 0)
                 throw new InvalidDataException("Funscript contains no actions.");
-
-            _script = script;
-            _waveform.SetScript(_script);
-            Log($"Loaded funscript with {_script.Actions.Count} actions.");
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
         {
-            _script = null;
-            _waveform.SetScript(null);
             Log($"Could not load script: {ex.Message}");
             return;
         }
+
+        _script = script;
+        _scriptPathBox.Text = path;
+        _waveform.SetScript(_script);
+        Log($"Loaded funscript with {_script.Actions.Count} actions.");
 
         // The device keeps whatever hssp/setup last gave it, so a script swap has to be pushed or it plays the old one.
         if (_hsspReady) _ = ReSetupScriptAsync();

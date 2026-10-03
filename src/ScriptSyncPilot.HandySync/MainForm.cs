@@ -178,7 +178,7 @@ public sealed class MainForm : Form
             if (!ReferenceEquals(_handy, client) || _script is null) return;
 
             _hsspReady = true;
-            if (_mpv is { IsPaused: false }) await OnMpvPauseChangedAsync(false);
+            if (_mpv is { IsPaused: false } session) await OnMpvPauseChangedAsync(session, false);
         }
         catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
@@ -250,20 +250,24 @@ public sealed class MainForm : Form
         try
         {
             SetStatus("Attaching to mpv…");
-            _mpv = new MpvSession();
-            _mpv.PauseChanged += async paused => await OnMpvPauseChangedAsync(paused);
-            _mpv.PositionChanged += async pos => await OnMpvPositionChangedAsync(pos);
-            _mpv.DurationChanged += OnMpvDurationChanged;
-            _mpv.Disconnected += () => BeginInvoke(() => _ = StopAsync());
-            await _mpv.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
+            var session = new MpvSession();
+            _mpv = session;
+            session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
+            session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
+            session.DurationChanged += OnMpvDurationChanged;
+            session.Disconnected += () => BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_mpv, session)) _ = StopAsync();
+            });
+            await session.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
             Log("Attached to mpv IPC pipe.");
 
             _syncTimer.Start();
             _stopButton.Enabled = true;
             SetStatus(_hsspReady ? "Playing" : "Playing (no Handy)");
 
-            if (_hsspReady && _mpv is { IsPaused: false })
-                await OnMpvPauseChangedAsync(false);
+            if (_hsspReady && session.IsPaused == false)
+                await OnMpvPauseChangedAsync(session, false);
         }
         catch (Exception ex) when (ex is IOException or TaskCanceledException)
         {
@@ -311,8 +315,8 @@ public sealed class MainForm : Form
             _disconnectButton.Enabled = true;
             SetStatus(_mpv is null ? "Handy ready" : "Playing");
 
-            if (_mpv is { IsPaused: false })
-                await OnMpvPauseChangedAsync(false);
+            if (_mpv is { IsPaused: false } session)
+                await OnMpvPauseChangedAsync(session, false);
         }
         catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
@@ -394,23 +398,39 @@ public sealed class MainForm : Form
     private double _lastKnownPos;
     private readonly Stopwatch _sincePosUpdate = Stopwatch.StartNew();
 
-    private async Task OnMpvPositionChangedAsync(double pos)
+    private async Task OnMpvPositionChangedAsync(MpvSession session, double pos)
     {
+        if (!ReferenceEquals(_mpv, session)) return;
+
         if (!IsDisposed && IsHandleCreated)
-            BeginInvoke(() => _waveform.SetPlayhead(pos));
+            BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_mpv, session)) _waveform.SetPlayhead(pos);
+            });
 
         var expected = _lastKnownPos + _sincePosUpdate.Elapsed.TotalSeconds;
         var isSeek = Math.Abs(pos - expected) > 0.75;
         _lastKnownPos = pos;
         _sincePosUpdate.Restart();
 
-        if (!_hsspReady || _handy is null) return;
+        var client = _handy;
+        if (!_hsspReady || client is null) return;
 
         if (isSeek && _mpv is { IsPaused: false })
         {
             try
             {
-                await _handy.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                await _scriptSetupGate.WaitAsync(_lifetimeCts.Token);
+                try
+                {
+                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
+                    await client.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                }
+                finally
+                {
+                    _scriptSetupGate.Release();
+                }
+
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
@@ -420,22 +440,35 @@ public sealed class MainForm : Form
         }
     }
 
-    private async Task OnMpvPauseChangedAsync(bool paused)
+    private async Task OnMpvPauseChangedAsync(MpvSession session, bool paused)
     {
-        if (!_hsspReady || _handy is null) return;
+        if (!ReferenceEquals(_mpv, session)) return;
+        var client = _handy;
+        if (!_hsspReady || client is null) return;
+
         try
         {
-            if (paused)
+            await _scriptSetupGate.WaitAsync(_lifetimeCts.Token);
+            try
             {
-                await _handy.HsspStopAsync(_lifetimeCts.Token);
-                Log("Playback paused; device stopped.");
-                SetStatus("Paused");
+                if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
+
+                if (paused)
+                {
+                    await client.HsspStopAsync(_lifetimeCts.Token);
+                    Log("Playback paused; device stopped.");
+                    SetStatus("Paused");
+                }
+                else
+                {
+                    await client.HsspPlayAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                    Log("Playback resumed; device started.");
+                    SetStatus("Playing");
+                }
             }
-            else
+            finally
             {
-                await _handy.HsspPlayAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
-                Log("Playback resumed; device started.");
-                SetStatus("Playing");
+                _scriptSetupGate.Release();
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)

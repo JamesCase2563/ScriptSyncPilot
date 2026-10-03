@@ -38,6 +38,8 @@ public sealed class MainForm : Form
     private MpvSession? _mpv;
     private Process? _ownedMpvProcess;
     private CancellationTokenSource _lifetimeCts = new();
+    private readonly SemaphoreSlim _playbackTransitionGate = new(1, 1);
+    private bool _isClosing;
     private string? _activePipe;
     private bool _syncingZoom;
     private TimelineWheelFilter? _wheelFilter;
@@ -91,6 +93,7 @@ public sealed class MainForm : Form
         FormClosing += (_, e) =>
         {
             if (_dirty && !ConfirmDiscardChanges()) { e.Cancel = true; return; }
+            _isClosing = true;
             _settings.LastVideoPath = _videoPathBox.Text;
             _settings.MpvIpcPipe = _pipeBox.Text;
             if (_scriptPath is not null) _settings.LastScriptPath = _scriptPath;
@@ -305,36 +308,65 @@ public sealed class MainForm : Form
             return;
         }
 
-        ShutdownPlayback();
-        var pipe = $@"\\.\pipe\ssp-funscript-editor-{Environment.ProcessId}";
+        _launchButton.Enabled = false;
+        _attachButton.Enabled = false;
+        var transitionAcquired = false;
         try
         {
-            _ownedMpvProcess = Process.Start(new ProcessStartInfo
+            await _playbackTransitionGate.WaitAsync();
+            transitionAcquired = true;
+            ShutdownPlayback();
+            var pipe = $@"\\.\pipe\ssp-funscript-editor-{Environment.ProcessId}";
+            try
             {
-                FileName = _settings.MpvPath,
-                ArgumentList = { $"--input-ipc-server={pipe}", "--pause", _videoPathBox.Text },
-                UseShellExecute = false,
-            });
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
-        {
-            Log($"Failed to launch mpv ('{_settings.MpvPath}'): {ex.Message}");
-            return;
-        }
+                _ownedMpvProcess = Process.Start(new ProcessStartInfo
+                {
+                    FileName = _settings.MpvPath,
+                    ArgumentList = { $"--input-ipc-server={pipe}", "--pause", _videoPathBox.Text },
+                    UseShellExecute = false,
+                });
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
+            {
+                Log($"Failed to launch mpv ('{_settings.MpvPath}'): {ex.Message}");
+                return;
+            }
 
-        _pipeBox.Text = pipe;
-        await AttachAsync(pipe);
+            _pipeBox.Text = pipe;
+            await AttachAsync(pipe);
+        }
+        finally
+        {
+            if (transitionAcquired) _playbackTransitionGate.Release();
+            _launchButton.Enabled = !_isClosing;
+            _attachButton.Enabled = !_isClosing;
+        }
     }
 
     private async Task AttachExistingAsync()
     {
-        ShutdownPlayback();
-        await AttachAsync(_pipeBox.Text);
+        _launchButton.Enabled = false;
+        _attachButton.Enabled = false;
+        var transitionAcquired = false;
+        try
+        {
+            await _playbackTransitionGate.WaitAsync();
+            transitionAcquired = true;
+            ShutdownPlayback();
+            await AttachAsync(_pipeBox.Text);
+        }
+        finally
+        {
+            if (transitionAcquired) _playbackTransitionGate.Release();
+            _launchButton.Enabled = !_isClosing;
+            _attachButton.Enabled = !_isClosing;
+        }
     }
 
     private async Task AttachAsync(string pipe)
     {
-        _lifetimeCts = new CancellationTokenSource();
+        var lifetimeCts = new CancellationTokenSource();
+        _lifetimeCts = lifetimeCts;
         var mpv = new MpvSession();
         mpv.PositionChanged += seconds => OnMpvPositionChanged(mpv, seconds);
         mpv.PauseChanged += paused => OnMpvPauseChanged(mpv, paused);
@@ -343,13 +375,18 @@ public sealed class MainForm : Form
 
         try
         {
-            await mpv.AttachAsync(pipe, _lifetimeCts.Token);
+            await mpv.AttachAsync(pipe, lifetimeCts.Token);
+            if (_isClosing || lifetimeCts.IsCancellationRequested || !ReferenceEquals(_lifetimeCts, lifetimeCts))
+            {
+                mpv.Dispose();
+                return;
+            }
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or ArgumentException)
         {
             Log($"Could not attach to '{pipe}': {ex.Message}");
             mpv.Dispose();
-            ShutdownPlayback();
+            if (ReferenceEquals(_lifetimeCts, lifetimeCts)) ShutdownPlayback();
             return;
         }
 

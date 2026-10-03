@@ -336,9 +336,9 @@ public sealed class MainForm : Form
     {
         _lifetimeCts = new CancellationTokenSource();
         var mpv = new MpvSession();
-        mpv.PositionChanged += OnMpvPositionChanged;
-        mpv.PauseChanged += OnMpvPauseChanged;
-        mpv.DurationChanged += OnMpvDurationChanged;
+        mpv.PositionChanged += seconds => OnMpvPositionChanged(mpv, seconds);
+        mpv.PauseChanged += paused => OnMpvPauseChanged(mpv, paused);
+        mpv.DurationChanged += seconds => OnMpvDurationChanged(mpv, seconds);
         mpv.Disconnected += () => OnMpvDisconnected(mpv);
 
         try
@@ -354,6 +354,9 @@ public sealed class MainForm : Form
 
         _mpv = mpv;
         _activePipe = pipe;
+        OnMpvPositionChanged(mpv, mpv.PositionSeconds);
+        OnMpvPauseChanged(mpv, mpv.IsPaused);
+        OnMpvDurationChanged(mpv, mpv.DurationSeconds);
         SetPlaybackControlsEnabled(true);
         Log($"Attached to mpv IPC pipe '{pipe}'.");
     }
@@ -369,26 +372,36 @@ public sealed class MainForm : Form
         _forward10SButton.Enabled = enabled;
     }
 
-    private void OnMpvPositionChanged(double seconds)
+    private void OnMpvPositionChanged(MpvSession session, double seconds)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || !IsHandleCreated) return;
         BeginInvoke(() =>
         {
+            if (!ReferenceEquals(_mpv, session)) return;
             _timeline.SetPlayhead(seconds);
-            _timeLabel.Text = $"{seconds:0.000} / {(_mpv?.DurationSeconds ?? 0):0.000} s";
+            _timeLabel.Text = $"{seconds:0.000} / {session.DurationSeconds:0.000} s";
         });
     }
 
-    private void OnMpvPauseChanged(bool paused)
+    private void OnMpvPauseChanged(MpvSession session, bool paused)
     {
-        if (IsDisposed) return;
-        BeginInvoke(() => _playPauseButton.Text = paused ? "Play" : "Pause");
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(_mpv, session)) return;
+            _playPauseButton.Text = paused ? "Play" : "Pause";
+        });
     }
 
-    private void OnMpvDurationChanged(double seconds)
+    private void OnMpvDurationChanged(MpvSession session, double seconds)
     {
-        if (IsDisposed) return;
-        BeginInvoke(() => _timeline.UpdateDuration(seconds));
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(_mpv, session)) return;
+            _timeline.UpdateDuration(seconds);
+            _timeLabel.Text = $"{session.PositionSeconds:0.000} / {seconds:0.000} s";
+        });
     }
 
     private void OnMpvDisconnected(MpvSession disconnectedSession)

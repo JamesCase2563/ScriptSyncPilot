@@ -32,6 +32,7 @@ public sealed class MainForm : Form
 
     private HandyApiClient? _handy;
     private readonly SemaphoreSlim _scriptSetupGate = new(1, 1);
+    private readonly SemaphoreSlim _sessionTransitionGate = new(1, 1);
     private HandyApiClient? _installedScriptClient;
     private long _scriptVersion;
     private long _installedScriptVersion = -1;
@@ -247,6 +248,7 @@ public sealed class MainForm : Form
         }
 
         _startButton.Enabled = false;
+        await _sessionTransitionGate.WaitAsync();
         try
         {
             SetStatus("Attaching to mpv…");
@@ -273,11 +275,12 @@ public sealed class MainForm : Form
         {
             Log($"Error: {ex.Message}");
             SetStatus("Error");
-            await StopAsync();
+            await StopCoreAsync();
         }
         finally
         {
-            _startButton.Enabled = _mpv is null;
+            _sessionTransitionGate.Release();
+            _startButton.Enabled = !_isClosing && _mpv is null;
         }
     }
 
@@ -518,6 +521,21 @@ public sealed class MainForm : Form
     // Ends the mpv session only; the Handy connection outlives it so a new session can reuse the HSSP setup.
     private async Task StopAsync(bool stopDevice = true)
     {
+        _startButton.Enabled = false;
+        await _sessionTransitionGate.WaitAsync();
+        try
+        {
+            await StopCoreAsync(stopDevice);
+        }
+        finally
+        {
+            _sessionTransitionGate.Release();
+            _startButton.Enabled = !_isClosing && _mpv is null;
+        }
+    }
+
+    private async Task StopCoreAsync(bool stopDevice = true)
+    {
         _syncTimer.Stop();
         _offsetChangeCts?.Cancel();
         _offsetChangeCts?.Dispose();
@@ -529,7 +547,6 @@ public sealed class MainForm : Form
         _mpv = null;
         _waveform.SetMediaDuration(0);
         _stopButton.Enabled = false;
-        _startButton.Enabled = true;
 
         if (stopDevice && client is not null)
         {

@@ -271,7 +271,7 @@ public sealed class MainForm : Form
             if (_hsspReady && session.IsPaused == false)
                 await OnMpvPauseChangedAsync(session, false);
         }
-        catch (Exception ex) when (ex is IOException or TaskCanceledException)
+        catch (Exception ex) when (ex is IOException or TaskCanceledException or ArgumentException)
         {
             Log($"Error: {ex.Message}");
             SetStatus("Error");

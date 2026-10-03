@@ -256,7 +256,7 @@ public sealed class MainForm : Form
             _mpv = session;
             session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
-            session.DurationChanged += OnMpvDurationChanged;
+            session.DurationChanged += seconds => OnMpvDurationChanged(session, seconds);
             session.Disconnected += () => BeginInvoke(() =>
             {
                 if (ReferenceEquals(_mpv, session)) _ = StopAsync();
@@ -400,10 +400,14 @@ public sealed class MainForm : Form
         SetStatus(_mpv is null ? "Idle" : "Playing (no Handy)");
     }
 
-    private void OnMpvDurationChanged(double seconds)
+    private void OnMpvDurationChanged(MpvSession session, double seconds)
     {
-        if (IsDisposed || !IsHandleCreated) return;
-        BeginInvoke(() => _waveform.SetMediaDuration(seconds));
+        if (!ReferenceEquals(_mpv, session) || IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(_mpv, session)) return;
+            _waveform.SetMediaDuration(seconds);
+        });
     }
 
     private void OnWaveformSeekRequested(double seconds)

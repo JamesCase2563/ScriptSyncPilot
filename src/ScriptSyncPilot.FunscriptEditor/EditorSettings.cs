@@ -21,7 +21,7 @@ public sealed class EditorSettings
             if (File.Exists(FilePath))
                 return JsonSerializer.Deserialize<EditorSettings>(File.ReadAllText(FilePath)) ?? new EditorSettings();
         }
-        catch (Exception ex) when (ex is IOException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             // fall through to defaults
         }

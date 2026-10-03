@@ -131,7 +131,11 @@ public sealed class MainForm : Form
     {
         try
         {
-            _script = Funscript.Load(path);
+            var script = Funscript.Load(path);
+            if (script.Actions.Count == 0)
+                throw new InvalidDataException("Funscript contains no actions.");
+
+            _script = script;
             _waveform.SetScript(_script);
             Log($"Loaded funscript with {_script.Actions.Count} actions.");
         }

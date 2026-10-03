@@ -339,7 +339,7 @@ public sealed class MainForm : Form
         mpv.PositionChanged += OnMpvPositionChanged;
         mpv.PauseChanged += OnMpvPauseChanged;
         mpv.DurationChanged += OnMpvDurationChanged;
-        mpv.Disconnected += OnMpvDisconnected;
+        mpv.Disconnected += () => OnMpvDisconnected(mpv);
 
         try
         {
@@ -391,11 +391,13 @@ public sealed class MainForm : Form
         BeginInvoke(() => _timeline.UpdateDuration(seconds));
     }
 
-    private void OnMpvDisconnected()
+    private void OnMpvDisconnected(MpvSession disconnectedSession)
     {
         if (IsDisposed) return;
         BeginInvoke(() =>
         {
+            if (!ReferenceEquals(_mpv, disconnectedSession)) return;
+
             Log($"mpv disconnected ('{_activePipe}').");
             SetPlaybackControlsEnabled(false);
             _mpv = null;

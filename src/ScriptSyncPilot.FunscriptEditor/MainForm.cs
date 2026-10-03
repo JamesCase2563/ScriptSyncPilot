@@ -413,8 +413,7 @@ public sealed class MainForm : Form
             if (!ReferenceEquals(_mpv, disconnectedSession)) return;
 
             Log($"mpv disconnected ('{_activePipe}').");
-            SetPlaybackControlsEnabled(false);
-            _mpv = null;
+            ShutdownPlayback();
         });
     }
 

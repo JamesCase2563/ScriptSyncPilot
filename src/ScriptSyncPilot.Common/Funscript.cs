@@ -7,15 +7,20 @@ namespace ScriptSyncPilot.Common;
 public sealed class Funscript
 {
     private readonly List<FunscriptAction> _actions;
+    private readonly Dictionary<string, JsonElement> _extensionData;
 
     /// <summary>Actions ordered by <see cref="FunscriptAction.At"/>. Read-only view; mutate via Add/Remove/Move/Update.</summary>
     public IReadOnlyList<FunscriptAction> Actions => _actions;
 
-    public Funscript() : this(new List<FunscriptAction>())
+    public Funscript() : this(new List<FunscriptAction>(), new Dictionary<string, JsonElement>())
     {
     }
 
-    private Funscript(List<FunscriptAction> actions) => _actions = actions;
+    private Funscript(List<FunscriptAction> actions, Dictionary<string, JsonElement>? extensionData = null)
+    {
+        _actions = actions;
+        _extensionData = extensionData ?? new Dictionary<string, JsonElement>();
+    }
 
     public static Funscript Load(string path)
     {
@@ -34,12 +39,12 @@ public sealed class Funscript
         var actions = (doc.Actions ?? new List<FunscriptAction>())
             .OrderBy(a => a.At)
             .ToList();
-        return new Funscript(actions);
+        return new Funscript(actions, doc.ExtensionData);
     }
 
     public void Save(string path)
     {
-        var doc = new FunscriptFile { Actions = _actions };
+        var doc = new FunscriptFile { Actions = _actions, ExtensionData = _extensionData };
         var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json);
     }
@@ -94,6 +99,9 @@ public sealed class Funscript
     private sealed class FunscriptFile
     {
         public List<FunscriptAction>? Actions { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 }
 

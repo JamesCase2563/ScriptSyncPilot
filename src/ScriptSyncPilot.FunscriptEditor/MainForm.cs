@@ -349,6 +349,7 @@ public sealed class MainForm : Form
         {
             Log($"Could not attach to '{pipe}': {ex.Message}");
             mpv.Dispose();
+            ShutdownPlayback();
             return;
         }
 

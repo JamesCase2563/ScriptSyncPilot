@@ -621,6 +621,22 @@ public sealed class MainForm : Form
             }
         }
 
+        if (stopDevice && client is not null && ReferenceEquals(_handy, client) && _script is not null)
+        {
+            try
+            {
+                await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
+            }
+            catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
+            {
+                if (ReferenceEquals(_handy, client))
+                {
+                    Log($"Could not install the selected script after stopping: {ex.Message}");
+                    await DisconnectHandyAsync();
+                }
+            }
+        }
+
         _hsspReady = stopDevice
                      && client is not null
                      && ReferenceEquals(_handy, client)

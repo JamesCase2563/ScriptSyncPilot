@@ -509,7 +509,8 @@ public sealed class MainForm : Form
         _lifetimeCts.Cancel();
         _mpv?.Dispose();
         _mpv = null;
-        _playPauseButton.Enabled = false;
+        _timeline.UpdateDuration(0);
+        SetPlaybackControlsEnabled(false);
 
         if (_ownedMpvProcess is { HasExited: false })
         {

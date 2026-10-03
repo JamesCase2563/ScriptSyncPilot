@@ -98,6 +98,7 @@ public sealed class Funscript
 
     private sealed class FunscriptFile
     {
+        [JsonPropertyName("actions")]
         public List<FunscriptAction>? Actions { get; set; }
 
         [JsonExtensionData]

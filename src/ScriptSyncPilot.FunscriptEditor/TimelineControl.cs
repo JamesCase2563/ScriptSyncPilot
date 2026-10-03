@@ -370,6 +370,7 @@ public sealed class TimelineControl : Control
         {
             _script.RemoveAt(index);
             _selectedIndex = null;
+            _draggingIndex = null;
             ScriptChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
             e.Handled = true;

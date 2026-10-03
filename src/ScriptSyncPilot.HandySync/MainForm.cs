@@ -31,7 +31,7 @@ public sealed class MainForm : Form
     private readonly AppSettings _settings = AppSettings.Load();
 
     private HandyApiClient? _handy;
-    private readonly SemaphoreSlim _scriptSetupGate = new(1, 1);
+    private readonly SemaphoreSlim _deviceCommandGate = new(1, 1);
     private readonly SemaphoreSlim _sessionTransitionGate = new(1, 1);
     private HandyApiClient? _installedScriptClient;
     private long _scriptVersion;
@@ -41,6 +41,7 @@ public sealed class MainForm : Form
     private CancellationTokenSource? _offsetChangeCts;
     private long _clockOffsetMs;
     private bool _hsspReady;
+    private bool _handyDisconnecting;
     private bool _isClosing;
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -191,7 +192,7 @@ public sealed class MainForm : Form
 
     private async Task EnsureCurrentScriptInstalledAsync(HandyApiClient client, CancellationToken cancellationToken)
     {
-        await _scriptSetupGate.WaitAsync(cancellationToken);
+        await _deviceCommandGate.WaitAsync(cancellationToken);
         try
         {
             while (ReferenceEquals(_handy, client))
@@ -220,7 +221,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _scriptSetupGate.Release();
+            _deviceCommandGate.Release();
         }
     }
 
@@ -246,7 +247,6 @@ public sealed class MainForm : Form
             MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
             return;
         }
-
         _startButton.Enabled = false;
         await _sessionTransitionGate.WaitAsync();
         try
@@ -287,6 +287,7 @@ public sealed class MainForm : Form
     /// <summary>Connects the device and prepares HSSP. Independent of whether a session is running.</summary>
     private async Task ConnectHandyAsync()
     {
+        if (_handyDisconnecting) return;
         if (_script is null)
         {
             MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
@@ -300,15 +301,45 @@ public sealed class MainForm : Form
             var client = new HandyApiClient(_connectionKeyBox.Text.Trim());
             _handy = client;
 
-            if (!await client.IsConnectedAsync(_lifetimeCts.Token))
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            bool isConnected;
+            try
+            {
+                if (!ReferenceEquals(_handy, client)) return;
+                isConnected = await client.IsConnectedAsync(_lifetimeCts.Token);
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
+
+            if (!isConnected)
                 throw new HandyApiException("Device reports not connected. Check the connection key.");
             Log("Handy device connected.");
 
-            await client.SetModeAsync(mode: 1, _lifetimeCts.Token); // HSSP
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            try
+            {
+                if (!ReferenceEquals(_handy, client)) return;
+                await client.SetModeAsync(mode: 1, _lifetimeCts.Token); // HSSP
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
             Log("Device set to HSSP mode.");
 
             SetStatus("Measuring clock offset…");
-            _clockOffsetMs = await client.EstimateClockOffsetMsAsync(samples: 15, _lifetimeCts.Token);
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            try
+            {
+                if (!ReferenceEquals(_handy, client)) return;
+                _clockOffsetMs = await client.EstimateClockOffsetMsAsync(samples: 15, _lifetimeCts.Token);
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
 
             await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
@@ -329,7 +360,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _connectButton.Enabled = !_hsspReady;
+            _connectButton.Enabled = !_hsspReady && !_handyDisconnecting && !_isClosing;
         }
     }
 
@@ -339,6 +370,7 @@ public sealed class MainForm : Form
         _offsetChangeCts?.Dispose();
         _offsetChangeCts = null;
 
+        _handyDisconnecting = true;
         var client = _handy;
         _handy = null;
         _hsspReady = false;
@@ -347,7 +379,7 @@ public sealed class MainForm : Form
         _disconnectButton.Enabled = false;
         _connectButton.Enabled = false;
 
-        await _scriptSetupGate.WaitAsync();
+        await _deviceCommandGate.WaitAsync();
         try
         {
             if (client is not null)
@@ -360,9 +392,10 @@ public sealed class MainForm : Form
         finally
         {
             client?.Dispose();
-            _scriptSetupGate.Release();
+            _deviceCommandGate.Release();
         }
 
+        _handyDisconnecting = false;
         if (!_isClosing) _connectButton.Enabled = true;
         SetStatus(_mpv is null ? "Idle" : "Playing (no Handy)");
     }
@@ -423,7 +456,7 @@ public sealed class MainForm : Form
         {
             try
             {
-                await _scriptSetupGate.WaitAsync(_lifetimeCts.Token);
+                await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
                 try
                 {
                     if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
@@ -431,7 +464,7 @@ public sealed class MainForm : Form
                 }
                 finally
                 {
-                    _scriptSetupGate.Release();
+                    _deviceCommandGate.Release();
                 }
 
                 Log($"Seek detected, resynced at {pos:F1}s.");
@@ -451,7 +484,7 @@ public sealed class MainForm : Form
 
         try
         {
-            await _scriptSetupGate.WaitAsync(_lifetimeCts.Token);
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
             {
                 if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
@@ -471,7 +504,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _scriptSetupGate.Release();
+                _deviceCommandGate.Release();
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
@@ -482,10 +515,21 @@ public sealed class MainForm : Form
 
     private async Task OnSyncTickAsync()
     {
-        if (!_hsspReady || _handy is null || _mpv is not { IsPaused: false }) return;
+        var client = _handy;
+        var session = _mpv;
+        if (!_hsspReady || client is null || session is not { IsPaused: false }) return;
         try
         {
-            await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            try
+            {
+                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session) || session.IsPaused) return;
+                await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
@@ -495,7 +539,9 @@ public sealed class MainForm : Form
 
     private async Task OnOffsetChangedAsync()
     {
-        if (!_hsspReady || _handy is null || _mpv is not { IsPaused: false }) return;
+        var client = _handy;
+        var session = _mpv;
+        if (!_hsspReady || client is null || session is not { IsPaused: false }) return;
 
         _offsetChangeCts?.Cancel();
         _offsetChangeCts?.Dispose();
@@ -506,7 +552,16 @@ public sealed class MainForm : Form
         try
         {
             await Task.Delay(100, ct);
-            await _handy.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: ct);
+            await _deviceCommandGate.WaitAsync(ct);
+            try
+            {
+                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session) || session.IsPaused) return;
+                await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: ct);
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
             Log($"Offset changed to {offsetMs} ms.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -550,7 +605,7 @@ public sealed class MainForm : Form
 
         if (stopDevice && client is not null)
         {
-            await _scriptSetupGate.WaitAsync();
+            await _deviceCommandGate.WaitAsync();
             try
             {
                 if (ReferenceEquals(_handy, client))
@@ -562,7 +617,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _scriptSetupGate.Release();
+                _deviceCommandGate.Release();
             }
         }
 

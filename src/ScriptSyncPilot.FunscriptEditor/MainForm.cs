@@ -345,7 +345,7 @@ public sealed class MainForm : Form
         {
             await mpv.AttachAsync(pipe, _lifetimeCts.Token);
         }
-        catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException)
+        catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or ArgumentException)
         {
             Log($"Could not attach to '{pipe}': {ex.Message}");
             mpv.Dispose();

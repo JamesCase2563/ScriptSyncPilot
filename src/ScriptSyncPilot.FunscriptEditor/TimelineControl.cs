@@ -60,7 +60,8 @@ public sealed class TimelineControl : Control
         {
             var scriptEnd = _script.Actions.Count > 0 ? _script.Actions[^1].At / 1000.0 : 0;
             var longest = Math.Max(scriptEnd, _mediaDurationSeconds);
-            return longest > 0 ? longest : FallbackDurationSeconds;
+            var minimumDuration = _mediaDurationSeconds > 0 ? 0 : FallbackDurationSeconds;
+            return Math.Max(longest, minimumDuration);
         }
     }
 

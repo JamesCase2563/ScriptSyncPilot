@@ -399,12 +399,12 @@ public sealed class MainForm : Form
         if (!IsDisposed && IsHandleCreated)
             BeginInvoke(() => _waveform.SetPlayhead(pos));
 
-        if (!_hsspReady || _handy is null) return;
-
         var expected = _lastKnownPos + _sincePosUpdate.Elapsed.TotalSeconds;
         var isSeek = Math.Abs(pos - expected) > 0.75;
         _lastKnownPos = pos;
         _sincePosUpdate.Restart();
+
+        if (!_hsspReady || _handy is null) return;
 
         if (isSeek && _mpv is { IsPaused: false })
         {

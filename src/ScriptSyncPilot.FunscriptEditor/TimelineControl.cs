@@ -376,7 +376,11 @@ public sealed class TimelineControl : Control
         }
     }
 
-    protected override bool IsInputKey(Keys keyData) => keyData == Keys.Delete || base.IsInputKey(keyData);
+    protected override bool IsInputKey(Keys keyData)
+    {
+        var keyCode = keyData & Keys.KeyCode;
+        return keyCode == Keys.Delete || keyCode == Keys.Left || keyCode == Keys.Right || base.IsInputKey(keyData);
+    }
 
     private void Seek(int x)
     {

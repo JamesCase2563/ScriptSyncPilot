@@ -13,7 +13,7 @@ public sealed class MainForm : Form
 {
     private readonly EditorSettings _settings = EditorSettings.Load();
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Height = 90 };
+    private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
 
     private readonly TextBox _videoPathBox = new() { ReadOnly = true };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };

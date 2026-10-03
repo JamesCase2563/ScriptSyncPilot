@@ -31,6 +31,10 @@ public sealed class MainForm : Form
     private readonly AppSettings _settings = AppSettings.Load();
 
     private HandyApiClient? _handy;
+    private readonly SemaphoreSlim _scriptSetupGate = new(1, 1);
+    private HandyApiClient? _installedScriptClient;
+    private long _scriptVersion;
+    private long _installedScriptVersion = -1;
     private MpvSession? _mpv;
     private Funscript? _script;
     private CancellationTokenSource? _offsetChangeCts;
@@ -142,6 +146,7 @@ public sealed class MainForm : Form
         }
 
         _script = script;
+        _scriptVersion++;
         _scriptPathBox.Text = path;
         _waveform.SetScript(_script);
         Log($"Loaded funscript with {_script.Actions.Count} actions.");
@@ -152,27 +157,62 @@ public sealed class MainForm : Form
 
     private async Task ReSetupScriptAsync()
     {
-        if (_handy is null || _script is null) return;
+        var client = _handy;
+        if (client is null || _script is null) return;
+
+        _hsspReady = false;
         try
         {
-            await _handy.HsspStopAsync(_lifetimeCts.Token);
-            await SetupScriptOnDeviceAsync();
+            await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
+            if (!ReferenceEquals(_handy, client) || _script is null) return;
+
+            _hsspReady = true;
             if (_mpv is { IsPaused: false }) await OnMpvPauseChangedAsync(false);
         }
-        catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
+            if (!ReferenceEquals(_handy, client)) return;
             Log($"Could not push new script to device: {ex.Message}");
             BeginInvoke(DisconnectHandy);
         }
     }
 
-    private async Task SetupScriptOnDeviceAsync()
+    private async Task EnsureCurrentScriptInstalledAsync(HandyApiClient client, CancellationToken cancellationToken)
+    {
+        await _scriptSetupGate.WaitAsync(cancellationToken);
+        try
+        {
+            while (ReferenceEquals(_handy, client))
+            {
+                var script = _script;
+                if (script is null) return;
+
+                var scriptVersion = _scriptVersion;
+                if (ReferenceEquals(_installedScriptClient, client) && _installedScriptVersion == scriptVersion)
+                    return;
+
+                await client.HsspStopAsync(cancellationToken);
+                await SetupScriptOnDeviceAsync(client, script, cancellationToken);
+                _installedScriptClient = client;
+                _installedScriptVersion = scriptVersion;
+
+                if (scriptVersion == _scriptVersion && ReferenceEquals(script, _script))
+                    return;
+            }
+        }
+        finally
+        {
+            _scriptSetupGate.Release();
+        }
+    }
+
+    private async Task SetupScriptOnDeviceAsync(HandyApiClient client, Funscript script, CancellationToken cancellationToken)
     {
         SetStatus("Uploading script…");
-        var url = await _handy!.UploadScriptCsvAsync(_script!.ToCsv(), _lifetimeCts.Token);
+        var url = await client.UploadScriptCsvAsync(script.ToCsv(), cancellationToken);
         Log($"Script hosted at {url}");
 
-        await _handy.HsspSetupAsync(url, _lifetimeCts.Token);
+        await client.HsspSetupAsync(url, cancellationToken);
         Log("HSSP setup complete.");
     }
 
@@ -229,20 +269,22 @@ public sealed class MainForm : Form
         try
         {
             SetStatus("Connecting to Handy…");
-            _handy = new HandyApiClient(_connectionKeyBox.Text.Trim());
+            var client = new HandyApiClient(_connectionKeyBox.Text.Trim());
+            _handy = client;
 
-            if (!await _handy.IsConnectedAsync(_lifetimeCts.Token))
+            if (!await client.IsConnectedAsync(_lifetimeCts.Token))
                 throw new HandyApiException("Device reports not connected. Check the connection key.");
             Log("Handy device connected.");
 
-            await _handy.SetModeAsync(mode: 1, _lifetimeCts.Token); // HSSP
+            await client.SetModeAsync(mode: 1, _lifetimeCts.Token); // HSSP
             Log("Device set to HSSP mode.");
 
-            await SetupScriptOnDeviceAsync();
-
             SetStatus("Measuring clock offset…");
-            _clockOffsetMs = await _handy.EstimateClockOffsetMsAsync(samples: 15, _lifetimeCts.Token);
+            _clockOffsetMs = await client.EstimateClockOffsetMsAsync(samples: 15, _lifetimeCts.Token);
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
+
+            await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
+            if (!ReferenceEquals(_handy, client) || _script is null) return;
 
             _hsspReady = true;
             _disconnectButton.Enabled = true;
@@ -251,7 +293,7 @@ public sealed class MainForm : Form
             if (_mpv is { IsPaused: false })
                 await OnMpvPauseChangedAsync(false);
         }
-        catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Handy error: {ex.Message}");
             SetStatus("Handy error");
@@ -268,8 +310,10 @@ public sealed class MainForm : Form
         _offsetChangeCts?.Cancel();
         _offsetChangeCts?.Dispose();
         _offsetChangeCts = null;
-        if (_hsspReady) _ = _handy?.HsspStopAsync(CancellationToken.None);
+        if (_handy is not null) _ = _handy.HsspStopAsync(CancellationToken.None);
         _hsspReady = false;
+        _installedScriptClient = null;
+        _installedScriptVersion = -1;
         _handy?.Dispose();
         _handy = null;
         _disconnectButton.Enabled = false;

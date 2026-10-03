@@ -19,6 +19,7 @@ public sealed class TimelineControl : Control
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
     private const int ValueBarWidth = 40;
+    private const int ScrollbarUnitsPerSecond = 1000;
     private const double AbsoluteMaxPixelsPerSecond = 2000;
     private const double FallbackDurationSeconds = 60;
 
@@ -84,7 +85,7 @@ public sealed class TimelineControl : Control
         _scrollBar.Scroll += (_, _) =>
         {
             if (_suppressScrollEvent) return;
-            _viewStartSeconds = _scrollBar.Value;
+            _viewStartSeconds = _scrollBar.Value / (double)ScrollbarUnitsPerSecond;
             Invalidate();
         };
     }
@@ -162,10 +163,13 @@ public sealed class TimelineControl : Control
         _suppressScrollEvent = true;
         var viewport = ViewportSeconds();
         _scrollBar.Minimum = 0;
-        _scrollBar.Maximum = (int)Math.Ceiling(DurationSeconds);
-        _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport));
-        _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20));
-        _scrollBar.Value = Math.Clamp((int)_viewStartSeconds, 0, Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
+        _scrollBar.Maximum = (int)Math.Ceiling(DurationSeconds * ScrollbarUnitsPerSecond);
+        _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport * ScrollbarUnitsPerSecond));
+        _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20 * ScrollbarUnitsPerSecond));
+        _scrollBar.Value = Math.Clamp(
+            (int)Math.Round(_viewStartSeconds * ScrollbarUnitsPerSecond),
+            0,
+            Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
         _suppressScrollEvent = false;
     }
 

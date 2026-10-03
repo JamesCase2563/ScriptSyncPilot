@@ -79,6 +79,7 @@ public sealed class TimelineControl : Control
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         TabStop = true;
         BackColor = Color.FromArgb(30, 30, 30);
+        ScriptChanged += (_, _) => ReclampZoom();
         Controls.Add(_scrollBar);
         _scrollBar.Scroll += (_, _) =>
         {

@@ -14,8 +14,28 @@ Start with the [system architecture](ARCHITECTURE.md). The [vision](VISION.md) d
 
 - Architecture describes what exists today and the contracts to preserve.
 - Backlogs describe future work with priority and status. Implemented foundations are not unfinished tasks.
-- Create a plan only when selecting a backlog item for development. Keep milestones and tasks together in that plan under the owning project's `plans/` directory.
+- When selecting a backlog item, create one feature/change folder under `dev/<project>/work/<name>/`, not `plans/` or `initiatives/`. Keep milestones and tasks together in its `PLAN.md`.
 - External API/file-format references belong in `docs/`, not in project plans.
 - The obsolete controller documents have been removed. There is no ControllerHost or Core project, and Common is not a device controller.
 
 Useful ideas from the earlier proposal survive in current architecture requirements and backlogs: command ordering, lifecycle safety, compatibility checks, diagnostics, privacy, tests, UI/session separation, and an optional local backend.
+
+## Working Documents and Archives
+
+This README is the canonical convention; conversational notes are historical context, not competing instructions.
+
+Use `dev/<project>/work/<name>/` for work owned by one project, even if it involves a small Common change. For work spanning both applications and Common, use `dev/work/<name>/`. Group documents by feature/change, not by release or PR.
+
+- `PLAN.md`: scope, open decisions, milestones, task checklist, and status.
+- `DESIGN.md`: implementation details when substantial enough to need a separate document.
+- `VERIFICATION.md`: acceptance criteria, test results, and unresolved limitations.
+- Add research/experiment notes only when useful; do not create empty placeholder documents.
+
+On completion:
+
+1. Update permanent architecture documentation to describe the implemented system.
+2. Move remaining ideas into the owning backlog.
+3. Record the outcome and PR reference in the plan.
+4. Move the whole work folder to `dev/<project>/archive/YYYY-MM-<name>/`, or `dev/archive/YYYY-MM-<name>/` for cross-project work, and update links.
+
+Archives are historical snapshots and are not maintained as current instructions. Permanent documentation must explain the current system without requiring archive consultation.

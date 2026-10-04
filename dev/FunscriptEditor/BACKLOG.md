@@ -2,7 +2,7 @@
 
 ## Pattern Insertion Tool
 
-**Priority:** Selected next. **Status:** Planning; implementation not started.
+**Priority:** Selected next. **Status:** Feature design agreed; implementation not started.
 
 Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
 
@@ -24,13 +24,17 @@ When a new section conflicts with existing destination values, ask the user to c
 - Replace: replace existing values in the destination section with the new values, preserving content outside that section.
 - Merge: combine the new section with existing values.
 
-If there is no conflict, insert the section without asking. Apply the same rule to track copying and conversion. Exact collision resolution when merging values at the same timestamp remains a design detail to define.
+If there is no conflict, insert the section without asking. Actual interior value-points count as conflicts, not interpolation between outside points. Preserve existing boundary points instead of competing generated endpoints, and preview the resulting transitions. Merge remembers the user's Keep Existing / Use New choice for identical interior timestamps. Apply the same conflict rule to track copying and conversion.
+
+Generate whole cycles fitted to the timeframe; automatically suggest the nearest positive count with direct override, never partial endings or rounding-policy controls. Offer Continue Existing / Pattern Start and profile settings suitable for a future pattern editor. Initial defaults are 25% rise / 75% return, cosine easing with one-position-unit adaptive sampling, a configurable three-hour section limit, and a 100,000-action generation cap. These are editor safeguards, not verified Handy API limits. See the working design for details.
 
 ## Undo and Redo
 
-**Priority:** To be decided. **Status:** Proposed.
+**Priority:** Selected with pattern insertion. **Status:** Planning; implementation not started.
 
-Support reversible insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as a coherent edit.
+Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [pattern-insertion plan](../work/pattern-insertion/PLAN.md), not a temporary one-operation rollback.
+
+Use deltas for small edits and affected-section history for bulk edits, not whole-document snapshots for every operation. No restrictive edit-count limit is planned initially; measure memory during trial.
 
 ## Markers and Snapping
 

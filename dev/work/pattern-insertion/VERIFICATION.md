@@ -2,13 +2,18 @@
 
 **Status:** Acceptance checks drafted; implementation and behavior tests not run.
 
-See [plan](PLAN.md) and [design](DESIGN.md). Proposed behaviors must be confirmed before their tests become release requirements.
+See [plan](PLAN.md) and [design](DESIGN.md). The accepted feature decisions define the checks below; engineering details should be recorded as implementation proceeds.
 
 ## Acceptance Criteria
 
 - [ ] Enter observation count/time and see correct cycles per minute, explicitly distinguished from directional strokes.
-- [ ] Select all three profiles and fit them to the same measured cadence and movement range.
-- [ ] Choose duration or cycle count independently of observation duration.
+- [ ] Select all three profiles, configure profile settings and starting phase, and retain the chosen output cadence/range.
+- [ ] Fit an integer number of full cycles into an output timeframe; observation duration remains independent.
+- [ ] Show observed/effective cadence when whole-cycle fitting changes the measured cadence.
+- [ ] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
+- [ ] Remember the Merge collision choice across dialog uses.
+- [ ] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
+- [ ] Undo/redo multiple generated and manual edits; a new committed edit clears redo.
 - [ ] Preview without changing actions, selection, metadata, or dirty state.
 - [ ] Apply at the captured timestamp; require no mpv/Handy connection.
 - [ ] Ask Stop/Replace/Merge only on conflicts; otherwise apply without asking.
@@ -22,29 +27,40 @@ See [plan](PLAN.md) and [design](DESIGN.md). Proposed behaviors must be confirme
 - [ ] 12 observed cycles in 30 seconds produces 24 cycles/minute and 2500 ms periods.
 - [ ] Measurement intervals of a few seconds and several minutes use the same units/formula.
 - [ ] Full-cycle mode ends at the calculated boundary; extrema hit the requested position range.
-- [ ] Triangle timing is symmetric; fast-up has a shorter rising phase; eased samples slow near reversals.
+- [ ] Triangle timing is symmetric; fast-up defaults to 25% rise / 75% return; cosine-eased samples slow near reversals.
+- [ ] Adaptive sampling meets the one-position-unit deviation target after timestamp/position rounding and respects the action cap.
 - [ ] Fractional periods over many cycles do not accumulate rounding drift; timestamps remain ordered and unique.
 - [ ] Shared cycle boundaries are emitted once, including nonzero insertion timestamps.
-- [ ] Duration-mode partial-cycle behavior matches the confirmed design.
+- [ ] Five cycles in 12 seconds gives 2400 ms per cycle and ends exactly at 12 seconds, at the selected starting phase; never emit a partial final cycle.
+- [ ] A timeframe that would imply fractional cycles at measured cadence uses a user-confirmed whole-cycle count and exposes the effective cadence rather than silently clipping.
+- [ ] Automatically suggest the nearest positive whole-cycle count, minimum one; direct override works without rounding-policy controls.
+- [ ] Continue Existing matches interpolated value and compatible direction/phase when available; out-of-range/no-value cases fall back to the profile's natural start.
+- [ ] Phase/settings changes modify the profile while preserving the chosen cycle count and timeframe.
 - [ ] Reject zero/negative/nonfinite inputs, invalid position ranges, timestamp overflow, excessive output size, and sub-millisecond point collisions without mutation.
 
 ## Conflict and Persistence Tests
 
 - [ ] Empty script and conflict-free target apply with no prompt.
-- [ ] Conflicting interior/boundary values trigger the prompt according to the agreed detection rules.
-- [ ] Existing segments spanning the target with no interior action follow the agreed interpolation policy.
+- [ ] Existing interior values trigger the conflict prompt; existing boundary-only points are preserved without a prompt.
+- [ ] In both Replace and Merge, preserve existing start/end actions and omit competing generated endpoints; emit endpoints where no existing boundary action is present.
+- [ ] With existing points at 0 and 100 seconds, insert from 1 to 20 seconds without a conflict prompt; crossing interpolation alone is not a conflict.
 - [ ] Stop/dialog cancellation leave the script and dirty state unchanged.
 - [ ] Replace changes only the agreed target interval, retaining exact outside timestamps/positions.
-- [ ] Merge combines unique timestamps; equal/different positions at identical timestamps follow the confirmed policy without duplicate timestamps.
+- [ ] Merge supports both Keep Existing and Use New for different positions at identical timestamps; identical pairs deduplicate and no duplicate timestamps remain.
 - [ ] Any changed document invalidates or refreshes preview/conflict results before Apply.
 - [ ] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
-- [ ] If single-operation undo is included, it restores the complete prior action state without discarding metadata; intervening edits follow the agreed undo contract.
+- [ ] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
+- [ ] One completed drag or pattern insertion is one history entry, not many intermediate entries.
+- [ ] A new committed edit after undo clears redo; preview/cancel/Stop do not.
+- [ ] Saving records a checkpoint; undo/redo update dirty state accurately, and opening/creating another document does not reuse old history.
+- [ ] Small edits store deltas and bulk edits retain affected sections, not full-document snapshots per operation; measure memory across repeated large insertions and undo/redo without a restrictive edit-count cap.
 
 ## Manual Editor Checks
 
 - [ ] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Move the video playhead while previewing; the captured insertion time stays explicit and stable.
 - [ ] Try each conflict choice and verify visible results match preview.
+- [ ] Verify preview exposes the actual edge transitions, including preserved boundaries that create ramps or alter the ideal first/last cycle.
 - [ ] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.
 - [ ] Repeated Apply/Cancel operations do not leave stale selection, drag state, or duplicate actions.
 - [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales; invalid input gives actionable feedback.

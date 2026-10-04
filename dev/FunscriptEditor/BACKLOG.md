@@ -2,7 +2,9 @@
 
 ## Pattern Insertion Tool
 
-**Priority:** To be decided. **Status:** Future feature; details to be refined.
+**Priority:** Selected next. **Status:** Planning; implementation not started.
+
+Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
 
 Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, and specify the target section's duration or cycle count.
 

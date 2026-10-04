@@ -14,7 +14,7 @@ Start with the [system architecture](ARCHITECTURE.md). The [vision](VISION.md) d
 
 - Architecture describes what exists today and the contracts to preserve.
 - Backlogs describe future work with priority and status. Implemented foundations are not unfinished tasks.
-- When selecting a backlog item, create one feature/change folder under `dev/<project>/work/<name>/`, not `plans/` or `initiatives/`. Keep milestones and tasks together in its `PLAN.md`.
+- When selecting a backlog item, create one feature/change folder under `dev/work/<name>/` for all work, regardless of affected projects. Do not use project-local work folders, `plans/`, or `initiatives/`. Keep milestones and tasks together in its `PLAN.md`.
 - External API/file-format references belong in `docs/`, not in project plans.
 - The obsolete controller documents have been removed. There is no ControllerHost or Core project, and Common is not a device controller.
 
@@ -24,9 +24,9 @@ Useful ideas from the earlier proposal survive in current architecture requireme
 
 This README is the canonical convention; conversational notes are historical context, not competing instructions.
 
-Use `dev/<project>/work/<name>/` for work owned by one project, even if it involves a small Common change. For work spanning both applications and Common, use `dev/work/<name>/`. Group documents by feature/change, not by release or PR.
+All sub-project working documents live under `dev/work/<name>/`, whether they affect HandySync, FunscriptEditor, Common, or any combination. Identify the affected projects in the plan rather than through folder placement. Group documents by feature/change, not by release or PR. Permanent project architecture documents and backlogs remain in their project directories.
 
-- `PLAN.md`: scope, open decisions, milestones, task checklist, and status.
+- `PLAN.md`: scope, affected projects, open decisions, milestones, task checklist, and status.
 - `DESIGN.md`: implementation details when substantial enough to need a separate document.
 - `VERIFICATION.md`: acceptance criteria, test results, and unresolved limitations.
 - Add research/experiment notes only when useful; do not create empty placeholder documents.
@@ -36,6 +36,6 @@ On completion:
 1. Update permanent architecture documentation to describe the implemented system.
 2. Move remaining ideas into the owning backlog.
 3. Record the outcome and PR reference in the plan.
-4. Move the whole work folder to `dev/<project>/archive/YYYY-MM-<name>/`, or `dev/archive/YYYY-MM-<name>/` for cross-project work, and update links.
+4. Move the whole work folder to `dev/archive/YYYY-MM-<name>/` for all completed work, regardless of affected projects, and update links.
 
 Archives are historical snapshots and are not maintained as current instructions. Permanent documentation must explain the current system without requiring archive consultation.

@@ -4,4 +4,7 @@
     <Project Path="src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj" />
     <Project Path="src/ScriptSyncPilot.HandySync/ScriptSyncPilot.HandySync.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj" />
+  </Folder>
 </Solution>

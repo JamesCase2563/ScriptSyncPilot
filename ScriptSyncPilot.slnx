@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ScriptSyncPilot.Common/ScriptSyncPilot.Common.csproj" />
+    <Project Path="src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj" />
+    <Project Path="src/ScriptSyncPilot.HandySync/ScriptSyncPilot.HandySync.csproj" />
+  </Folder>
+</Solution>

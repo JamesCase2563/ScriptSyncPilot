@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
-namespace ScriptSyncPilot.HandySync;
+namespace ScriptSyncPilot.Common;
 
 /// <summary>
 /// Attaches to an already-running mpv instance's JSON IPC named pipe and
@@ -12,8 +12,8 @@ namespace ScriptSyncPilot.HandySync;
 /// Deliberately does not launch mpv itself: dewarping fisheye/equirect VR
 /// video needs VR-Flat-Player's mpv.conf, mpv360 shader and head-tracked
 /// viewport, none of which a plain `mpv &lt;file&gt;` provides. Attaching to the
-/// player that is already showing the (correctly projected) video keeps the
-/// Handy in sync with what the user actually sees, with no duplicated VR
+/// player that is already showing the (correctly projected) video keeps a
+/// client in sync with what the user actually sees, with no duplicated VR
 /// pipeline. Point pipePath at VR-Flat-Player's BridgeConfig.Mpv.IpcPipe
 /// (default \\.\pipe\vrheadtrack), or any other mpv started with a matching
 /// --input-ipc-server.
@@ -22,6 +22,7 @@ public sealed class MpvSession : IDisposable
 {
     public event Action<double>? PositionChanged;
     public event Action<bool>? PauseChanged;
+    public event Action<double>? DurationChanged;
     public event Action? Disconnected;
 
     private NamedPipeClientStream? _pipe;
@@ -30,6 +31,7 @@ public sealed class MpvSession : IDisposable
 
     public bool IsPaused { get; private set; } = true;
     public double PositionSeconds { get; private set; }
+    public double DurationSeconds { get; private set; }
 
     public async Task AttachAsync(string pipePath, CancellationToken ct)
     {
@@ -55,10 +57,19 @@ public sealed class MpvSession : IDisposable
 
         await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
         await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
+        await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
     }
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
-        SendAsync(new { command = new object[] { "seek", seconds, "absolute" } }, ct);
+        SendAsync(new { command = new object[] { "seek", seconds, "absolute+exact" } }, ct);
+
+    /// <summary>Seeks by a relative offset (negative to go backwards), frame-accurate rather than keyframe-snapped.</summary>
+    public Task SeekRelativeAsync(double deltaSeconds, CancellationToken ct) =>
+        SendAsync(new { command = new object[] { "seek", deltaSeconds, "relative+exact" } }, ct);
+
+    /// <summary>Steps exactly one video frame; also pauses, mirroring mpv's own frame-step behavior.</summary>
+    public Task StepFrameAsync(bool forward, CancellationToken ct) =>
+        SendAsync(new { command = new object[] { forward ? "frame-step" : "frame-back-step" } }, ct);
 
     public Task SetPauseAsync(bool paused, CancellationToken ct) =>
         SendAsync(new { command = new object[] { "set_property", "pause", paused } }, ct);
@@ -122,6 +133,10 @@ public sealed class MpvSession : IDisposable
             case "pause" when data.ValueKind is JsonValueKind.True or JsonValueKind.False:
                 IsPaused = data.GetBoolean();
                 PauseChanged?.Invoke(IsPaused);
+                break;
+            case "duration" when data.ValueKind == JsonValueKind.Number:
+                DurationSeconds = data.GetDouble();
+                DurationChanged?.Invoke(DurationSeconds);
                 break;
         }
     }

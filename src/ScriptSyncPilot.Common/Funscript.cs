@@ -1,0 +1,111 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace ScriptSyncPilot.Common;
+
+/// <summary>A funscript: a time-ordered list of (time, position) actions.</summary>
+public sealed class Funscript
+{
+    private readonly List<FunscriptAction> _actions;
+    private readonly Dictionary<string, JsonElement> _extensionData;
+
+    /// <summary>Actions ordered by <see cref="FunscriptAction.At"/>. Read-only view; mutate via Add/Remove/Move/Update.</summary>
+    public IReadOnlyList<FunscriptAction> Actions => _actions;
+
+    public Funscript() : this(new List<FunscriptAction>(), new Dictionary<string, JsonElement>())
+    {
+    }
+
+    private Funscript(List<FunscriptAction> actions, Dictionary<string, JsonElement>? extensionData = null)
+    {
+        _actions = actions;
+        _extensionData = extensionData ?? new Dictionary<string, JsonElement>();
+    }
+
+    public static Funscript Load(string path)
+    {
+        var json = File.ReadAllText(path);
+        FunscriptFile doc;
+        try
+        {
+            doc = JsonSerializer.Deserialize<FunscriptFile>(json, JsonOpts)
+                  ?? throw new InvalidDataException("Empty or invalid funscript.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Invalid funscript JSON.", ex);
+        }
+
+        var actions = (doc.Actions ?? new List<FunscriptAction>())
+            .OrderBy(a => a.At)
+            .ToList();
+        return new Funscript(actions, doc.ExtensionData);
+    }
+
+    public void Save(string path)
+    {
+        var doc = new FunscriptFile { Actions = _actions, ExtensionData = _extensionData };
+        var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json);
+    }
+
+    /// <summary>Inserts an action keeping the list sorted by time, replacing any action at the same time.</summary>
+    public void AddOrReplace(FunscriptAction action)
+    {
+        var index = _actions.FindIndex(a => a.At == action.At);
+        if (index >= 0) _actions[index] = action;
+        else _actions.Insert(FindInsertIndex(action.At), action);
+    }
+
+    /// <summary>Replaces the action at <paramref name="index"/>, re-sorting if its time moved past a neighbor. Returns the action's new index.</summary>
+    public int UpdateAt(int index, FunscriptAction action)
+    {
+        _actions.RemoveAt(index);
+        var newIndex = FindInsertIndex(action.At);
+        _actions.Insert(newIndex, action);
+        return newIndex;
+    }
+
+    public void RemoveAt(int index) => _actions.RemoveAt(index);
+
+    private int FindInsertIndex(int at)
+    {
+        var index = _actions.FindIndex(a => a.At > at);
+        return index < 0 ? _actions.Count : index;
+    }
+
+    /// <summary>
+    /// Handy's HSSP protocol currently only accepts a hosted CSV/funscript URL
+    /// (the inline csv/funscript setup bodies are defined in the API schema but
+    /// commented out server-side), so scripts always go through the hosting
+    /// upload endpoint as CSV.
+    /// </summary>
+    public string ToCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(); // reserved metadata line, left blank
+        foreach (var a in _actions)
+            sb.Append(a.At).Append(',').Append(a.Pos).AppendLine();
+        return sb.ToString();
+    }
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
+
+    private sealed class FunscriptFile
+    {
+        [JsonPropertyName("actions")]
+        public List<FunscriptAction>? Actions { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+    }
+}
+
+public readonly record struct FunscriptAction(
+    [property: JsonPropertyName("at")] int At,
+    [property: JsonPropertyName("pos")] int Pos);

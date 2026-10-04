@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ScriptSyncPilot.FunscriptEditor</RootNamespace>
+    <AssemblyName>ScriptSyncPilot.FunscriptEditor</AssemblyName>
+    <SupportedOSPlatform>windows</SupportedOSPlatform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScriptSyncPilot.Common\ScriptSyncPilot.Common.csproj" />
+  </ItemGroup>
+
+</Project>

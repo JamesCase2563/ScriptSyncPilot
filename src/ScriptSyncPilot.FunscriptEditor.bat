@@ -1,0 +1,1 @@
+dotnet run --project "%~dp0ScriptSyncPilot.FunscriptEditor\ScriptSyncPilot.FunscriptEditor.csproj"

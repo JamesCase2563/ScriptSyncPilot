@@ -1,22 +1,27 @@
-# Backlog
+# Shared Backlog
 
-## Pattern Insertion Tool
+Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md) or [editor backlog](FunscriptEditor/BACKLOG.md).
 
-**Status:** Future feature; details to be refined.
+## Automated Tests and CI
 
-Add a pattern generator to the script editor. Users select a movement pattern, set its movement range, and specify the target section by duration or cycle count.
+**Priority:** High. **Status:** Proposed.
 
-### Cadence
+Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 
-Users can count cycles while a video plays for an observation interval lasting seconds to minutes, then enter the cycle count and elapsed time. The tool calculates cycles per minute and generates the selected pattern at that cadence. A cycle means one complete bottom-to-top-to-bottom movement; keep cycles distinct from individual directional strokes.
+- Funscript round-trips, lowercase JSON fields, metadata preservation, sorted actions, and empty documents.
+- mpv attachment failures, cancellation, observations, and disposal using a controlled local pipe server.
+- Session replacement and stale queued notifications in both applications.
+- Handy ordering, script selection during setup, draining requests, and stop-before-dispose with fake HTTP transport rather than hardware.
+- Timeline zoom/scroll limits, deletion during drag, and keyboard routing.
 
-### Pattern Profiles
+## UI and Session Logic Boundaries
 
-Profiles shape how movement time is distributed within each cycle, squeezing or stretching the profile to fit the target cadence. Examples include:
+**Priority:** Medium. **Status:** Proposed.
 
-- Fast rise followed by a slow return.
-- Slowing down near each direction change.
+Extract session/device orchestration from forms where this reduces lifecycle complexity or improves testing. Keep UI updates on the UI thread and services' ownership/cancellation explicit. Common should contain genuinely shared facilities, not become a catch-all controller.
 
-### Open Design Decision
+## Privacy and Operational Guidance
 
-How generated content interacts with existing actions in the target range, including overwrite behavior, remains undecided.
+**Priority:** Medium. **Status:** Proposed.
+
+Add quickstart/troubleshooting guidance for launchers, mpv pipes, device firmware, connection failures, and log locations. Review credential persistence and logging; diagnostics must not expose connection or application keys. Do not introduce remote APIs merely to satisfy the superseded controller plan.

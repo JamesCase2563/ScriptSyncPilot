@@ -1,8 +1,16 @@
 @echo off
-dotnet build "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" --configuration Debug --nologo
+setlocal
+dotnet build "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" --configuration Debug --property:UseAppHost=true --nologo
 if errorlevel 1 (
 	pause
 	exit /b 1
 )
-start "" "%~dp0ScriptSyncPilot.HandySync\bin\Debug\net9.0-windows\ScriptSyncPilot.HandySync.exe"
+set "app="
+for /f "delims=" %%I in ('dotnet msbuild "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" -property:Configuration=Debug -property:UseAppHost=true -getProperty:TargetPath') do set "app=%%~dpnI.exe"
+if not exist "%app%" (
+	echo Could not locate the built application.
+	pause
+	exit /b 1
+)
+start "" "%app%"
 exit /b

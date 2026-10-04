@@ -54,7 +54,7 @@ Engineering details such as midpoint rounding, direction tie-breaking, configura
 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
 - [ ] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests.
-- [ ] Choose focused test tooling consistent with the repository; do not silently expand this into general CI work.
+- [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
 - [ ] Establish generation, rounding, conflict, and atomic-edit test cases.
 
 ### 2. Generation and Application Logic

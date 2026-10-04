@@ -71,4 +71,14 @@ Run focused generator/application tests and build the affected projects before d
 
 ## Results and Limitations
 
-No feature verification results yet. Test framework/location, confirmed design choices, test commands/results, manual environment, unresolved limitations, and PR reference will be recorded during implementation. Do not mark unchecked criteria as passed.
+### Persistence Baseline (2026-10-04)
+
+Added [ScriptSyncPilot.Common.Tests](../../../tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj) to the solution using MSTest with the VSTest adapter and .NET 9. Ran:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --nologo
+```
+
+Result: 11 passed, 0 failed, 0 skipped. Covered existing action edits, ordered load, empty documents, invalid JSON, lowercase action fields, unknown root-property preservation, and CSV output. This verifies current Common behavior, not pattern application or undo/redo.
+
+No feature verification results yet. Generator/application tests, manual checks, limitations, and PR reference will be recorded during implementation. Do not mark the feature acceptance criteria above as passed based on these baseline tests.

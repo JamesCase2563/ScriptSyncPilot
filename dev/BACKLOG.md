@@ -4,11 +4,11 @@ Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md
 
 ## Automated Tests and CI
 
-**Priority:** High. **Status:** Proposed.
+**Priority:** High. **Status:** Initial Common unit-test suite implemented; broader coverage and CI proposed.
 
 Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 
-- Funscript round-trips, lowercase JSON fields, metadata preservation, sorted actions, and empty documents.
+- Implemented baseline: Funscript action edits, round-trips, lowercase JSON fields, metadata preservation, sorted loading, empty documents, invalid JSON, and CSV export in `tests/ScriptSyncPilot.Common.Tests` (MSTest/VSTest).
 - mpv attachment failures, cancellation, observations, and disposal using a controlled local pipe server.
 - Session replacement and stale queued notifications in both applications.
 - Handy ordering, script selection during setup, draining requests, and stop-before-dispose with fake HTTP transport rather than hardware.

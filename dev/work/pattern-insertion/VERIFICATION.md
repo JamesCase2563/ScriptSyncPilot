@@ -38,6 +38,24 @@ See [plan](PLAN.md) and [design](DESIGN.md). The accepted feature decisions defi
 - [ ] Phase/settings changes modify the profile while preserving the chosen cycle count and timeframe.
 - [ ] Reject zero/negative/nonfinite inputs, invalid position ranges, timestamp overflow, excessive output size, and sub-millisecond point collisions without mutation.
 
+## Deterministic Numeric Cases
+
+These cases specify expected results; none has been executed against a pattern generator yet.
+
+- [ ] Suggested counts of 2.5 and 3.5 round to 3 and 4, respectively; a positive estimate of 0.4 suggests one. Direct integer overrides are unchanged.
+- [ ] Captured start 1.2345 seconds becomes 1235 ms; duration 0.0005 seconds becomes 1 ms; duration 0.0004 seconds is rejected. Integer positions 50.5 and 51.5 become 51 and 52.
+- [ ] For a triangle starting at 1000 ms, spanning 1000 ms with three cycles over 0-100, mandatory timestamp/position pairs are `(1000,0), (1167,100), (1333,0), (1500,100), (1667,0), (1833,100), (2000,0)`. The end is exact and shared boundaries appear once.
+- [ ] Distinct mandatory triangle extrema/boundaries colliding after rounding are rejected (for example two full cycles in 1 ms); increasing point density never silently removes a cycle.
+- [ ] Checked endpoint overflow and a total duration rounding to zero fail before mutation.
+- [ ] With actions `(0,0), (1000,100)`, continuation at 500 ms uses value 50 and ascending phase 0.25 for a triangle. With `(0,100), (1000,0)`, it uses descending phase 0.75.
+- [ ] At a peak `(0,0), (1000,100), (2000,0)`, continuation uses the peak phase 0.5 and its valid outgoing descending direction. At flat interior values with no direction, choose the ascending branch.
+- [ ] Continue Existing before/after the known action range or outside the selected movement range visibly falls back, without extrapolation or clamping to manufacture a matching phase.
+- [ ] For the cosine profile from 0 to 100 over one second, an extrema-only candidate has zero midpoint error on a half-cycle but excessive error elsewhere; the full-interval check detects it and refines.
+- [ ] Independently check the generated saved polyline's endpoints, knots, and all roots of `F'(t) = L'(t)`; maximum error is no more than `1 + 1e-9` position units after timestamp/position rounding, including phase-shifted profiles.
+- [ ] Refinement uses midpoint-away-from-zero splits, strict interior integer milliseconds, and left-before-right processing; repeated identical inputs produce identical actions on the supported runtime.
+- [ ] Impossible one-millisecond refinement, mandatory-point error above tolerance, and output above the action cap fail rather than silently loosening accuracy. Count points before destination boundary suppression.
+- [ ] Preserved boundary values and Merge results are previewed as resolved output, without falsely claiming the generator's one-unit error bound still applies.
+
 ## Conflict and Persistence Tests
 
 - [ ] Empty script and conflict-free target apply with no prompt.

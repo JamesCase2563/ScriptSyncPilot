@@ -34,7 +34,7 @@ Represent profile time as normalized phase from 0 to 1, with normalized position
 - Fast-up/slow-down: default to 25% rise / 75% return, exposing the ratio in profile settings.
 - Slowed direction changes: use cosine easing for rise/fall, slowing near both extrema. Funscript consumers interpolate between actions, so use adaptive intermediate sampling targeting at most one position-unit deviation from the intended curve. Verify accuracy after millisecond/position rounding. Tune defaults after trial rather than adding more initial configuration questions.
 
-Offer two initial starting modes: **Continue Existing** and **Pattern Start**. Continue Existing uses the interpolated script value at insertion time and chooses a compatible profile phase/direction where possible. If there is no usable value or compatible phase, fall back to Pattern Start and make the fallback visible in preview. Pattern Start uses the profile's natural initial phase; built-in profiles begin at minimum moving upward. Every generated cycle returns to its starting phase. Infer existing direction where possible; ambiguous-direction tie-breaking is an implementation detail.
+Offer two initial starting modes: **Continue Existing** and **Pattern Start**. Continue Existing uses the interpolated script value at insertion time and chooses a compatible profile phase/direction where possible. If there is no usable value or compatible phase, fall back to Pattern Start and make the fallback visible in preview. Pattern Start uses the profile's natural initial phase; built-in profiles begin at minimum moving upward. Every generated cycle returns to its starting phase. Continuation tie-breaking is specified below.
 
 Put additional phase controls in profile settings rather than adding many top-level choices. Keep the dialog suitable for a future editor whose custom patterns may start anywhere; custom pattern authoring is not part of this release.
 
@@ -48,6 +48,40 @@ Put additional phase controls in profile settings rather than adding many top-le
 - Default the configurable maximum generated-section duration to three hours and cap generated output at 100,000 actions initially. These are editor safeguards, not verified Handy upload/API limits. Duration alone does not predict size: cadence and sampling density also matter. Validate configuration against timestamp limits and the independent action cap; choose the configuration UI/range during implementation. This limits section length, not loaded video duration.
 - Fit the requested full-cycle count into the requested timeframe using absolute phase timestamps. Include cycle boundaries once; never emit a partial final cycle. Existing boundary preservation during application is described below.
 - Insertion may extend beyond both the current script/timeline extent and the loaded media duration. Neither is an output limit: the funscript may be new or only partly authored, and the loaded video may be unrelated or too short. Generate the complete requested section without clipping to either extent, subject only to input validation and timestamp/action-count limits. After applying, expand the timeline to include the generated endpoint while retaining the media duration as context.
+
+## Deterministic Numeric Rules
+
+These rules define the first implementation and its tests. Numeric choices are not additional user controls.
+
+### Rounding and Timebase
+
+- Use `MidpointRounding.AwayFromZero` for suggested cycle counts, timestamps, and integer positions. All valid times/positions are nonnegative, so an exact half rounds upward. Do not use .NET's default midpoint-to-even rounding.
+- Calculate the suggested count as `max(1, round(observedCycles * outputSeconds / observedSeconds))`. Validate safety limits after rounding; do not silently cap an excessive count. A direct user override remains a positive integer and is not re-rounded.
+- Keep user-entered timing/cadence calculations in decimal arithmetic where practical. Use double precision for trigonometric profile evaluation; reject nonfinite inputs. Do not round displayed cadence and then feed it back into generation.
+- Quantize the captured start time and total output duration once to integer milliseconds. Reject a duration rounding to zero. Preview shows the quantized start/end and effective cadence.
+- For cycle `k` and relative phase offset `u`, compute `startMs + round(durationMs * (k + u) / cycleCount)`, never repeatedly add a rounded period. Treat total start/end as authoritative: first timestamp is startMs and last is startMs + durationMs.
+- Evaluate the phase-shifted profile in real-valued position units before rounding positions. Round only at output. Values outside 0-100 are invalid; roundoff-only excursions may be clamped to the requested range.
+- Use checked arithmetic for final timestamp bounds. Reject negative start time or endpoints above `int.MaxValue` before editing the document.
+- Seed mandatory phase boundaries, cycle boundaries, and extrema in time order. Shared representations of the same intended point are emitted once. Distinct mandatory times collapsing to the same millisecond are rejected, even if their rounded positions happen to match; silently deduplicating them could erase cycle structure.
+
+### Continue Existing Tie-Breaking
+
+- Use a sorted, unique-timestamp snapshot. At an exact action time, use that action's value; otherwise linearly interpolate between the enclosing pair, retaining fractional position until final output rounding. Do not extrapolate before/after the script; fall back to Pattern Start if no value is available.
+- For direction at an exact action, prefer the incoming segment. If it is flat or absent, use the outgoing segment. Between actions, use the enclosing segment. If no nonzero slope is available, prefer the ascending branch.
+- Normalize the existing value to the selected movement range without clamping an incompatible value. Out-of-range continuation falls back visibly to Pattern Start.
+- Find matching phases of the built-in profile, prefer the branch matching the inferred direction, and choose the earliest normalized phase in `[0, 1)` when candidates remain tied. At extrema choose the valid outgoing direction (up at minimum, down at maximum); phase 1 canonicalizes to 0.
+- Direction compatibility means matching the sign, not guaranteeing identical speed. Preview must not describe continuation as a guaranteed velocity-continuous join.
+
+### Quantized Adaptive Sampling
+
+For the cosine profile, use `p(u) = (1 - cos(2 * pi * u)) / 2` before range mapping and phase shifting. Piecewise-linear profiles use their defined knots. Let `F(t)` be the intended real-valued position at absolute time `t`, and `L(t)` the linearly interpolated saved integer actions.
+
+- Seed mandatory points first, then process segments chronologically. For each final quantized segment, require `max(abs(F(t) - L(t))) <= 1` position unit over its entire continuous time interval, with a numerical comparison allowance of `1e-9` position units.
+- Check interval endpoints and all interior error extrema, not just the midpoint. For linear profiles include every crossed knot; for cosine profiles include every solution of `F'(t) = L'(t)`, splitting analysis at phase/half-cycle boundaries. These checks cover error introduced by both timestamp and position rounding.
+- If a segment exceeds tolerance, split at the nearest integer millisecond to its temporal midpoint using the same rounding rule, constrained strictly between its endpoints. Evaluate `F` at that integer timestamp and round its position, then recheck the left segment before the right.
+- Do not omit collinear points unless the resulting combined segment passes the same bound and no mandatory cycle/extremum point is lost.
+- If no interior millisecond exists, a mandatory endpoint already violates tolerance, or refinement would exceed 100,000 generated actions, reject with a precision/size error rather than relaxing tolerance or cadence. The generation cap includes all seeded/refined points before destination boundary suppression.
+- Verify the bound for the generated candidate before conflict resolution. Merge and preserved existing boundary values can change the resulting curve; preview those differences rather than applying the generator's accuracy guarantee to the resolved script.
 
 ## Conflicts and Atomic Application
 
@@ -83,4 +117,4 @@ Store deltas for small edits and retain affected sections for bulk changes rathe
 
 ## Implementation Details and Trial
 
-The feature choices above are accepted. Resolve cycle-count midpoint rounding, Continue Existing direction tie-breaking/fallback presentation, configuration UI/range, adaptive sampling after quantization, and concrete delta-history structures during implementation. Validate edge transitions and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.
+The feature choices and deterministic numeric rules above are specified. Resolve fallback presentation, configuration UI/range, and concrete delta-history structures during implementation. Validate the analytic error checks, edge transitions, and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.

@@ -46,14 +46,14 @@ Chapters, audio analysis/conversion, multitrack editing, hardware output, automa
 - [x] Default configurable duration to three hours and generated output cap to 100,000 actions.
 - [x] Use small-edit deltas and affected-section history for bulk edits, saved-state checkpoints, and no restrictive initial edit-count limit.
 
-Engineering details such as midpoint rounding, direction tie-breaking, configuration presentation, and concrete history structures can be resolved during implementation without reopening these accepted choices.
+Midpoint rounding, direction tie-breaking, and quantized sampling are specified in DESIGN.md. Configuration presentation and concrete history structures can be resolved during implementation without reopening accepted choices.
 
 ## Milestones and Tasks
 
 ### 1. Design and Test Cases
 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
-- [ ] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests.
+- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Tests themselves remain to be implemented.
 - [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
 - [ ] Establish generation, rounding, conflict, and atomic-edit test cases.
 

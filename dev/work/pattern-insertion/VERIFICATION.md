@@ -73,6 +73,72 @@ These cases specify expected results; none has been executed against a pattern g
 - [ ] Saving records a checkpoint; undo/redo update dirty state accurately, and opening/creating another document does not reuse old history.
 - [ ] Small edits store deltas and bulk edits retain affected sections, not full-document snapshots per operation; measure memory across repeated large insertions and undo/redo without a restrictive edit-count cap.
 
+## Feature Test Case Matrix
+
+**Status:** Specified, not implemented or executed. IDs identify the intended automated tests; they are not passing-test claims. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
+
+### Generation and Rounding
+
+| ID | Input | Expected result |
+| --- | --- | --- |
+| G01 | Triangle, start 1000 ms, one cycle in 2000 ms | Exactly `(1000,0), (2000,100), (3000,0)`; effective cadence 30 cycles/minute. |
+| G02 | Fast-up/slow-down, same timing, default 25% rise | Exactly `(1000,0), (1500,100), (3000,0)`; cadence unchanged from G01. |
+| G03 | Triangle, range 20-80, two cycles in 4000 ms from 0 | Exactly `(0,20), (1000,80), (2000,20), (3000,80), (4000,20)`; shared boundary at 2000 appears once. |
+| G04 | Triangle, three cycles in 1000 ms from 1000 | Exact seven-point fixture in Deterministic Numeric Cases; final timestamp 2000 ms, no accumulated rounded-period drift. |
+| G05 | Observed 12 cycles/30 seconds, output 12 seconds | Suggest five whole cycles; effective cadence 25 cycles/minute versus observed 24. Direct override to four yields 20 cycles/minute and a 3000 ms period. |
+| G06 | Observed one cycle/2 seconds; output 5 seconds, then 7 seconds | Suggested counts three and four (exact-half rounds upward), not midpoint-to-even. Positive sub-half estimates suggest one. |
+| G07 | Start 1.2345 seconds; output 2.0005 seconds, one triangle cycle | Quantized start 1235, duration 2001; points `(1235,0), (2236,100), (3236,0)`. Half-period rounds upward; authoritative endpoint remains exact. |
+| G08 | Cosine, one cycle in 1000 ms, range 0-100 | Mandatory min/max/end present, additional samples generated, final saved polyline satisfies the continuous one-unit error bound; independent oracle evaluates error extrema. |
+| G09 | Continue Existing, ascending/descending/flat/peak fixtures | Match the phase/value/direction cases in Deterministic Numeric Cases; repeat inputs yield identical output. No extrapolation or manufactured in-range value on fallback. |
+| G10 | One triangle cycle over 3 hours, then over 3 hours + 1 ms | Default duration limit accepts the first and rejects the second. Raising the configured limit permits the second if all other bounds hold. No media-duration check applies. |
+| G11 | Triangle, range 0-100, 49,999 cycles in 2,000,000 ms; then 50,000 cycles | First has 99,999 mandatory actions and fits the cap; second requires 100,001 and is rejected before application. Cap counts generated points before boundary suppression. |
+| G12 | Zero/negative counts/time, fractional output count, nonfinite input, invalid range, overflow, quantization collisions | Each invalid input produces a validation failure and no candidate application. Test each failure separately; never silently clamp unsafe counts or relax tolerance. |
+| G13 | Empty/new script, triangle from 70,000 to 72,000 ms, loaded video ends at 10,000 ms | Full candidate ends at 72,000; generation is identical with no video. Applying expands timeline reach without changing the media duration. |
+
+For G08 use an independent mathematical error oracle, not the generator's own acceptance function. Check both unshifted and continued/phase-shifted curves after integer rounding. Do not require one exact adaptive sample count unless the deterministic refinement contract dictates it.
+
+### Conflict Fixtures
+
+Use generated candidate `P = [(1000,0), (2000,100), (3000,0)]` and section `[1000,3000]`.
+
+Use populated destination:
+
+```text
+S = [(0,10), (1000,20), (1500,30), (2000,40),
+	(2500,50), (3000,60), (4000,70)]
+```
+
+| ID | Input/choice | Expected result |
+| --- | --- | --- |
+| C01 | Empty destination, apply P | No conflict prompt; exact result P. |
+| C02 | Destination `[(0,10), (4000,70)]`, apply P | No prompt despite crossing interpolation; result `[(0,10), (1000,0), (2000,100), (3000,0), (4000,70)]`. |
+| C03 | Destination `[(0,10), (1000,20), (3000,60), (4000,70)]`, apply P | Boundary-only values do not prompt; result `[(0,10), (1000,20), (2000,100), (3000,60), (4000,70)]`. Preview shows changed edge shape, not guaranteed smoothness. |
+| C04 | S with P, Stop or close conflict dialog | Conflict reported for interior timestamps 1500, 2000, 2500; original S unchanged. Stop and closing are tested independently. |
+| C05 | S with P, Replace | Result `[(0,10), (1000,20), (2000,100), (3000,60), (4000,70)]`; no duplicate endpoints, outside actions unchanged. |
+| C06 | S with P, Merge / Keep Existing | Result S; generated interior value at 2000 loses. No action change means no history entry or new dirty state. |
+| C07 | S with P, Merge / Use New | Result `[(0,10), (1000,20), (1500,30), (2000,100), (2500,50), (3000,60), (4000,70)]`; existing boundaries win irrespective of the interior option. |
+| C08 | Destination `[(0,10), (1500,30), (2000,100), (4000,70)]`, Merge | Conflict due to interior points; no differing-position collision sub-prompt needed. Result `[(0,10), (1000,0), (1500,30), (2000,100), (3000,0), (4000,70)]`; equal pair deduplicates. |
+| C09 | One destination boundary present, other absent | Preserve only the present boundary; generate the absent endpoint. Exercise start-only and end-only cases. |
+| C10 | Choose Use New, reopen conflict dialog on another insertion | Use New remains selected; choosing Keep Existing then reopening remembers Keep Existing. Do not assert a particular first-use default. |
+
+### Atomic Edits and History
+
+| ID | Setup/action | Expected result |
+| --- | --- | --- |
+| A01 | Preview P against S; cancel or Stop | Actions, root metadata, selection, dirty flag, undo/redo stacks, and saved checkpoint all unchanged. No ScriptChanged event. |
+| A02 | Apply C05 to a saved document with metadata/version/range/inverted/custom fields | Entire C05 result committed, one history entry and one ScriptChanged notification; valid selection/drag state, dirty flag true, preserved root properties on save/reload. No intermediate result exposed to event observers. |
+| A03 | Validate candidate with unsorted/duplicate timestamps or an invalid position before applying | Fail before any destination mutation, history update, dirty change, or event. Invalid candidate construction does not partially remove S's interior values. |
+| A04 | Preview S, then manually add `(1750,90)` before Apply | Old snapshot is not committed. Recompute/invalidate preview and conflict information; cancelling leaves the newer document, including the manual point, intact. |
+| A05 | Apply C05, then Undo and Redo | Undo restores S exactly; Redo restores C05 exactly, both retaining metadata. Dirty returns to saved state on Undo and becomes true on Redo. Each operation refreshes timeline/selection safely. |
+| A06 | Pattern insertion, manual insertion, deletion, completed drag | Undo all four in reverse order and redo all four in forward order. Pattern and whole drag are each one history entry; mouse-move intermediates are not entries. |
+| A07 | Undo an edit, preview/cancel/Stop, then commit a new manual edit | Preview/cancel/Stop preserve redo. The new committed edit clears redo; previous history remains undoable. |
+| A08 | Save after insertion, Undo, Redo, then branch with a new edit | Undo is dirty, Redo to the saved checkpoint is clean; branching away does not accidentally match a saved checkpoint merely because stack lengths match. |
+| A09 | New/Open after history has entries; cancel Open separately | Successfully switching documents resets history and saved checkpoint appropriately. Cancelling Open leaves existing history/document unchanged. |
+| A10 | Apply no-op C06 while clean or with existing redo history | No new history entry/event/dirty change and redo remains available. Conflict-option preference may still be remembered independently of action history. |
+| A11 | Apply G13, Undo, Redo with a shorter loaded video | Timeline includes the generated endpoint after Apply/Redo and reclamps after Undo; media duration remains unchanged throughout. |
+
+History fixtures should observe action contents and notifications, not depend on an internal history implementation. Add a large-script memory check confirming small edits retain deltas and bulk edits retain only affected data. No physical device or live mpv process is required for pure generation/application tests; WinForms presentation and timeline refresh can be checked separately.
+
 ## Manual Editor Checks
 
 - [ ] Generate into a new document and a loaded script, with and without mpv attached.

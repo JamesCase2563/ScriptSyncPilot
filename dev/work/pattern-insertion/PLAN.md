@@ -55,7 +55,7 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
 - [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Tests themselves remain to be implemented.
 - [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
-- [ ] Establish generation, rounding, conflict, and atomic-edit test cases.
+- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Executable feature tests and passing results remain pending implementation.
 
 ### 2. Generation and Application Logic
 

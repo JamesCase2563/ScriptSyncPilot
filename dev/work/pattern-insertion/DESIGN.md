@@ -107,6 +107,8 @@ Capture insertion time when opening the tool. Preview is non-destructive; it mus
 
 On successful application, emit one coherent ScriptChanged notification, refresh the timeline limits, and clear/reconcile stale selection and drag indices. Cancel, validation failures, and Stop must not mark the document dirty. No mpv connection is required.
 
+If the resolved action list is identical to the current list, application is a no-op: do not emit ScriptChanged, add a history entry, change the dirty flag, or clear redo. Remembering a dialog preference is independent of document action history.
+
 ## Undo and Redo
 
 Include a proper editor action-history stack, not a one-off insertion rollback. Users can undo and redo multiple edits. A new committed edit after undo clears the redo stack; preview, cancellation, and Stop are not edits and do not clear it. This is the conventional user expectation.

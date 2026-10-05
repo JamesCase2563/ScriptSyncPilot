@@ -1,6 +1,6 @@
 # Pattern Insertion Verification
 
-**Status:** Acceptance checks drafted; implementation and behavior tests not run.
+**Status:** Pure generator and conflict-planner tests implemented; candidate application, history, and manual UI verification pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The accepted feature decisions define the checks below; engineering details should be recorded as implementation proceeds.
 
@@ -40,7 +40,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The accepted feature decisions defi
 
 ## Deterministic Numeric Cases
 
-These cases specify expected results; none has been executed against a pattern generator yet.
+These cases specify expected results. Core generation/rounding/continuation/analytic error checks now have executable tests; application-specific checks remain pending. See results below.
 
 - [ ] Suggested counts of 2.5 and 3.5 round to 3 and 4, respectively; a positive estimate of 0.4 suggests one. Direct integer overrides are unchanged.
 - [ ] Captured start 1.2345 seconds becomes 1235 ms; duration 0.0005 seconds becomes 1 ms; duration 0.0004 seconds is rejected. Integer positions 50.5 and 51.5 become 51 and 52.
@@ -75,7 +75,7 @@ These cases specify expected results; none has been executed against a pattern g
 
 ## Feature Test Case Matrix
 
-**Status:** Specified, not implemented or executed. IDs identify the intended automated tests; they are not passing-test claims. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
+**Status:** Generator coverage implemented in PatternGeneratorTests; conflict-analysis/candidate portions of C01-C09 in PatternInsertionPlanTests. C10 dialog preference persistence and A application/history cases remain pending. IDs identify verification scenarios, not a claim that the complete insertion feature passes. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
 
 ### Generation and Rounding
 
@@ -91,7 +91,7 @@ These cases specify expected results; none has been executed against a pattern g
 | G08 | Cosine, one cycle in 1000 ms, range 0-100 | Mandatory min/max/end present, additional samples generated, final saved polyline satisfies the continuous one-unit error bound; independent oracle evaluates error extrema. |
 | G09 | Continue Existing, ascending/descending/flat/peak fixtures | Match the phase/value/direction cases in Deterministic Numeric Cases; repeat inputs yield identical output. No extrapolation or manufactured in-range value on fallback. |
 | G10 | One triangle cycle over 3 hours, then over 3 hours + 1 ms | Default duration limit accepts the first and rejects the second. Raising the configured limit permits the second if all other bounds hold. No media-duration check applies. |
-| G11 | Triangle, range 0-100, 49,999 cycles in 2,000,000 ms; then 50,000 cycles | First has 99,999 mandatory actions and fits the cap; second requires 100,001 and is rejected before application. Cap counts generated points before boundary suppression. |
+| G11 | Triangle, range 0-100, 49,999 cycles in 10,000,000 ms; then 50,000 cycles | First has 99,999 mandatory actions and fits the cap; second requires 100,001 and is rejected before application. Cap counts generated points before boundary suppression. The longer timeframe isolates size validation from the independent precision limit. |
 | G12 | Zero/negative counts/time, fractional output count, nonfinite input, invalid range, overflow, quantization collisions | Each invalid input produces a validation failure and no candidate application. Test each failure separately; never silently clamp unsafe counts or relax tolerance. |
 | G13 | Empty/new script, triangle from 70,000 to 72,000 ms, loaded video ends at 10,000 ms | Full candidate ends at 72,000; generation is identical with no video. Applying expands timeline reach without changing the media duration. |
 
@@ -165,4 +165,27 @@ dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.cspr
 
 Result: 11 passed, 0 failed, 0 skipped. Covered existing action edits, ordered load, empty documents, invalid JSON, lowercase action fields, unknown root-property preservation, and CSV output. This verifies current Common behavior, not pattern application or undo/redo.
 
-No feature verification results yet. Generator/application tests, manual checks, limitations, and PR reference will be recorded during implementation. Do not mark the feature acceptance criteria above as passed based on these baseline tests.
+### Pure Generator (2026-10-05)
+
+Implemented [PatternGenerator](../../../src/ScriptSyncPilot.Common/PatternGenerator.cs) and [PatternGeneratorTests](../../../tests/ScriptSyncPilot.Common.Tests/PatternGeneratorTests.cs). Focused generator tests passed, followed by the complete suite and consumer build:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --nologo
+dotnet build ScriptSyncPilot.slnx --nologo
+```
+
+Results: 40 tests passed, 0 failed, 0 skipped (29 generator cases plus 11 existing persistence cases). Solution build succeeded, including Common, both desktop consumers, and tests.
+
+Generator coverage includes exact triangle/asymmetric fixtures, custom ratios/ranges, observed/effective cadence, midpoint rounding, non-accumulating fractional periods, whole-cycle endpoints, continuation direction/fallback, independent analytic cosine-error checks, repeated-input determinism, duration/action limits, precision failures, source immutability, and read-only results.
+
+The generator has no media-duration input and does not modify actions or apply boundary/conflict rules. C/A application/history cases and manual editor acceptance checks are not implemented or passed by these tests. Nonfinite inputs are unrepresentable through the decimal timing API; trigonometric evaluation uses validated finite values. Actual API upload limits and UI sampling/memory trial remain unverified. PR reference: pending.
+
+### Conflict Planning (2026-10-05)
+
+Implemented [PatternInsertionPlan](../../../src/ScriptSyncPilot.Common/PatternInsertionPlan.cs) and [planner tests](../../../tests/ScriptSyncPilot.Common.Tests/PatternInsertionPlanTests.cs).
+
+Focused planner run: 21 passed. Full Common suite: 61 passed, 0 failed, 0 skipped (21 planner, 29 generator, 11 persistence). `dotnet build ScriptSyncPilot.slnx --nologo` succeeded for both desktop consumers and tests.
+
+Verified candidate results for empty/crossing/boundary-only destinations, interior conflict reporting, Stop, Replace, both Merge choices, equal-pair deduplication, one-sided boundary preservation, and no-op detection. Also verified copied snapshots remain stable after caller changes, results are read-only, invalid actions/policies are rejected, and repeated resolution does not mutate source scripts.
+
+This covers pure conflict/candidate semantics of C01-C09, not UI prompts or cancellation/history side effects. C10 preference memory, stale-snapshot checks at commit time, metadata-preserving application, notifications, undo/redo, and UI remain pending. No candidate is applied to a document by the planner.

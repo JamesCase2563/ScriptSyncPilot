@@ -1,8 +1,8 @@
 # Pattern Insertion Plan
 
-**Status:** Feature design agreed; implementation not started.
+**Status:** In progress; pure generation and conflict planning implemented and tested. Application/history/UI pending.
 **Selected:** 2026-10-04.
-**Affected projects:** FunscriptEditor; Common if a narrowly scoped action-edit API is needed. HandySync behavior is outside scope.
+**Affected projects:** Common (pure generation and tests), FunscriptEditor (future application/UI). HandySync behavior is outside scope.
 
 Source: [editor backlog](../../FunscriptEditor/BACKLOG.md). Details: [design](DESIGN.md) and [verification](VERIFICATION.md).
 
@@ -53,15 +53,15 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 ### 1. Design and Test Cases
 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
-- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Tests themselves remain to be implemented.
+- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Generator tests are implemented; application/history tests remain pending.
 - [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
-- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Executable feature tests and passing results remain pending implementation.
+- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Pure generator coverage is implemented; conflict/atomic-edit coverage awaits those components.
 
 ### 2. Generation and Application Logic
 
-- [ ] Implement a pure profile generator independent of WinForms and mpv.
-- [ ] Validate inputs, generate deterministic millisecond actions, and reject unsafe sizes/quantization.
-- [ ] Compute conflict information and candidate Stop/Replace/Merge results without mutation.
+- [x] Implement a pure profile generator independent of WinForms and mpv in Common's PatternGenerator.
+- [x] Validate inputs, generate deterministic millisecond actions, and reject unsafe sizes/quantization, with focused generator tests.
+- [x] Compute conflict information and candidate Stop/Replace/Merge results without mutation using Common's PatternInsertionPlan, with exact-fixture and snapshot-isolation tests.
 - [ ] Apply the chosen result as one coherent edit while preserving metadata and outside actions.
 - [ ] Implement action history shared by generated and manual edits, including saved-state checkpoints.
 
@@ -83,4 +83,4 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 ## Outcome
 
-Implementation, verification results, and PR reference: not yet available. This plan does not claim the feature is implemented.
+Pure generation and conflict planning are implemented without mutating the input script. See VERIFICATION.md for automated results. Committing a candidate, undo/redo, and editor integration remain outstanding; this does not claim the complete insertion feature is implemented. PR reference: not yet available.

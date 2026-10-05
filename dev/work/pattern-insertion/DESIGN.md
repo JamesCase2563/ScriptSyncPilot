@@ -1,6 +1,6 @@
 # Pattern Insertion Design
 
-**Status:** Agreed feature design; implementation not started. Engineering details below can be resolved during implementation and trial.
+**Status:** Agreed design; pure generation and conflict planning implemented. Candidate application, history, and UI remain pending.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
@@ -118,5 +118,21 @@ Pattern application is one history entry; manual insertion, deletion, and a comp
 Store deltas for small edits and retain affected sections for bulk changes rather than snapshotting the entire document on every edit. Do not impose a restrictive edit-count limit initially. Two integer fields occupy roughly eight bytes of raw action data: 100,000 actions are about 0.8 MB before overhead. Repeated full-document snapshots can nevertheless become large, and serialized files are larger than raw data. Measure practical history overhead during trial; implementation details must preserve the agreed undo/redo behavior.
 
 ## Implementation Details and Trial
+
+### Implemented Pure API
+
+Common's `PatternGenerator.Generate(PatternGenerationOptions, existingActions)` returns a `GeneratedPattern` with read-only actions, quantized start/end, effective cadence, resolved start phase, and an explicit Pattern Start fallback flag. It never mutates an existing Funscript or accesses UI, media, files, or hardware.
+
+Timing inputs are decimal seconds; cycle count is a positive integer. Options select profile, start mode, range, rise fraction, and a configurable duration ceiling. The 100,000-action cap is fixed initially. Helpers calculate observed cadence, suggested whole-cycle count, and duration from count/cadence. Callers do not pass media duration; generation cannot clip to a loaded video.
+
+Continuation validates a copied sorted/unique action snapshot. Generation errors are reported before returning a candidate. Decimal timing uses midpoint-away-from-zero rounding; analytic full-interval error checks refine quantized linear/cosine segments chronologically. Application-specific boundary suppression and collision handling are deliberately not part of generation.
+
+### Implemented Conflict Planner
+
+`PatternInsertionPlan.Create(existingActions, generatedPattern)` validates and copies both inputs. It exposes original/generated snapshots, interior conflicting actions, differing-value interior collisions, and flags for preserved start/end boundaries. `HasConflicts` indicates whether a future UI should ask Stop/Replace/Merge; `RequiresMergeChoice` indicates differing values at identical interior timestamps. Crossing lines and boundary-only actions do not set those flags.
+
+`Resolve(choice, mergeChoice)` builds a read-only complete action candidate without touching the source Funscript, metadata, dirty state, or history. Stop returns the original snapshot with HasChanges false. Replace removes only interior actions; Merge combines timestamps and selects Keep Existing or Use New for collisions. Existing endpoints are retained for either policy. Identical values deduplicate; HasChanges compares the full result to the captured original so a no-op remains detectable.
+
+Inputs must contain valid, sorted, unique timestamps. Generated actions must span StartMs/EndMs and fit the generation cap. Plans remain stable when caller collections change later; the future apply layer must verify the original snapshot is still current before committing. The planner does not present dialogs, remember preferences, commit candidates, or implement undo.
 
 The feature choices and deterministic numeric rules above are specified. Resolve fallback presentation, configuration UI/range, and concrete delta-history structures during implementation. Validate the analytic error checks, edge transitions, and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.

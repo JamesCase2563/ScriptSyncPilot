@@ -195,7 +195,6 @@ public sealed class MainForm : Form
         bar.Controls.Add(new Label { Text = "  mpv IPC pipe:", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
         bar.Controls.Add(_pipeBox);
         bar.Controls.Add(_attachButton);
-        bar.Controls.Add(_playPauseButton);
         bar.Controls.Add(_timeLabel);
         return bar;
     }
@@ -234,6 +233,7 @@ public sealed class MainForm : Form
         bar.Controls.Add(_back10SButton);
         bar.Controls.Add(_back1SButton);
         bar.Controls.Add(_backFrameButton);
+        bar.Controls.Add(_playPauseButton);
         bar.Controls.Add(_forwardFrameButton);
         bar.Controls.Add(_forward1SButton);
         bar.Controls.Add(_forward10SButton);

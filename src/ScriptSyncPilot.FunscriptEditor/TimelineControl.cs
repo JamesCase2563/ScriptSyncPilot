@@ -42,6 +42,9 @@ public sealed class TimelineControl : Control
     public event EventHandler? ZoomChanged;
 
     [System.ComponentModel.Browsable(false)]
+    public double PlayheadSeconds => _playheadSeconds;
+
+    [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public double PixelsPerSecond
     {
@@ -96,6 +99,24 @@ public sealed class TimelineControl : Control
         _selectedIndex = null;
         _draggingIndex = null;
         ReclampZoom();
+    }
+
+    public void NotifyActionsReplaced(int preferredSelectionAt)
+    {
+        _draggingIndex = null;
+        _scrubbing = false;
+        _selectedIndex = null;
+        for (var index = 0; index < _script.Actions.Count; index++)
+        {
+            if (_script.Actions[index].At < preferredSelectionAt) continue;
+            _selectedIndex = index;
+            break;
+        }
+        if (_selectedIndex is null && _script.Actions.Count > 0)
+            _selectedIndex = _script.Actions.Count - 1;
+
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
     }
 
     public void SetPlayhead(double seconds)

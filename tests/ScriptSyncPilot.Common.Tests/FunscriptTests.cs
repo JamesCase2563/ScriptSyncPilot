@@ -62,6 +62,42 @@ public sealed class FunscriptTests
     }
 
     [TestMethod]
+    public void ReplaceActionsAtomically_ReplacesWholeListAndDetectsNoOp()
+    {
+        var script = new Funscript();
+        script.AddOrReplace(new FunscriptAction(0, 0));
+        script.AddOrReplace(new FunscriptAction(1000, 100));
+        var replacement = new[] { new FunscriptAction(1000, 25), new FunscriptAction(2000, 75) };
+
+        Assert.IsTrue(script.ReplaceActionsAtomically(replacement));
+        CollectionAssert.AreEqual(replacement, script.Actions.ToArray());
+        Assert.IsFalse(script.ReplaceActionsAtomically(replacement));
+    }
+
+    [TestMethod]
+    public void ReplaceActionsAtomically_InvalidCandidateLeavesExistingActionsUnchanged()
+    {
+        var script = new Funscript();
+        script.AddOrReplace(new FunscriptAction(0, 10));
+        script.AddOrReplace(new FunscriptAction(1000, 90));
+        var original = script.Actions.ToArray();
+        var invalidCandidates = new[]
+        {
+            new[] { new FunscriptAction(1000, 20), new FunscriptAction(0, 30) },
+            new[] { new FunscriptAction(0, 20), new FunscriptAction(0, 30) },
+            new[] { new FunscriptAction(-1, 20) },
+            new[] { new FunscriptAction(0, -1) },
+            new[] { new FunscriptAction(0, 101) },
+        };
+
+        foreach (var candidate in invalidCandidates)
+        {
+            Assert.ThrowsException<ArgumentException>(() => script.ReplaceActionsAtomically(candidate));
+            CollectionAssert.AreEqual(original, script.Actions.ToArray());
+        }
+    }
+
+    [TestMethod]
     public void Load_SortsUnorderedActions()
     {
         var path = WriteInput("""
@@ -143,6 +179,34 @@ public sealed class FunscriptTests
 
         Assert.AreEqual(2, saved.RootElement.GetProperty("actions").GetArrayLength());
         Assert.AreEqual(new FunscriptAction(500, 50), Funscript.Load(path).Actions[1]);
+    }
+
+    [TestMethod]
+    public void ReplaceActionsAtomically_PreservesRootPropertiesThroughSave()
+    {
+        const string json = """
+            { "version": "1.0", "metadata": { "title": "keep" }, "inverted": true,
+              "actions": [{ "at": 0, "pos": 10 }, { "at": 4000, "pos": 70 }] }
+            """;
+        var script = Funscript.Load(WriteInput(json));
+        var pattern = PatternGenerator.Generate(new PatternGenerationOptions(1, 2, 1));
+        var candidate = PatternInsertionPlan.Create(script.Actions, pattern).Resolve(PatternConflictChoice.Replace);
+
+        Assert.IsTrue(script.ReplaceActionsAtomically(candidate.Actions));
+        CollectionAssert.AreEqual(new[]
+        {
+            new FunscriptAction(0, 10), new FunscriptAction(1000, 0),
+            new FunscriptAction(2000, 100), new FunscriptAction(3000, 0),
+            new FunscriptAction(4000, 70),
+        }, script.Actions.ToArray());
+        var path = Path.Combine(_directory, "replaced.funscript");
+        script.Save(path);
+        using var saved = JsonDocument.Parse(File.ReadAllText(path));
+
+        Assert.AreEqual("1.0", saved.RootElement.GetProperty("version").GetString());
+        Assert.AreEqual("keep", saved.RootElement.GetProperty("metadata").GetProperty("title").GetString());
+        Assert.IsTrue(saved.RootElement.GetProperty("inverted").GetBoolean());
+        CollectionAssert.AreEqual(candidate.Actions.ToArray(), Funscript.Load(path).Actions.ToArray());
     }
 
     [TestMethod]

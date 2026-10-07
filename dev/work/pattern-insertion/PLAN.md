@@ -1,6 +1,6 @@
 # Pattern Insertion Plan
 
-**Status:** In progress; pure generation and conflict planning implemented and tested. Application/history/UI pending.
+**Status:** In progress; generation, planning, and single-timeline editor application implemented. Undo/redo and manual UI verification pending.
 **Selected:** 2026-10-04.
 **Affected projects:** Common (pure generation and tests), FunscriptEditor (future application/UI). HandySync behavior is outside scope.
 
@@ -62,15 +62,16 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 - [x] Implement a pure profile generator independent of WinForms and mpv in Common's PatternGenerator.
 - [x] Validate inputs, generate deterministic millisecond actions, and reject unsafe sizes/quantization, with focused generator tests.
 - [x] Compute conflict information and candidate Stop/Replace/Merge results without mutation using Common's PatternInsertionPlan, with exact-fixture and snapshot-isolation tests.
-- [ ] Apply the chosen result as one coherent edit while preserving metadata and outside actions.
+- [x] Provide a validated atomic Common action-replacement API and verify a Replace candidate preserves outside actions/metadata.
+- [x] Wire candidate commit into the editor as one coherent edit with one notification, dirty update, selection/extent refresh, and conflict-dialog behavior.
 - [ ] Implement action history shared by generated and manual edits, including saved-state checkpoints.
 
 ### 3. Editor Workflow
 
-- [ ] Add pattern controls/settings, selectable phase, observed/effective cadence, and preview.
-- [ ] Capture insertion time, detect document/playhead changes, and keep preview/apply consistent.
-- [ ] Prompt only on conflicts; cancel/Stop leave document and dirty state unchanged.
-- [ ] Refresh timeline state and validate load/edit/save compatibility.
+- [x] Add pattern controls/settings, selectable phase, observed/effective cadence, and preview.
+- [x] Capture insertion time for the modal preview/apply workflow.
+- [x] Prompt only on conflicts; cancel/Stop leave the document unchanged.
+- [x] Refresh timeline state and preserve root metadata through the Common commit API.
 - [ ] Wire multilevel Undo/Redo controls and manual edit history; new committed edits clear redo.
 
 ### 4. Verification and Completion
@@ -83,4 +84,4 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 ## Outcome
 
-Pure generation and conflict planning are implemented without mutating the input script. See VERIFICATION.md for automated results. Committing a candidate, undo/redo, and editor integration remain outstanding; this does not claim the complete insertion feature is implemented. PR reference: not yet available.
+Generation, conflict planning, and editor candidate application are implemented. Common tests and a full solution build pass; see VERIFICATION.md. Undo/redo and manual UI verification remain outstanding, so the complete feature is not yet verified. PR reference: not yet available.

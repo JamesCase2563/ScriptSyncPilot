@@ -1,8 +1,8 @@
 # Pattern Insertion Verification
 
-**Status:** Pure generator and conflict-planner tests implemented; candidate application, history, and manual UI verification pending.
+**Status:** Generator, planner, and atomic model-commit tests implemented; editor workflow is wired. Undo/redo and manual UI verification remain pending.
 
-See [plan](PLAN.md) and [design](DESIGN.md). The accepted feature decisions define the checks below; engineering details should be recorded as implementation proceeds.
+See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include workflow behavior that is implemented but still requires manual UI verification.
 
 ## Acceptance Criteria
 
@@ -126,8 +126,8 @@ S = [(0,10), (1000,20), (1500,30), (2000,40),
 | ID | Setup/action | Expected result |
 | --- | --- | --- |
 | A01 | Preview P against S; cancel or Stop | Actions, root metadata, selection, dirty flag, undo/redo stacks, and saved checkpoint all unchanged. No ScriptChanged event. |
-| A02 | Apply C05 to a saved document with metadata/version/range/inverted/custom fields | Entire C05 result committed, one history entry and one ScriptChanged notification; valid selection/drag state, dirty flag true, preserved root properties on save/reload. No intermediate result exposed to event observers. |
-| A03 | Validate candidate with unsorted/duplicate timestamps or an invalid position before applying | Fail before any destination mutation, history update, dirty change, or event. Invalid candidate construction does not partially remove S's interior values. |
+| A02 | Apply C05 candidate to a saved Funscript with metadata/version/inverted fields using `ReplaceActionsAtomically` | Entire candidate replaces actions in the same Funscript instance, outside values and root properties persist through save/reload, no intermediate candidate is exposed. Editor event/history behavior remains pending. |
+| A03 | Commit unsorted/duplicate timestamps, negative time, invalid position, then a valid candidate | Each invalid candidate throws before mutation; original actions remain intact. The valid planner candidate commits as one collection replacement. Dirty/event/history integration remains pending. |
 | A04 | Preview S, then manually add `(1750,90)` before Apply | Old snapshot is not committed. Recompute/invalidate preview and conflict information; cancelling leaves the newer document, including the manual point, intact. |
 | A05 | Apply C05, then Undo and Redo | Undo restores S exactly; Redo restores C05 exactly, both retaining metadata. Dirty returns to saved state on Undo and becomes true on Redo. Each operation refreshes timeline/selection safely. |
 | A06 | Pattern insertion, manual insertion, deletion, completed drag | Undo all four in reverse order and redo all four in forward order. Pattern and whole drag are each one history entry; mouse-move intermediates are not entries. |
@@ -189,3 +189,24 @@ Focused planner run: 21 passed. Full Common suite: 61 passed, 0 failed, 0 skippe
 Verified candidate results for empty/crossing/boundary-only destinations, interior conflict reporting, Stop, Replace, both Merge choices, equal-pair deduplication, one-sided boundary preservation, and no-op detection. Also verified copied snapshots remain stable after caller changes, results are read-only, invalid actions/policies are rejected, and repeated resolution does not mutate source scripts.
 
 This covers pure conflict/candidate semantics of C01-C09, not UI prompts or cancellation/history side effects. C10 preference memory, stale-snapshot checks at commit time, metadata-preserving application, notifications, undo/redo, and UI remain pending. No candidate is applied to a document by the planner.
+
+### Atomic Candidate Commit (2026-10-05)
+
+Added `Funscript.ReplaceActionsAtomically` and focused model tests. A metadata round-trip test creates an actual PatternInsertionPlan Replace candidate and commits it into the loaded Funscript before saving.
+
+Focused commit tests: 3 passed. Full Common suite: 64 passed, 0 failed, 0 skipped (29 generator, 21 planner, 14 Funscript/persistence). `dotnet build ScriptSyncPilot.slnx --nologo` succeeded for Common, both desktop consumers, and tests.
+
+The validated Common commit primitive is verified. The planner itself remains nonmutating; its candidate is committed only by the editor workflow described below. Undo/redo remains unimplemented.
+
+### FunscriptEditor Workflow Integration (2026-10-06)
+
+Added the Edit > Insert Pattern workflow with profile/input controls, generated graph preview, observed/effective cadence summary, and modal Apply/Cancel. Interior conflicts open a resolution dialog with Stop/Replace/Merge, remembered Merge collision preference, and a preview of the resolved section. Candidate application uses `Funscript.ReplaceActionsAtomically`; actual changes raise one timeline ScriptChanged notification, refreshing dirty state/extent/selection, while no-op/cancel paths do not mutate the document.
+
+Verification run:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --nologo
+dotnet build ScriptSyncPilot.slnx --nologo
+```
+
+Results: all 64 Common tests passed and the full solution built, including HandySync, FunscriptEditor, and tests. This does not exercise the WinForms dialogs, visual boundary transitions, remembered-choice behavior across repeated interactions, or timeline updates in a running UI. Undo/redo is not implemented. Complete the manual editor checks above before declaring the feature verified.

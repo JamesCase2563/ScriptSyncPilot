@@ -1,6 +1,6 @@
 # Pattern Insertion Design
 
-**Status:** Agreed design; pure generation and conflict planning implemented. Candidate application, history, and UI remain pending.
+**Status:** Agreed design; pure generation, conflict planning, and single-timeline editor application implemented. Undo/redo and manual UI verification remain pending.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
@@ -99,13 +99,15 @@ Without a conflict, apply without a question, including insertion between two di
 
 Construct and validate the complete result before application. Do not replace the Funscript instance with an actions-only reconstruction, which would lose preserved root metadata. If Common needs a bulk edit API, keep it narrowly scoped and validate before modifying the existing list.
 
-## Editor Integration
+Common provides `Funscript.ReplaceActionsAtomically(candidate.Actions)`: it copies and validates the complete ordered action list before swapping it into the same Funscript instance. It preserves root extension data and returns `false` without mutation for an identical action list. The caller owns ScriptChanged/dirty notifications, preview staleness, selection, and undo/redo. This is the commit primitive; editor UI application and history integration are not implemented yet.
 
-Use a focused pattern tool with profile selection/settings, selectable starting phase, observation count/time, observed/effective cycles per minute, movement range, output timeframe/full-cycle count, preview, and Apply/Cancel. Reuse existing WinForms conventions.
+## Implemented Editor Integration
 
-Capture insertion time when opening the tool. Preview is non-destructive; it must show the same start/end/cadence that Apply will use. If the script changes while the tool is open, recompute conflicts or invalidate the preview; never apply an obsolete snapshot blindly. Moving video playback alone must not silently move the captured insertion point.
+The Edit > Insert Pattern tool provides profile selection/settings, selectable starting phase, observation count/time, observed/effective cycles per minute, movement range, output timeframe/full-cycle count, graph preview, and Insert/Cancel. It captures the timeline playhead and action snapshot when opened; the modal dialog prevents concurrent editing while previewing/applying.
 
-On successful application, emit one coherent ScriptChanged notification, refresh the timeline limits, and clear/reconcile stale selection and drag indices. Cancel, validation failures, and Stop must not mark the document dirty. No mpv connection is required.
+Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the modal tool is open does not move the captured insertion point. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result, remembers Keep Existing/Use New during the application session, and preserves boundary actions.
+
+Apply resolves a candidate through `PatternInsertionPlan` and commits it with `Funscript.ReplaceActionsAtomically`. On a real change, the editor emits one ScriptChanged notification, marking the document dirty and reclamping timeline limits; selection/drag state is refreshed. No-op candidates, Cancel, validation failures, and Stop do not mark the document dirty. No mpv connection is required.
 
 If the resolved action list is identical to the current list, application is a no-op: do not emit ScriptChanged, add a history entry, change the dirty flag, or clear redo. Remembering a dialog preference is independent of document action history.
 
@@ -117,7 +119,7 @@ Pattern application is one history entry; manual insertion, deletion, and a comp
 
 Store deltas for small edits and retain affected sections for bulk changes rather than snapshotting the entire document on every edit. Do not impose a restrictive edit-count limit initially. Two integer fields occupy roughly eight bytes of raw action data: 100,000 actions are about 0.8 MB before overhead. Repeated full-document snapshots can nevertheless become large, and serialized files are larger than raw data. Measure practical history overhead during trial; implementation details must preserve the agreed undo/redo behavior.
 
-## Implementation Details and Trial
+## Remaining Implementation Details and Trial
 
 ### Implemented Pure API
 
@@ -135,4 +137,4 @@ Continuation validates a copied sorted/unique action snapshot. Generation errors
 
 Inputs must contain valid, sorted, unique timestamps. Generated actions must span StartMs/EndMs and fit the generation cap. Plans remain stable when caller collections change later; the future apply layer must verify the original snapshot is still current before committing. The planner does not present dialogs, remember preferences, commit candidates, or implement undo.
 
-The feature choices and deterministic numeric rules above are specified. Resolve fallback presentation, configuration UI/range, and concrete delta-history structures during implementation. Validate the analytic error checks, edge transitions, and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.
+The feature choices and deterministic numeric rules above are specified. Concrete delta-history structures and any interaction refinements can be resolved during implementation. Manually validate analytic error appearance, edge transitions, dialog behavior, and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.

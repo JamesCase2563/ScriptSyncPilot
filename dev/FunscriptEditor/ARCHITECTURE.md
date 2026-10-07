@@ -21,6 +21,10 @@ Launch/attach transitions share a gate and disable connection buttons. Attach re
 
 Shutdown cancels/disposes the session, clears media duration, disables transport, and terminates owned mpv, not externally managed players. Failed attachment and active-session disconnect reuse cleanup.
 
+## Pattern Insertion
+
+Edit > Insert Pattern generates a candidate through Common's pure `PatternGenerator`, snapshots the captured playhead/script for its modal preview, and uses `PatternInsertionPlan` for conflict analysis and Stop/Replace/Merge candidates. Conflicts preview their resolved destination section; boundary actions are preserved. A chosen candidate is committed to the existing Funscript through `ReplaceActionsAtomically`, followed by one ScriptChanged notification. A no-op does not mark dirty. Manual UI verification and undo/redo history remain pending.
+
 ## Future Direction
 
 Keep editing, persistence, and playback ownership distinct. Extract session orchestration only when complexity/testability warrants it. See the [editor backlog](BACKLOG.md) and [shared backlog](../BACKLOG.md). Multitrack editing/richer project files are possibilities, not implemented capabilities.

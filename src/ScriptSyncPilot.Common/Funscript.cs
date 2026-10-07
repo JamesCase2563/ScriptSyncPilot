@@ -6,7 +6,7 @@ namespace ScriptSyncPilot.Common;
 /// <summary>A funscript: a time-ordered list of (time, position) actions.</summary>
 public sealed class Funscript
 {
-    private readonly List<FunscriptAction> _actions;
+    private List<FunscriptAction> _actions;
     private readonly Dictionary<string, JsonElement> _extensionData;
 
     /// <summary>Actions ordered by <see cref="FunscriptAction.At"/>. Read-only view; mutate via Add/Remove/Move/Update.</summary>
@@ -67,6 +67,24 @@ public sealed class Funscript
     }
 
     public void RemoveAt(int index) => _actions.RemoveAt(index);
+
+    /// <summary>Atomically replaces the action list after validating a complete sorted candidate. Preserves root extension data and returns false for a no-op.</summary>
+    public bool ReplaceActionsAtomically(IEnumerable<FunscriptAction> actions)
+    {
+        ArgumentNullException.ThrowIfNull(actions);
+        var replacement = actions.ToList();
+        for (var index = 0; index < replacement.Count; index++)
+        {
+            var action = replacement[index];
+            if (action.At < 0 || action.Pos is < 0 or > 100
+                || (index > 0 && replacement[index - 1].At >= action.At))
+                throw new ArgumentException("Actions must have nonnegative timestamps, valid positions, and strictly increasing times.", nameof(actions));
+        }
+
+        if (_actions.SequenceEqual(replacement)) return false;
+        _actions = replacement;
+        return true;
+    }
 
     private int FindInsertIndex(int at)
     {

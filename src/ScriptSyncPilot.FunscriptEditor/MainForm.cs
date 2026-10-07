@@ -116,7 +116,36 @@ public sealed class MainForm : Form
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("Exit", null, (_, _) => Close());
         menu.Items.Add(file);
+
+        var edit = new ToolStripMenuItem("Edit");
+        edit.DropDownItems.Add("Insert Pattern…", null, (_, _) => InsertPattern());
+        menu.Items.Add(edit);
         return menu;
+    }
+
+    private void InsertPattern()
+    {
+        var startMs = (int)Math.Round(_timeline.PlayheadSeconds * 1000, MidpointRounding.AwayFromZero);
+        using var dialog = new PatternInsertionDialog(startMs, _script.Actions);
+        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.GeneratedPattern is not { } generated)
+            return;
+
+        var plan = PatternInsertionPlan.Create(_script.Actions, generated);
+        var choice = PatternConflictChoice.Merge;
+        var mergeChoice = PatternMergeChoice.KeepExisting;
+        if (plan.HasConflicts)
+        {
+            using var conflictDialog = new PatternConflictDialog(plan);
+            if (conflictDialog.ShowDialog(this) != DialogResult.OK) return;
+            choice = conflictDialog.Choice;
+            mergeChoice = conflictDialog.MergeChoice;
+            if (choice == PatternConflictChoice.Stop) return;
+        }
+
+        var candidate = plan.Resolve(choice, mergeChoice);
+        if (!_script.ReplaceActionsAtomically(candidate.Actions)) return;
+
+        _timeline.NotifyActionsReplaced(generated.StartMs);
     }
 
     private Control BuildFilesBar()

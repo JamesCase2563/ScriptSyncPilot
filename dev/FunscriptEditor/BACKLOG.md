@@ -2,7 +2,7 @@
 
 ## Pattern Insertion Tool
 
-**Priority:** Selected next. **Status:** Feature design agreed; implementation not started.
+**Priority:** Selected next. **Status:** In progress; generator, conflict planner, and editor application integrated. Undo/redo and manual UI verification remain.
 
 Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
 

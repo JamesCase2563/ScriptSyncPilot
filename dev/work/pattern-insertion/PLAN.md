@@ -13,7 +13,7 @@ Let a user measure cadence from video, then insert a selectable repeated profile
 ## First-Version Scope
 
 - Work on the existing single movement timeline; no multitrack/project-format dependency.
-- Enter observed cycle count and elapsed seconds, including intervals lasting several minutes; display calculated cycles per minute.
+- Enter observed cycle count and observation start/end times (millisecond precision, pickable from the playhead), including intervals lasting several minutes; display calculated cycles per minute.
 - Select triangle, fast-up/slow-down, or slowed-direction-change profiles.
 - Set minimum/maximum position, starting phase, and profile settings. A future pattern editor may share the settings dialog.
 - Fit an integer count of whole cycles into the output timeframe, with no partial-cycle endings. Observation duration and output duration are distinct inputs.
@@ -21,7 +21,7 @@ Let a user measure cadence from video, then insert a selectable repeated profile
 - Suggest the nearest positive whole-cycle count automatically, allow direct editing, and show no rounding-policy controls.
 - Offer Continue Existing and Pattern Start; preserve existing section boundary points and preview resulting transitions.
 - Preview generated values and section extent without changing the document.
-- Apply at a captured playhead timestamp, with Stop/Replace/Merge choices only when destination values conflict.
+- Apply over explicit output start/end times (pickable from the playhead), with Stop/Replace/Merge choices only when destination values conflict. The tool window is modeless so video can be operated while editing.
 - Preserve values outside the destination section and all root JSON extension data.
 - Allow insertion beyond current script/timeline and media duration, including new/partly authored scripts and an unrelated loaded video. Do not clip the requested section to those extents.
 - Update selection/drag state, dirty indication, timeline extent, and scroll/zoom limits coherently after application.
@@ -69,7 +69,7 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 ### 3. Editor Workflow
 
 - [x] Add pattern controls/settings, selectable phase, observed/effective cadence, and preview.
-- [x] Capture insertion time for the modal preview/apply workflow.
+- [x] Modeless tool window with observation/output start/end inputs pickable from the playhead; Insert regenerates against the current script.
 - [x] Prompt only on conflicts; cancel/Stop leave the document unchanged.
 - [x] Refresh timeline state and preserve root metadata through the Common commit API.
 - [ ] Wire multilevel Undo/Redo controls and manual edit history; new committed edits clear redo.

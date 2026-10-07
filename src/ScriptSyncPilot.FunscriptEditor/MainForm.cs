@@ -43,6 +43,7 @@ public sealed class MainForm : Form
     private string? _activePipe;
     private bool _syncingZoom;
     private TimelineWheelFilter? _wheelFilter;
+    private PatternInsertionDialog? _patternDialog;
 
     public MainForm()
     {
@@ -125,27 +126,35 @@ public sealed class MainForm : Form
 
     private void InsertPattern()
     {
-        var startMs = (int)Math.Round(_timeline.PlayheadSeconds * 1000, MidpointRounding.AwayFromZero);
-        using var dialog = new PatternInsertionDialog(startMs, _script.Actions);
-        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.GeneratedPattern is not { } generated)
+        if (_patternDialog is { IsDisposed: false })
+        {
+            _patternDialog.Activate();
             return;
+        }
 
+        _patternDialog = new PatternInsertionDialog(() => _timeline.PlayheadSeconds, () => _script.Actions, ApplyPattern);
+        _patternDialog.FormClosed += (_, _) => _patternDialog = null;
+        _patternDialog.Show(this);
+    }
+
+    private bool ApplyPattern(GeneratedPattern generated)
+    {
         var plan = PatternInsertionPlan.Create(_script.Actions, generated);
         var choice = PatternConflictChoice.Merge;
         var mergeChoice = PatternMergeChoice.KeepExisting;
         if (plan.HasConflicts)
         {
             using var conflictDialog = new PatternConflictDialog(plan);
-            if (conflictDialog.ShowDialog(this) != DialogResult.OK) return;
+            if (conflictDialog.ShowDialog((IWin32Window?)_patternDialog ?? this) != DialogResult.OK) return false;
             choice = conflictDialog.Choice;
             mergeChoice = conflictDialog.MergeChoice;
-            if (choice == PatternConflictChoice.Stop) return;
+            if (choice == PatternConflictChoice.Stop) return false;
         }
 
         var candidate = plan.Resolve(choice, mergeChoice);
-        if (!_script.ReplaceActionsAtomically(candidate.Actions)) return;
-
-        _timeline.NotifyActionsReplaced(generated.StartMs);
+        if (_script.ReplaceActionsAtomically(candidate.Actions))
+            _timeline.NotifyActionsReplaced(generated.StartMs);
+        return true;
     }
 
     private Control BuildFilesBar()

@@ -4,11 +4,14 @@ namespace ScriptSyncPilot.FunscriptEditor;
 
 internal sealed class PatternInsertionDialog : Form
 {
-    private readonly int _startMs;
-    private readonly FunscriptAction[] _existingActions;
+    private readonly Func<double> _playheadSeconds;
+    private readonly Func<IReadOnlyList<FunscriptAction>> _currentActions;
+    private readonly Func<GeneratedPattern, bool> _insert;
     private readonly NumericUpDown _observedCycles = Number(12, 1, 1_000_000, 0);
-    private readonly NumericUpDown _observedSeconds = Number(30, 0.001m, 1_000_000, 3, 0.1m);
-    private readonly NumericUpDown _durationSeconds = Number(12, 0.001m, 10_800, 3, 0.25m);
+    private readonly NumericUpDown _observationStart = TimeNumber();
+    private readonly NumericUpDown _observationEnd = TimeNumber();
+    private readonly NumericUpDown _outputStart = TimeNumber();
+    private readonly NumericUpDown _outputEnd = TimeNumber();
     private readonly NumericUpDown _cycleCount = Number(5, 1, 100_000, 0);
     private readonly NumericUpDown _minimumPosition = Number(0, 0, 99, 0);
     private readonly NumericUpDown _maximumPosition = Number(100, 1, 100, 0);
@@ -23,17 +26,28 @@ internal sealed class PatternInsertionDialog : Form
     public GeneratedPattern? GeneratedPattern { get; private set; }
     public PatternGenerationOptions? GenerationOptions { get; private set; }
 
-    public PatternInsertionDialog(int startMs, IReadOnlyList<FunscriptAction> existingActions)
+    public PatternInsertionDialog(
+        Func<double> playheadSeconds,
+        Func<IReadOnlyList<FunscriptAction>> currentActions,
+        Func<GeneratedPattern, bool> insert)
     {
-        _startMs = startMs;
-        _existingActions = existingActions.ToArray();
+        _playheadSeconds = playheadSeconds;
+        _currentActions = currentActions;
+        _insert = insert;
 
         Text = "Insert Movement Pattern";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        ClientSize = new Size(820, 570);
+        ShowInTaskbar = false;
+        ClientSize = new Size(900, 600);
+
+        var playhead = PlayheadValue();
+        _observationStart.Value = playhead;
+        _observationEnd.Value = Math.Min(_observationEnd.Maximum, playhead + 30);
+        _outputStart.Value = playhead;
+        _outputEnd.Value = Math.Min(_outputEnd.Maximum, playhead + 12);
 
         _profile.Items.AddRange(["Triangle", "Fast up / slow down", "Slow at direction changes"]);
         _profile.SelectedIndex = 0;
@@ -42,7 +56,7 @@ internal sealed class PatternInsertionDialog : Form
 
         var inputs = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 2,
             Padding = new Padding(10),
@@ -50,13 +64,15 @@ internal sealed class PatternInsertionDialog : Form
         inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         inputs.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
+        AddTimeInput(inputs, "Observation start (s)", _observationStart);
+        AddTimeInput(inputs, "Observation end (s)", _observationEnd);
         AddInput(inputs, "Observed full cycles", _observedCycles);
-        AddInput(inputs, "Observation time (seconds)", _observedSeconds);
         var suggest = new Button { Text = "Suggest cycle count", AutoSize = true, Anchor = AnchorStyles.Left };
         suggest.Click += (_, _) => SuggestCycleCount();
         inputs.Controls.Add(suggest, 0, inputs.RowCount++);
         inputs.SetColumnSpan(suggest, 2);
-        AddInput(inputs, "Output timeframe (seconds)", _durationSeconds);
+        AddTimeInput(inputs, "Output start (s)", _outputStart);
+        AddTimeInput(inputs, "Output end (s)", _outputEnd);
         AddInput(inputs, "Output full cycles", _cycleCount);
         AddInput(inputs, "Profile", _profile);
         AddInput(inputs, "Start mode", _startMode);
@@ -72,7 +88,7 @@ internal sealed class PatternInsertionDialog : Form
         preview.Controls.Add(_summary, 0, 1);
 
         var body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360));
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         body.Controls.Add(inputs, 0, 0);
         body.Controls.Add(preview, 1, 0);
@@ -81,9 +97,11 @@ internal sealed class PatternInsertionDialog : Form
         suggestPreview.Click += (_, _) => GeneratePreview();
         _applyButton.Click += (_, _) =>
         {
-            if (GeneratePreview()) DialogResult = DialogResult.OK;
+            // Regenerate against the current script; it may have been edited since the preview.
+            if (GeneratePreview() && GeneratedPattern is { } generated && _insert(generated)) Close();
         };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
+        var cancel = new Button { Text = "Close", AutoSize = true };
+        cancel.Click += (_, _) => Close();
         var footer = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
@@ -101,13 +119,8 @@ internal sealed class PatternInsertionDialog : Form
 
         _profile.SelectedIndexChanged += (_, _) => InvalidatePreview();
         _startMode.SelectedIndexChanged += (_, _) => InvalidatePreview();
-        foreach (var input in new[] { _observedCycles, _observedSeconds, _durationSeconds, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction })
+        foreach (var input in new[] { _observedCycles, _observationStart, _observationEnd, _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours })
             input.ValueChanged += (_, _) => InvalidatePreview();
-        _maximumHours.ValueChanged += (_, _) =>
-        {
-            _durationSeconds.Maximum = _maximumHours.Value * 3600m;
-            InvalidatePreview();
-        };
         _profile.SelectedIndexChanged += (_, _) => _riseFraction.Enabled = _profile.SelectedIndex == 1;
     }
 
@@ -121,18 +134,47 @@ internal sealed class PatternInsertionDialog : Form
         Width = 140,
     };
 
+    private static NumericUpDown TimeNumber() => Number(0, 0, 1_000_000, 3, 0.1m);
+
     private static void AddInput(TableLayoutPanel panel, string label, Control input)
     {
         var row = panel.RowCount++;
-        panel.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 6, 3) }, 0, row);
+        input.Anchor = AnchorStyles.Left;
+        panel.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 0, 6, 0) }, 0, row);
         panel.Controls.Add(input, 1, row);
+    }
+
+    private void AddTimeInput(TableLayoutPanel panel, string label, NumericUpDown input)
+    {
+        var pick = new Button { Text = "From playhead", AutoSize = true, Anchor = AnchorStyles.Left };
+        pick.Click += (_, _) => input.Value = Math.Clamp(PlayheadValue(), input.Minimum, input.Maximum);
+        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+        input.Anchor = AnchorStyles.Left;
+        row.Controls.Add(input);
+        row.Controls.Add(pick);
+        AddInput(panel, label, row);
+    }
+
+    private decimal PlayheadValue() =>
+        Math.Max(0, Math.Round((decimal)_playheadSeconds(), 3, MidpointRounding.AwayFromZero));
+
+    private decimal ObservedSeconds()
+    {
+        var seconds = _observationEnd.Value - _observationStart.Value;
+        return seconds > 0 ? seconds : throw new ArgumentException("Observation end must be after observation start.");
+    }
+
+    private decimal OutputSeconds()
+    {
+        var seconds = _outputEnd.Value - _outputStart.Value;
+        return seconds > 0 ? seconds : throw new ArgumentException("Output end must be after output start.");
     }
 
     private void SuggestCycleCount()
     {
         try
         {
-            _cycleCount.Value = PatternGenerator.SuggestCycleCount(_observedCycles.Value, _observedSeconds.Value, _durationSeconds.Value);
+            _cycleCount.Value = PatternGenerator.SuggestCycleCount(_observedCycles.Value, ObservedSeconds(), OutputSeconds());
         }
         catch (Exception ex) when (ex is ArgumentException or OverflowException)
         {
@@ -144,7 +186,7 @@ internal sealed class PatternInsertionDialog : Form
     {
         try
         {
-            var options = new PatternGenerationOptions(_startMs / 1000m, _durationSeconds.Value, (int)_cycleCount.Value)
+            var options = new PatternGenerationOptions(_outputStart.Value, OutputSeconds(), (int)_cycleCount.Value)
             {
                 Profile = (PatternProfile)_profile.SelectedIndex,
                 StartMode = (PatternStartMode)_startMode.SelectedIndex,
@@ -153,11 +195,11 @@ internal sealed class PatternInsertionDialog : Form
                 RiseFraction = _riseFraction.Value,
                 MaximumDurationSeconds = _maximumHours.Value * 3600m,
             };
-            var generated = PatternGenerator.Generate(options, _existingActions);
+            var generated = PatternGenerator.Generate(options, _currentActions());
             GenerationOptions = options;
             GeneratedPattern = generated;
             _graph.SetPattern(generated);
-            _summary.Text = $"Observed: {PatternGenerator.ObservedCyclesPerMinute(_observedCycles.Value, _observedSeconds.Value):0.##} cycles/min\r\n" +
+            _summary.Text = $"Observed: {PatternGenerator.ObservedCyclesPerMinute(_observedCycles.Value, ObservedSeconds()):0.##} cycles/min\r\n" +
                             $"Effective: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
                             $"Range: {generated.StartMs / 1000m:0.###}-{generated.EndMs / 1000m:0.###} s" +
                             (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "");

@@ -103,9 +103,9 @@ Common provides `Funscript.ReplaceActionsAtomically(candidate.Actions)`: it copi
 
 ## Implemented Editor Integration
 
-The Edit > Insert Pattern tool provides profile selection/settings, selectable starting phase, observation count/time, observed/effective cycles per minute, movement range, output timeframe/full-cycle count, graph preview, and Insert/Cancel. It captures the timeline playhead and action snapshot when opened; the modal dialog prevents concurrent editing while previewing/applying.
+The Edit > Insert Pattern tool provides profile selection/settings, selectable starting phase, observation count with start/end times, observed/effective cycles per minute, movement range, output start/end times and full-cycle count, graph preview, and Insert/Close. Each time input has a "From playhead" button and millisecond precision. The window is modeless so video can be operated while editing; Insert regenerates against the current script before conflict analysis, and closes the window after a successful insert.
 
-Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the modal tool is open does not move the captured insertion point. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result, remembers Keep Existing/Use New during the application session, and preserves boundary actions.
+Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the tool is open never changes entered times. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result, remembers Keep Existing/Use New during the application session, and preserves boundary actions.
 
 Apply resolves a candidate through `PatternInsertionPlan` and commits it with `Funscript.ReplaceActionsAtomically`. On a real change, the editor emits one ScriptChanged notification, marking the document dirty and reclamping timeline limits; selection/drag state is refreshed. No-op candidates, Cancel, validation failures, and Stop do not mark the document dirty. No mpv connection is required.
 

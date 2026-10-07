@@ -142,7 +142,8 @@ History fixtures should observe action contents and notifications, not depend on
 ## Manual Editor Checks
 
 - [ ] Generate into a new document and a loaded script, with and without mpv attached.
-- [ ] Move the video playhead while previewing; the captured insertion time stays explicit and stable.
+- [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
+- [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
 - [ ] Try each conflict choice and verify visible results match preview.
 - [ ] Verify preview exposes the actual edge transitions, including preserved boundaries that create ramps or alter the ideal first/last cycle.
 - [ ] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.

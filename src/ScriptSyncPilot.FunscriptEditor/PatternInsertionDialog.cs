@@ -134,7 +134,14 @@ internal sealed class PatternInsertionDialog : Form
         Width = 140,
     };
 
-    private static NumericUpDown TimeNumber() => Number(0, 0, 1_000_000, 3, 0.1m);
+    private static NumericUpDown TimeNumber() => new TimeUpDown
+    {
+        Minimum = 0,
+        Maximum = 1_000_000,
+        DecimalPlaces = 3,
+        Increment = 0.1m,
+        Width = 140,
+    };
 
     private static void AddInput(TableLayoutPanel panel, string label, Control input)
     {
@@ -201,7 +208,7 @@ internal sealed class PatternInsertionDialog : Form
             _graph.SetPattern(generated);
             _summary.Text = $"Observed: {PatternGenerator.ObservedCyclesPerMinute(_observedCycles.Value, ObservedSeconds()):0.##} cycles/min\r\n" +
                             $"Effective: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
-                            $"Range: {generated.StartMs / 1000m:0.###}-{generated.EndMs / 1000m:0.###} s" +
+                            $"Range: {TimeUpDown.Format(generated.StartMs / 1000m)} - {TimeUpDown.Format(generated.EndMs / 1000m)}" +
                             (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "");
             _applyButton.Enabled = true;
             return true;
@@ -224,6 +231,48 @@ internal sealed class PatternInsertionDialog : Form
         _graph.SetPattern(null);
         _summary.Text = "Change settings, then preview the generated movement.";
         _applyButton.Enabled = false;
+    }
+}
+
+internal sealed class TimeUpDown : NumericUpDown
+{
+    public static string Format(decimal seconds)
+    {
+        var ms = (long)Math.Round(seconds * 1000, MidpointRounding.AwayFromZero);
+        return $"{ms / 3_600_000:00}:{ms / 60_000 % 60:00}:{ms / 1000 % 60:00}.{ms % 1000:000}";
+    }
+
+    /// <summary>Accepts ss.mmm, mm:ss.mmm or hh:mm:ss.mmm, with '.' or ',' as decimal separator.</summary>
+    public static bool TryParse(string text, out decimal seconds)
+    {
+        seconds = 0;
+        var parts = text.Trim().Split(':');
+        if (parts.Length > 3) return false;
+        if (!decimal.TryParse(parts[^1].Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture, out var last))
+            return false;
+        seconds = last;
+        for (int index = parts.Length - 2, multiplier = 60; index >= 0; index--, multiplier *= 60)
+        {
+            if (!uint.TryParse(parts[index], out var whole)) return false;
+            seconds += whole * (decimal)multiplier;
+        }
+        return true;
+    }
+
+    protected override void UpdateEditText() => Text = Format(Value);
+
+    protected override void ValidateEditText()
+    {
+        if (TryParse(Text, out var seconds)) Value = Math.Clamp(seconds, Minimum, Maximum);
+        UserEdit = false;
+        UpdateEditText();
+    }
+
+    protected override void OnTextBoxKeyPress(object? source, KeyPressEventArgs e)
+    {
+        if (e.KeyChar is ':' or '.' or ',') return;
+        base.OnTextBoxKeyPress(source, e);
     }
 }
 

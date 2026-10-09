@@ -238,4 +238,4 @@ Manual verification confirmed conflict-free intervals do not prompt, but reporte
 
 Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged.
 
-Stop behavior follow-up: Stop now inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop
+Stop behavior follow-up: Stop now inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. The planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors. Verify the Stop preview and applied result in the running editor.

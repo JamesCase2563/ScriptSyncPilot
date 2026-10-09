@@ -152,6 +152,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] For both output times, verify "From playhead" copies the current time into its field and the adjacent arrow moves the timeline/playback playhead to the field value.
 - [x] Clicking the pattern preview or blank dialog background transfers keyboard focus for playback shortcuts without interfering with arrow-key editing in input fields.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
+- [ ] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Try each conflict choice and verify visible results match preview.

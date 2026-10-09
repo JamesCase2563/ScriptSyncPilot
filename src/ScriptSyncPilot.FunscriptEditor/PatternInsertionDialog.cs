@@ -135,7 +135,8 @@ internal sealed class PatternInsertionDialog : Form
         _graph.MouseDown += (_, _) => _graph.Focus();
         KeyDown += (_, e) =>
         {
-            if (new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours, _profile, _startMode }
+            var fileShortcut = e.Control && !e.Alt && !e.Shift && e.KeyCode is Keys.N or Keys.O or Keys.S;
+            if (!fileShortcut && new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours, _profile, _startMode }
                 .Any(control => control.ContainsFocus))
                 return;
             _playbackKeyDown(e);
@@ -150,7 +151,7 @@ internal sealed class PatternInsertionDialog : Form
         Maximum = maximum,
         DecimalPlaces = decimalPlaces,
         Increment = increment,
-        Width = 120,
+        Width = 140,
     };
 
     private static decimal Clamp(decimal value, NumericUpDown input) => Math.Clamp(value, input.Minimum, input.Maximum);
@@ -188,15 +189,22 @@ internal sealed class PatternInsertionDialog : Form
 
     private void AddTimeInput(TableLayoutPanel panel, string label, NumericUpDown input)
     {
-        var pick = new Button { Text = "← From playhead", AutoSize = true, Anchor = AnchorStyles.Left };
+        var pick = new Button
+        {
+            Text = "←",
+            Size = new Size(28, 24),
+            Anchor = AnchorStyles.Left,
+            AccessibleName = $"{label}: copy current playhead time",
+            AccessibleDescription = "Copy the current playhead time into this field.",
+        };
         pick.Click += (_, _) => input.Value = Math.Clamp(PlayheadValue(), input.Minimum, input.Maximum);
         _timeToolTip.SetToolTip(pick, "Copy the current playhead time into this field.");
         var seek = new Button
         {
             Text = "→",
-            AutoSize = true,
+            Size = new Size(28, 24),
             Anchor = AnchorStyles.Left,
-            AccessibleName = "Move playhead to entered time",
+            AccessibleName = $"{label}: move playhead to entered time",
             AccessibleDescription = "Seek the timeline and attached video to this time.",
         };
         seek.Click += (_, _) => _movePlayhead((double)input.Value);

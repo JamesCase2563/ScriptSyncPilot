@@ -110,9 +110,18 @@ public sealed class MainForm : Form
     {
         var menu = new MenuStrip();
         var file = new ToolStripMenuItem("File");
-        file.DropDownItems.Add("New Funscript", null, (_, _) => NewScript());
-        file.DropDownItems.Add("Open Funscript…", null, (_, _) => OpenScript());
-        file.DropDownItems.Add("Save Funscript", null, (_, _) => SaveScript(false));
+        file.DropDownItems.Add(new ToolStripMenuItem("New Funscript", null, (_, _) => NewScript())
+        {
+            ShortcutKeys = Keys.Control | Keys.N,
+        });
+        file.DropDownItems.Add(new ToolStripMenuItem("Open Funscript…", null, (_, _) => OpenScript())
+        {
+            ShortcutKeys = Keys.Control | Keys.O,
+        });
+        file.DropDownItems.Add(new ToolStripMenuItem("Save Funscript", null, (_, _) => SaveScript(false))
+        {
+            ShortcutKeys = Keys.Control | Keys.S,
+        });
         file.DropDownItems.Add("Save Funscript As…", null, (_, _) => SaveScript(true));
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("Open Video…", null, (_, _) => OpenVideo());
@@ -151,7 +160,7 @@ public sealed class MainForm : Form
             () => _script.Actions,
             _settings,
             ApplyPattern,
-            e => OnFormKeyDown(this, e),
+            OnPatternDialogKeyDown,
             MovePlayheadTo);
         _patternDialog.FormClosed += (_, _) =>
         {
@@ -566,6 +575,34 @@ public sealed class MainForm : Form
                 return;
         }
         e.Handled = true;
+    }
+
+    private void OnPatternDialogKeyDown(KeyEventArgs e)
+    {
+        if (e.Control && !e.Alt && !e.Shift)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.N:
+                    NewScript();
+                    break;
+                case Keys.O:
+                    OpenScript();
+                    break;
+                case Keys.S:
+                    SaveScript(false);
+                    break;
+                default:
+                    OnFormKeyDown(this, e);
+                    return;
+            }
+
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+
+        OnFormKeyDown(this, e);
     }
 
     private async Task TogglePlayPauseAsync()

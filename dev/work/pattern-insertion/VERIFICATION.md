@@ -7,8 +7,8 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 ## Acceptance Criteria
 
 - [ ] Set output start/end and full-cycle count directly; show output cycles per minute, explicitly distinguishing cycles from directional strokes.
-- [ ] Select all three profiles, configure profile settings and starting phase, and retain the chosen output cadence/range.
-- [ ] Fit the selected integer number of full cycles exactly into the output interval and show its resulting cadence.
+- [x] Select all three profiles, configure profile settings and starting phase, and retain the chosen output cadence/range.
+- [x] Fit the selected integer number of full cycles exactly into the output interval and show its resulting cadence.
 - [x] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
 - [x] Remember the last Stop/Replace/Merge resolution across dialog uses.
 - [x] Remember the last Keep Existing/Use New collision choice across dialog uses.
@@ -71,7 +71,7 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 - [x] Stop inserts the generated prefix before the first interior point without replacing it or later actions, and marks the document dirty.
 - [x] Replace changes only the agreed target interval, retaining exact outside timestamps/positions.
 - [x] Merge supports both Keep Existing and Use New for different positions at identical timestamps; identical pairs deduplicate and no duplicate timestamps remain.
-- [ ] Any changed document invalidates or refreshes preview/conflict results before Apply.
+- [x] Any changed document invalidates or refreshes preview/conflict results before Apply.
 - [x] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
 - [x] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
 - [ ] One completed drag or pattern insertion is one history entry, not many intermediate entries.
@@ -149,8 +149,8 @@ History fixtures should observe action contents and notifications, not depend on
 
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
-- [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
-- [ ] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
+- [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
+- [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.
 - [x] Verify Stop, Replace, and Merge are all visible, and the previous selection is remembered when reopening the conflict dialog.
@@ -242,6 +242,6 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion. Editing the script while the tool is open refreshes the generated pattern and conflict results before insertion.
 
 Stop behavior follow-up: Stop inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. Manual verification confirmed the preview and applied result; the planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors.

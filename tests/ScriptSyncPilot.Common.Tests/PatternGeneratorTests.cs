@@ -44,6 +44,18 @@ public sealed class PatternGeneratorTests
     }
 
     [TestMethod]
+    public void Generate_RoundsHalfMillisecondDurationUpBeforePointCollisionValidation()
+    {
+        var roundedUp = Assert.ThrowsException<ArgumentException>(
+            () => PatternGenerator.Generate(new PatternGenerationOptions(0, 0.0005m, 1)));
+        var roundedToZero = Assert.ThrowsException<ArgumentException>(
+            () => PatternGenerator.Generate(new PatternGenerationOptions(0, 0.0004m, 1)));
+
+        Assert.AreEqual("Distinct mandatory points collapse to the same millisecond.", roundedUp.Message);
+        StringAssert.StartsWith(roundedToZero.Message, "Duration must round to at least one millisecond.");
+    }
+
+    [TestMethod]
     public void Generate_CadenceComesDirectlyFromOutputCountAndDuration()
     {
         var result = PatternGenerator.Generate(new PatternGenerationOptions(0, 12, 5));
@@ -186,10 +198,35 @@ public sealed class PatternGeneratorTests
     {
         var source = new[] { new FunscriptAction(0, 50), new FunscriptAction(1000, 51) };
         var result = PatternGenerator.Generate(new PatternGenerationOptions(0.5m, 2, 1) { StartMode = PatternStartMode.ContinueExisting }, source);
+        var aboveHalf = PatternGenerator.Generate(
+            new PatternGenerationOptions(0.5m, 2, 1) { StartMode = PatternStartMode.ContinueExisting },
+            [new FunscriptAction(0, 51), new FunscriptAction(1000, 52)]);
 
         Assert.AreEqual(0.2525m, result.StartPhase);
         Assert.AreEqual(51, result.Actions[0].Pos);
         Assert.AreEqual(51, result.Actions[^1].Pos);
+        Assert.AreEqual(0.2575m, aboveHalf.StartPhase);
+        Assert.AreEqual(52, aboveHalf.Actions[0].Pos);
+        Assert.AreEqual(52, aboveHalf.Actions[^1].Pos);
+    }
+
+    [TestMethod]
+    public void Generate_AdaptiveRefinementUsesRoundedMidpointsAndLeftFirstOrder()
+    {
+        var options = new PatternGenerationOptions(0, 1.001m, 1)
+        {
+            Profile = PatternProfile.SlowedDirectionChanges,
+        };
+        var result = PatternGenerator.Generate(options);
+        var repeated = PatternGenerator.Generate(options);
+
+        CollectionAssert.AreEqual(result.Actions.ToArray(), repeated.Actions.ToArray());
+        Assert.AreEqual(0, result.Actions[0].At);
+        Assert.AreEqual(1001, result.Actions[^1].At);
+        Assert.IsTrue(result.Actions.Any(action => action.At == 126));
+        Assert.IsTrue(result.Actions.Any(action => action.At == 251));
+        for (var index = 1; index < result.Actions.Count; index++)
+            Assert.IsTrue(result.Actions[index].At > result.Actions[index - 1].At);
     }
 
     [TestMethod]

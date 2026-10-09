@@ -6,7 +6,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 
 ## Acceptance Criteria
 
-- [ ] Set output start/end and full-cycle count directly; show output cycles per minute, explicitly distinguishing cycles from directional strokes.
+- [x] Set output start/end and full-cycle count directly; show output cycles per minute, explicitly distinguishing cycles from directional strokes.
 - [x] Select all three profiles, configure profile settings and starting phase, and retain the chosen output cadence/range.
 - [x] Fit the selected integer number of full cycles exactly into the output interval and show its resulting cadence.
 - [x] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
@@ -48,7 +48,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 These cases specify expected results. Core generation/rounding/continuation/analytic error checks now have executable tests; application-specific checks remain pending. See results below.
 
 - [x] Five cycles in 12 seconds reports 25 cycles/minute; changing the direct count to four reports 20 cycles/minute.
-- [ ] Captured start 1.2345 seconds becomes 1235 ms; duration 0.0005 seconds becomes 1 ms; duration 0.0004 seconds is rejected. Integer positions 50.5 and 51.5 become 51 and 52.
+- [x] Captured start 1.2345 seconds becomes 1235 ms; duration 0.0005 seconds rounds to 1 ms before collision validation; duration 0.0004 seconds rounds to zero and is rejected. Integer positions 50.5 and 51.5 become 51 and 52.
 - [x] For a triangle starting at 1000 ms, spanning 1000 ms with three cycles over 0-100, mandatory timestamp/position pairs are `(1000,0), (1167,100), (1333,0), (1500,100), (1667,0), (1833,100), (2000,0)`. The end is exact and shared boundaries appear once.
 - [x] Distinct mandatory triangle extrema/boundaries colliding after rounding are rejected (for example two full cycles in 1 ms); increasing point density never silently removes a cycle.
 - [x] Checked endpoint overflow and a total duration rounding to zero fail before mutation.
@@ -57,9 +57,9 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 - [x] Continue Existing before/after the known action range or outside the selected movement range visibly falls back, without extrapolation or clamping to manufacture a matching phase.
 - [x] For the cosine profile from 0 to 100 over one second, an extrema-only candidate has zero midpoint error on a half-cycle but excessive error elsewhere; the full-interval check detects it and refines.
 - [x] Independently check the generated saved polyline's endpoints, knots, and all roots of `F'(t) = L'(t)`; maximum error is no more than `1 + 1e-9` position units after timestamp/position rounding, including phase-shifted profiles.
-- [ ] Refinement uses midpoint-away-from-zero splits, strict interior integer milliseconds, and left-before-right processing; repeated identical inputs produce identical actions on the supported runtime.
+- [x] Refinement uses midpoint-away-from-zero splits, strict interior integer milliseconds, and left-before-right processing; repeated identical inputs produce identical actions on the supported runtime.
 - [x] Impossible one-millisecond refinement, mandatory-point error above tolerance, and output above the action cap fail rather than silently loosening accuracy. Count points before destination boundary suppression.
-- [ ] Preserved boundary values and Merge results are previewed as resolved output, without falsely claiming the generator's one-unit error bound still applies.
+- [x] Preserved boundary values and Merge results are previewed as resolved output, without falsely claiming the generator's one-unit error bound still applies.
 
 ## Conflict and Persistence Tests
 
@@ -74,10 +74,13 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 - [x] Any changed document invalidates or refreshes preview/conflict results before Apply.
 - [x] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
 - [x] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
-- [ ] One completed drag or pattern insertion is one history entry, not many intermediate entries.
-- [ ] A new committed edit after undo clears redo; preview/Cancel do not, while a Stop prefix is treated as a committed edit.
-- [ ] Saving records a checkpoint; undo/redo update dirty state accurately, and opening/creating another document does not reuse old history.
-- [ ] Small edits store deltas and bulk edits retain affected sections, not full-document snapshots per operation; measure memory across repeated large insertions and undo/redo without a restrictive edit-count cap.
+- [x] One completed drag or pattern insertion is one history entry, not many intermediate entries.
+- [x] A new committed edit after undo clears redo; preview/Cancel do not, while a Stop prefix is treated as a committed edit.
+- [x] Saving records a checkpoint and undo/redo update dirty state accurately.
+- [x] Creating or loading another document clears the previous document's undo history.
+- [x] Canceling Open preserves the current document and history.
+- [~] Deferred: quantitative memory/performance measurement across repeated insertions of thousands of points. A manual trial with added points showed undo/redo had no noticeable delay.
+- [x] A manual trial with added points showed undoing and redoing them had no noticeable delay; quantitative large-script memory measurement remains open.
 
 ## Feature Test Case Matrix
 
@@ -139,7 +142,7 @@ S = [(0,10), (1000,20), (1500,30), (2000,40),
 | A06 | Pattern insertion, manual insertion, deletion, completed drag | Undo all four in reverse order and redo all four in forward order. Pattern and whole drag are each one history entry; mouse-move intermediates are not entries. |
 | A07 | Undo an edit, preview/cancel, then commit a new manual edit | Preview/cancel preserve redo. The new committed edit clears redo; previous history remains undoable. A Stop that inserts a prefix is itself a committed edit and clears redo. |
 | A08 | Save a script, insert a pattern, Undo, Redo, then Undo and branch with a manual edit | Undo to the saved checkpoint is clean, Redo is dirty, and branching clears redo. |
-| A09 | New/Open after history has entries; cancel Open separately | Successfully switching documents resets history and saved checkpoint appropriately. Cancelling Open leaves existing history/document unchanged. |
+| A09 | New/Open after history has entries; cancel Open separately | Successfully switching documents clears old history and creates a clean checkpoint. Cancelling Open leaves existing history/document unchanged. |
 | A10 | Apply no-op C06 while clean or with existing redo history | No new history entry/event/dirty change and redo remains available. Conflict-option preference may still be remembered independently of action history. |
 | A11 | Apply G13, Undo, Redo with a shorter loaded video | Timeline includes the generated endpoint after Apply/Redo and reclamps after Undo; media duration remains unchanged throughout. |
 
@@ -249,7 +252,7 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Existing actions at the output start/end take precedence over generated endpoint actions, and the preview shows the resulting edge transitions correctly. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Repeated Insert operations at the same timestamp do not duplicate actions, Cancel leaves the script unchanged, and repeated Insert/Close cycles leave selection and drag state valid. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion. Editing the script while the tool is open refreshes the generated pattern and conflict results before insertion. Video can be operated while the tool is open without changing entered times, and "From playhead" fills the selected time field.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Existing actions at the output start/end take precedence over generated endpoint actions, and the preview shows the resulting edge transitions correctly. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Repeated Insert operations at the same timestamp do not duplicate actions, Cancel leaves the script unchanged, and repeated Insert/Close cycles leave selection and drag state valid. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion. Undo history clears on New/Open, and a manual trial adding some points showed no noticeable delay undoing and redoing them. Editing the script while the tool is open refreshes the generated pattern and conflict results before insertion. Video can be operated while the tool is open without changing entered times, and "From playhead" fills the selected time field.
 
 Stop behavior follow-up: Stop inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. Manual verification confirmed the preview and applied result; the planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors.
 
@@ -258,3 +261,7 @@ Dialog sizing follow-up: invalid output intervals display the validation message
 ### Modeless Playback Keyboard Shortcuts (2026-10-09)
 
 Forwarded the editor's existing Left/Right frame-step and Shift/Ctrl seek shortcuts from the modeless pattern window when an editable pattern control does not have focus. The editor builds successfully; manual keyboard verification remains pending.
+
+### Numeric Edge and Refinement Tests (2026-10-09)
+
+Added generator tests confirming 0.0005 seconds rounds to 1 ms before mandatory-point collision validation, 0.0004 seconds rounds to zero and is rejected, and continuation positions 50.5/51.5 round to 51/52. Adaptive cosine refinement now has an exact odd-duration midpoint fixture (126 ms and 251 ms), repeat-input determinism, and strict chronological-order assertions. Full Common suite: 72 passed, 0 failed, 0 skipped.

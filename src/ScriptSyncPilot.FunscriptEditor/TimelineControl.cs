@@ -26,6 +26,7 @@ public sealed class TimelineControl : Control
     private readonly HScrollBar _scrollBar = new() { Dock = DockStyle.Bottom, Height = 17 };
 
     private Funscript _script = new();
+    private GeneratedPattern? _patternPreview;
     private double _mediaDurationSeconds;
     private double _pixelsPerSecond = 100;
     private double _viewStartSeconds;
@@ -68,7 +69,8 @@ public sealed class TimelineControl : Control
         get
         {
             var scriptEnd = _script.Actions.Count > 0 ? _script.Actions[^1].At / 1000.0 : 0;
-            var longest = Math.Max(scriptEnd, _mediaDurationSeconds);
+            var previewEnd = _patternPreview?.EndMs / 1000.0 ?? 0;
+            var longest = Math.Max(Math.Max(scriptEnd, _mediaDurationSeconds), previewEnd);
             var minimumDuration = _mediaDurationSeconds > 0 ? 0 : FallbackDurationSeconds;
             return Math.Max(longest, minimumDuration);
         }
@@ -174,6 +176,16 @@ public sealed class TimelineControl : Control
         Invalidate();
     }
 
+    public void SetPatternPreview(GeneratedPattern? pattern)
+    {
+        var durationBefore = DurationSeconds;
+        _patternPreview = pattern;
+        if (DurationSeconds != durationBefore)
+            ReclampZoom();
+        else
+            Invalidate();
+    }
+
     public void UpdateDuration(double mediaDurationSeconds)
     {
         _mediaDurationSeconds = mediaDurationSeconds > 0 ? mediaDurationSeconds : 0;
@@ -259,6 +271,8 @@ public sealed class TimelineControl : Control
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
+        PaintPatternRange(g);
+
         using (var gridPen = new Pen(Color.FromArgb(55, 55, 55)))
         {
             for (var p = 0; p <= 100; p += 25)
@@ -297,6 +311,8 @@ public sealed class TimelineControl : Control
             }
         }
 
+        PaintPatternActions(g);
+
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
             var x = (float)TimeToX(_playheadSeconds);
@@ -307,6 +323,49 @@ public sealed class TimelineControl : Control
         PaintValueBar(g);
 
         base.OnPaint(e);
+    }
+
+    private void PaintPatternRange(Graphics graphics)
+    {
+        if (_patternPreview is not { } pattern) return;
+        var left = Math.Clamp(TimeToX(pattern.StartMs / 1000.0), 0, BarLeft);
+        var right = Math.Clamp(TimeToX(pattern.EndMs / 1000.0), 0, BarLeft);
+        if (right <= left) return;
+
+        using var rangeBrush = new SolidBrush(Color.FromArgb(42, 255, 190, 60));
+        graphics.FillRectangle(rangeBrush, (float)left, TrackTop, (float)(right - left), TrackHeight);
+    }
+
+    private void PaintPatternActions(Graphics graphics)
+    {
+        if (_patternPreview is not { } pattern || pattern.Actions.Count == 0) return;
+
+        using var linePen = new Pen(Color.FromArgb(80, 235, 130), 2.5f);
+        using var pointBrush = new SolidBrush(Color.FromArgb(110, 255, 155));
+        using var pointOutline = new Pen(Color.FromArgb(25, 25, 25), 1.5f);
+        var clipLeft = -50f;
+        var clipRight = BarLeft + 50f;
+        FunscriptAction? previous = null;
+        foreach (var action in pattern.Actions)
+        {
+            if (previous is { } before)
+            {
+                var from = new PointF((float)TimeToX(before.At / 1000.0), (float)PosToY(before.Pos));
+                var to = new PointF((float)TimeToX(action.At / 1000.0), (float)PosToY(action.Pos));
+                if (Math.Max(from.X, to.X) >= clipLeft && Math.Min(from.X, to.X) <= clipRight)
+                    graphics.DrawLine(linePen, ClipX(from, to, clipLeft, clipRight), ClipX(to, from, clipLeft, clipRight));
+            }
+
+            var x = TimeToX(action.At / 1000.0);
+            if (x >= -PointRadius && x <= BarLeft + PointRadius)
+            {
+                var y = PosToY(action.Pos);
+                graphics.FillEllipse(pointBrush, (float)(x - PointRadius), (float)(y - PointRadius), PointRadius * 2, PointRadius * 2);
+                graphics.DrawEllipse(pointOutline, (float)(x - PointRadius), (float)(y - PointRadius), PointRadius * 2, PointRadius * 2);
+            }
+
+            previous = action;
+        }
     }
 
     // GDI+ degrades on extreme coordinates, which a far-off neighbour produces at high zoom, so trim to the visible span.

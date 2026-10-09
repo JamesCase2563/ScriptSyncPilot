@@ -157,6 +157,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
+- [ ] Verify generated preview appears on the main timeline with a tinted range and distinct points/line, and clears when invalidated, inserted, or closed.
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.

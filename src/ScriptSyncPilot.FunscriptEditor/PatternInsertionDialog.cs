@@ -9,6 +9,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly Func<GeneratedPattern, bool> _insert;
     private readonly Action<double> _movePlayhead;
     private readonly Action<KeyEventArgs> _playbackKeyDown;
+    private readonly Action<GeneratedPattern?> _previewChanged;
     private readonly EditorSettings _settings;
     private readonly ToolTip _timeToolTip = new();
     private readonly NumericUpDown _outputStart = TimeNumber();
@@ -20,7 +21,6 @@ internal sealed class PatternInsertionDialog : Form
     private readonly NumericUpDown _maximumHours = Number(3, 1, 24, 0);
     private readonly ComboBox _profile = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
     private readonly ComboBox _startMode = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
-    private readonly PatternGraphControl _graph = new() { Dock = DockStyle.Fill, TabStop = true };
     private readonly Label _summary = new() { Dock = DockStyle.Fill, AutoSize = false, TextAlign = ContentAlignment.MiddleLeft };
     private readonly Button _applyButton = new() { Text = "Insert", Enabled = false, AutoSize = true };
 
@@ -33,7 +33,8 @@ internal sealed class PatternInsertionDialog : Form
         EditorSettings settings,
         Func<GeneratedPattern, bool> insert,
         Action<KeyEventArgs> playbackKeyDown,
-        Action<double> movePlayhead)
+        Action<double> movePlayhead,
+        Action<GeneratedPattern?> previewChanged)
     {
         _playheadSeconds = playheadSeconds;
         _currentActions = currentActions;
@@ -41,6 +42,7 @@ internal sealed class PatternInsertionDialog : Form
         _insert = insert;
         _playbackKeyDown = playbackKeyDown;
         _movePlayhead = movePlayhead;
+        _previewChanged = previewChanged;
 
         Text = "Insert Movement Pattern";
         StartPosition = FormStartPosition.CenterParent;
@@ -49,7 +51,7 @@ internal sealed class PatternInsertionDialog : Form
         MaximizeBox = false;
         ShowInTaskbar = false;
         KeyPreview = true;
-        ClientSize = new Size(840, 350);
+        ClientSize = new Size(480, 350);
 
         var playhead = PlayheadValue();
         _outputStart.Value = Clamp(_settings.PatternOutputStartSeconds ?? playhead, _outputStart);
@@ -85,20 +87,19 @@ internal sealed class PatternInsertionDialog : Form
         AddInput(inputs, "Fast-up rise fraction", _riseFraction);
         AddInput(inputs, "Maximum section (hours)", _maximumHours);
 
-        var preview = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, Padding = new Padding(10) };
-        preview.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
-        preview.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        preview.Controls.Add(_graph, 0, 0);
-        preview.Controls.Add(_summary, 0, 1);
-
-        var body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
+        var body = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(10),
+            AutoScroll = true,
+        };
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         body.Controls.Add(inputs, 0, 0);
-        body.Controls.Add(preview, 1, 0);
-        MouseDown += (_, _) => _graph.Focus();
-        body.MouseDown += (_, _) => _graph.Focus();
-        preview.MouseDown += (_, _) => _graph.Focus();
+        body.Controls.Add(_summary, 0, 1);
 
         var suggestPreview = new Button { Text = "Preview", AutoSize = true };
         suggestPreview.Click += (_, _) => GeneratePreview();
@@ -132,7 +133,7 @@ internal sealed class PatternInsertionDialog : Form
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
         FormClosed += (_, _) => _timeToolTip.Dispose();
-        _graph.MouseDown += (_, _) => _graph.Focus();
+        FormClosed += (_, _) => _previewChanged(null);
         KeyDown += (_, e) =>
         {
             var fileShortcut = e.Control && !e.Alt && !e.Shift && e.KeyCode is Keys.N or Keys.O or Keys.S;
@@ -242,10 +243,11 @@ internal sealed class PatternInsertionDialog : Form
             var generated = PatternGenerator.Generate(options, _currentActions());
             GenerationOptions = options;
             GeneratedPattern = generated;
-            _graph.SetPattern(generated);
+            _previewChanged(generated);
             _summary.Text = $"Output: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
                             $"Range: {TimeUpDown.Format(generated.StartMs / 1000m)} - {TimeUpDown.Format(generated.EndMs / 1000m)}" +
-                            (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "");
+                            (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "") +
+                            "\r\nPreview shown on timeline.";
             _applyButton.Enabled = true;
             return true;
         }
@@ -253,7 +255,7 @@ internal sealed class PatternInsertionDialog : Form
         {
             GeneratedPattern = null;
             GenerationOptions = null;
-            _graph.SetPattern(null);
+            _previewChanged(null);
             _summary.Text = ex.Message;
             _applyButton.Enabled = false;
             return false;
@@ -264,7 +266,7 @@ internal sealed class PatternInsertionDialog : Form
     {
         GeneratedPattern = null;
         GenerationOptions = null;
-        _graph.SetPattern(null);
+        _previewChanged(null);
         _summary.Text = "Change settings, then preview the generated movement.";
         _applyButton.Enabled = false;
     }

@@ -158,8 +158,9 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Verify generated preview appears on the main timeline with a tinted range and distinct points/line.
-- [ ] Verify the range band updates as start/end values change and turns red for invalid intervals; it remains until the dialog closes.
-- [ ] Verify generated points/line clear when preview is invalidated or inserted, while the range band remains until dialog close.
+- [x] Verify the range band turns red for an invalid interval.
+- [x] Verify the valid range band updates immediately as start/end values change and remains until the dialog closes.
+- [x] Verify generated points/line clear when preview is invalidated or inserted, while the range band remains until dialog close.
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [ ] Confirm the profile is labeled "Asymmetric cycle", the setting is "Rise time (%)", and previously saved rise fractions display as the equivalent percentage.
 - [x] Try each conflict choice and verify visible results match preview.

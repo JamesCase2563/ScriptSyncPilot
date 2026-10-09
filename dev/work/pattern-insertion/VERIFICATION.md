@@ -11,7 +11,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [ ] Fit the selected integer number of full cycles exactly into the output interval and show its resulting cadence.
 - [x] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
 - [x] Remember the last Stop/Replace/Merge resolution across dialog uses.
-- [ ] Remember the last Keep Existing/Use New collision choice across dialog uses.
+- [x] Remember the last Keep Existing/Use New collision choice across dialog uses.
 - [x] Restore the last conflict and collision choices after restarting the application.
 - [x] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
 - [x] Undo/redo pattern insertion and a subsequent manual edit; a new committed edit after undo clears redo.
@@ -150,6 +150,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
+- [ ] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.
 - [x] Verify Stop, Replace, and Merge are all visible, and the previous selection is remembered when reopening the conflict dialog.

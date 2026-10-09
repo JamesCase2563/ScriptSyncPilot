@@ -15,6 +15,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [x] Restore the last conflict and collision choices after restarting the application.
 - [x] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
 - [x] Undo/redo pattern insertion and a subsequent manual edit; a new committed edit after undo clears redo.
+- [x] Undoing a drag or deletion restores the expected actions and shows the saved clean state in the title.
 - [x] Preview without changing actions, selection, metadata, or dirty state.
 - [x] Apply at the captured timestamp; require no mpv/Handy connection.
 - [x] Conflict-free intervals apply without a conflict prompt.
@@ -23,7 +24,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [x] Preserve outside-section actions and root JSON properties after edit/save.
 - [x] Refresh timeline extent/zoom/scroll limits after insertion, with and without video attached.
 - [x] Select the first inserted point after pattern insertion instead of retaining the previous selection.
-- [ ] Verify subsequent drag/delete and undo/redo do not use stale selection or drag indices.
+- [x] After a bulk pattern insertion, subsequent drag/delete and undo/redo use valid selection and drag indices.
 - [x] Generate the complete requested section beyond the current timeline/script endpoint, including a new or partly authored script.
 - [x] Load an unrelated video shorter than the requested section and verify insertion is not rejected or truncated by its duration.
 - [x] Change every pattern control, close and reopen the dialog, then restart the app and verify all values are restored. Insert once and verify the dialog remains open with its values intact.
@@ -240,6 +241,6 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion.
 
 Stop behavior follow-up: Stop inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. Manual verification confirmed the preview and applied result; the planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors.

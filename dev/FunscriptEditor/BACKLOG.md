@@ -1,5 +1,20 @@
 # FunscriptEditor Backlog
 
+## Table of Contents
+
+- [Pattern Insertion Tool](#pattern-insertion-tool)
+- [Undo and Redo](#undo-and-redo)
+- [Markers and Snapping](#markers-and-snapping)
+- [Video Playback Speed](#video-playback-speed)
+- [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
+- [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
+	- [Track Types](#track-types)
+	- [Multiple Tracks of the Same Type](#multiple-tracks-of-the-same-type)
+	- [Copying and Conversion](#copying-and-conversion)
+	- [Video Chapters](#video-chapters)
+	- [Project Persistence](#project-persistence)
+- [Verification and Boundaries](#verification-and-boundaries)
+
 ## Pattern Insertion Tool
 
 **Priority:** To be decided. **Status:** Future feature; details to be refined.
@@ -35,6 +50,18 @@ Support reversible insertion/deletion, dragging, and pattern generation. Treat a
 **Priority:** To be decided. **Status:** Proposed.
 
 Evaluate markers and configurable grid/marker snapping for alignment with video, retaining precise unsnapped editing.
+
+## Video Playback Speed
+
+**Priority:** To be decided. **Status:** Proposed.
+
+Allow changing mpv playback speed from the editor for review and timing work. Show the active rate and provide a clear way to restore normal speed (1x). Define the supported range and increments, whether the rate resets or persists when changing videos, and how speed changes interact with seeking, frame stepping, and the timeline's media-time coordinates.
+
+## Keyboard Numeric Position Entry
+
+**Priority:** To be decided. **Status:** Proposed.
+
+Allow digit shortcuts to insert or update a funscript action at the current playhead time/marker: `1` through `9` set 10% through 90%; `0` sets 0%. Choose a dedicated, unambiguous shortcut for 100% (for example, `Shift+0`, after checking keyboard-layout behavior and existing shortcut conflicts). Define behavior when an action already exists at that timestamp, keep edits undoable, and do not capture digits while a text-entry control has focus.
 
 ## Multiple Tracks and Project Format
 

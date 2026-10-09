@@ -1,6 +1,6 @@
 # Pattern Insertion Verification
 
-**Status:** Generator, planner, atomic model-commit, and action-history tests implemented; editor workflow and undo/redo are wired. Manual UI verification remains pending.
+**Status:** Generator, planner, atomic model-commit, action history, and editor workflow have passed the listed automated and manual checks. Quantitative large-script memory/performance measurement is intentionally deferred.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include workflow behavior that is implemented but still requires manual UI verification.
 
@@ -84,7 +84,7 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 
 ## Feature Test Case Matrix
 
-**Status:** Generator coverage implemented in PatternGeneratorTests; conflict-analysis/candidate portions of C01-C09 in PatternInsertionPlanTests. A02/A03 and the model-level parts of A05-A10 are covered by FunscriptTests/ActionHistoryTests; C10 dialog preference persistence and editor-level A cases remain pending. IDs identify verification scenarios, not a claim that the complete insertion feature passes. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
+**Status:** Generator coverage is in PatternGeneratorTests; conflict-analysis/candidate portions of C01-C09 are in PatternInsertionPlanTests. A02/A03 and model-level history behavior are covered by FunscriptTests/ActionHistoryTests; the dialog and editor workflow have the manual results recorded below. IDs describe verification scenarios, not a claim that each UI detail has a dedicated automated test. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
 
 ### Generation and Rounding
 

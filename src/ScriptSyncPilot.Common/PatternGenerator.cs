@@ -36,29 +36,6 @@ public static class PatternGenerator
     public const int MaximumActionCount = 100_000;
     private const double ErrorTolerance = 1 + 1e-9;
 
-    public static decimal ObservedCyclesPerMinute(decimal observedCycles, decimal observedSeconds)
-    {
-        ValidateObservation(observedCycles, observedSeconds);
-        return checked(60m * observedCycles / observedSeconds);
-    }
-
-    public static int SuggestCycleCount(decimal observedCycles, decimal observedSeconds, decimal outputSeconds)
-    {
-        ValidateObservation(observedCycles, observedSeconds);
-        if (outputSeconds <= 0) throw new ArgumentOutOfRangeException(nameof(outputSeconds));
-        var count = Math.Max(1m, Round(checked(observedCycles * outputSeconds / observedSeconds)));
-        if (count > (MaximumActionCount - 1) / 2)
-            throw new ArgumentException("Suggested cycle count exceeds the generated action limit.", nameof(outputSeconds));
-        return (int)count;
-    }
-
-    public static decimal DurationForCycles(decimal observedCycles, decimal observedSeconds, int cycleCount)
-    {
-        ValidateObservation(observedCycles, observedSeconds);
-        if (cycleCount <= 0) throw new ArgumentOutOfRangeException(nameof(cycleCount));
-        return checked(observedSeconds * cycleCount / observedCycles);
-    }
-
     public static GeneratedPattern Generate(
         PatternGenerationOptions options,
         IReadOnlyList<FunscriptAction>? existingActions = null)
@@ -135,12 +112,6 @@ public static class PatternGenerator
 
         return new GeneratedPattern(result.AsReadOnly(), startMs, startMs + durationMs,
             60_000m * options.CycleCount / durationMs, phase, fallback);
-    }
-
-    private static void ValidateObservation(decimal cycles, decimal seconds)
-    {
-        if (cycles <= 0) throw new ArgumentOutOfRangeException(nameof(cycles));
-        if (seconds <= 0) throw new ArgumentOutOfRangeException(nameof(seconds));
     }
 
     private static void ValidateOptions(PatternGenerationOptions options)

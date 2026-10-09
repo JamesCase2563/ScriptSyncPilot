@@ -1,73 +1,74 @@
 # Pattern Insertion Verification
 
-**Status:** Generator, planner, and atomic model-commit tests implemented; editor workflow is wired. Undo/redo and manual UI verification remain pending.
+**Status:** Generator, planner, atomic model-commit, and action-history tests implemented; editor workflow and undo/redo are wired. Manual UI verification remains pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include workflow behavior that is implemented but still requires manual UI verification.
 
 ## Acceptance Criteria
 
-- [ ] Enter observation count/time and see correct cycles per minute, explicitly distinguished from directional strokes.
+- [ ] Set output start/end and full-cycle count directly; show output cycles per minute, explicitly distinguishing cycles from directional strokes.
 - [ ] Select all three profiles, configure profile settings and starting phase, and retain the chosen output cadence/range.
-- [ ] Fit an integer number of full cycles into an output timeframe; observation duration remains independent.
-- [ ] Show observed/effective cadence when whole-cycle fitting changes the measured cadence.
-- [ ] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
-- [ ] Remember the Merge collision choice across dialog uses.
+- [ ] Fit the selected integer number of full cycles exactly into the output interval and show its resulting cadence.
+- [x] Default the configurable section limit to three hours and reject generation over 100,000 actions; test valid and invalid configuration without treating these as verified Handy upload limits.
+- [x] Remember the last Stop/Replace/Merge resolution across dialog uses.
+- [ ] Remember the last Keep Existing/Use New collision choice across dialog uses.
+- [x] Restore the last conflict and collision choices after restarting the application.
 - [ ] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
 - [ ] Undo/redo multiple generated and manual edits; a new committed edit clears redo.
 - [ ] Preview without changing actions, selection, metadata, or dirty state.
 - [ ] Apply at the captured timestamp; require no mpv/Handy connection.
-- [ ] Ask Stop/Replace/Merge only on conflicts; otherwise apply without asking.
-- [ ] Preserve outside-section actions and root JSON properties after edit/save.
+- [x] Conflict-free intervals apply without a conflict prompt.
+- [x] Conflicting intervals show Stop, Replace, and Merge; the last resolution is restored on later dialog uses.
+- [x] Preserve outside-section actions and root JSON properties after edit/save.
 - [ ] Refresh timeline extent/zoom/scroll limits and avoid stale selection/drag indices.
 - [ ] Generate the complete requested section beyond the current timeline/script endpoint, including a new or partly authored script.
 - [ ] Load an unrelated video shorter than the requested section and verify insertion is not rejected or truncated by its duration.
+- [x] Change every pattern control, close and reopen the dialog, then restart the app and verify all values are restored. Insert once and verify the dialog remains open with its values intact.
 
 ## Generation Tests
 
-- [ ] 12 observed cycles in 30 seconds produces 24 cycles/minute and 2500 ms periods.
-- [ ] Measurement intervals of a few seconds and several minutes use the same units/formula.
-- [ ] Full-cycle mode ends at the calculated boundary; extrema hit the requested position range.
-- [ ] Triangle timing is symmetric; fast-up defaults to 25% rise / 75% return; cosine-eased samples slow near reversals.
-- [ ] Adaptive sampling meets the one-position-unit deviation target after timestamp/position rounding and respects the action cap.
-- [ ] Fractional periods over many cycles do not accumulate rounding drift; timestamps remain ordered and unique.
-- [ ] Shared cycle boundaries are emitted once, including nonzero insertion timestamps.
-- [ ] Five cycles in 12 seconds gives 2400 ms per cycle and ends exactly at 12 seconds, at the selected starting phase; never emit a partial final cycle.
-- [ ] A timeframe that would imply fractional cycles at measured cadence uses a user-confirmed whole-cycle count and exposes the effective cadence rather than silently clipping.
-- [ ] Automatically suggest the nearest positive whole-cycle count, minimum one; direct override works without rounding-policy controls.
-- [ ] Continue Existing matches interpolated value and compatible direction/phase when available; out-of-range/no-value cases fall back to the profile's natural start.
-- [ ] Phase/settings changes modify the profile while preserving the chosen cycle count and timeframe.
-- [ ] Reject zero/negative/nonfinite inputs, invalid position ranges, timestamp overflow, excessive output size, and sub-millisecond point collisions without mutation.
+- [x] Five selected cycles in 12 seconds produces 25 cycles/minute and 2400 ms periods.
+- [x] Full-cycle mode ends at the calculated boundary; extrema hit the requested position range.
+- [x] Triangle timing is symmetric; fast-up defaults to 25% rise / 75% return; cosine-eased samples slow near reversals.
+- [x] Adaptive sampling meets the one-position-unit deviation target after timestamp/position rounding and respects the action cap.
+- [x] Fractional periods over many cycles do not accumulate rounding drift; timestamps remain ordered and unique.
+- [x] Shared cycle boundaries are emitted once, including nonzero insertion timestamps.
+- [x] Five cycles in 12 seconds gives 2400 ms per cycle and ends exactly at 12 seconds, at the selected starting phase; never emit a partial final cycle.
+- [x] The selected full-cycle count is used directly for the requested output interval; no measured-cadence suggestion or hidden rounding is applied.
+- [x] Continue Existing matches interpolated value and compatible direction/phase when available; out-of-range/no-value cases fall back to the profile's natural start.
+- [x] Phase/settings changes modify the profile while preserving the chosen cycle count and timeframe.
+- [x] Reject zero/negative/nonfinite inputs, invalid position ranges, timestamp overflow, excessive output size, and sub-millisecond point collisions without mutation.
 
 ## Deterministic Numeric Cases
 
 These cases specify expected results. Core generation/rounding/continuation/analytic error checks now have executable tests; application-specific checks remain pending. See results below.
 
-- [ ] Suggested counts of 2.5 and 3.5 round to 3 and 4, respectively; a positive estimate of 0.4 suggests one. Direct integer overrides are unchanged.
+- [x] Five cycles in 12 seconds reports 25 cycles/minute; changing the direct count to four reports 20 cycles/minute.
 - [ ] Captured start 1.2345 seconds becomes 1235 ms; duration 0.0005 seconds becomes 1 ms; duration 0.0004 seconds is rejected. Integer positions 50.5 and 51.5 become 51 and 52.
-- [ ] For a triangle starting at 1000 ms, spanning 1000 ms with three cycles over 0-100, mandatory timestamp/position pairs are `(1000,0), (1167,100), (1333,0), (1500,100), (1667,0), (1833,100), (2000,0)`. The end is exact and shared boundaries appear once.
-- [ ] Distinct mandatory triangle extrema/boundaries colliding after rounding are rejected (for example two full cycles in 1 ms); increasing point density never silently removes a cycle.
-- [ ] Checked endpoint overflow and a total duration rounding to zero fail before mutation.
-- [ ] With actions `(0,0), (1000,100)`, continuation at 500 ms uses value 50 and ascending phase 0.25 for a triangle. With `(0,100), (1000,0)`, it uses descending phase 0.75.
-- [ ] At a peak `(0,0), (1000,100), (2000,0)`, continuation uses the peak phase 0.5 and its valid outgoing descending direction. At flat interior values with no direction, choose the ascending branch.
-- [ ] Continue Existing before/after the known action range or outside the selected movement range visibly falls back, without extrapolation or clamping to manufacture a matching phase.
-- [ ] For the cosine profile from 0 to 100 over one second, an extrema-only candidate has zero midpoint error on a half-cycle but excessive error elsewhere; the full-interval check detects it and refines.
-- [ ] Independently check the generated saved polyline's endpoints, knots, and all roots of `F'(t) = L'(t)`; maximum error is no more than `1 + 1e-9` position units after timestamp/position rounding, including phase-shifted profiles.
+- [x] For a triangle starting at 1000 ms, spanning 1000 ms with three cycles over 0-100, mandatory timestamp/position pairs are `(1000,0), (1167,100), (1333,0), (1500,100), (1667,0), (1833,100), (2000,0)`. The end is exact and shared boundaries appear once.
+- [x] Distinct mandatory triangle extrema/boundaries colliding after rounding are rejected (for example two full cycles in 1 ms); increasing point density never silently removes a cycle.
+- [x] Checked endpoint overflow and a total duration rounding to zero fail before mutation.
+- [x] With actions `(0,0), (1000,100)`, continuation at 500 ms uses value 50 and ascending phase 0.25 for a triangle. With `(0,100), (1000,0)`, it uses descending phase 0.75.
+- [x] At a peak `(0,0), (1000,100), (2000,0)`, continuation uses the peak phase 0.5 and its valid outgoing descending direction. At flat interior values with no direction, choose the ascending branch.
+- [x] Continue Existing before/after the known action range or outside the selected movement range visibly falls back, without extrapolation or clamping to manufacture a matching phase.
+- [x] For the cosine profile from 0 to 100 over one second, an extrema-only candidate has zero midpoint error on a half-cycle but excessive error elsewhere; the full-interval check detects it and refines.
+- [x] Independently check the generated saved polyline's endpoints, knots, and all roots of `F'(t) = L'(t)`; maximum error is no more than `1 + 1e-9` position units after timestamp/position rounding, including phase-shifted profiles.
 - [ ] Refinement uses midpoint-away-from-zero splits, strict interior integer milliseconds, and left-before-right processing; repeated identical inputs produce identical actions on the supported runtime.
-- [ ] Impossible one-millisecond refinement, mandatory-point error above tolerance, and output above the action cap fail rather than silently loosening accuracy. Count points before destination boundary suppression.
+- [x] Impossible one-millisecond refinement, mandatory-point error above tolerance, and output above the action cap fail rather than silently loosening accuracy. Count points before destination boundary suppression.
 - [ ] Preserved boundary values and Merge results are previewed as resolved output, without falsely claiming the generator's one-unit error bound still applies.
 
 ## Conflict and Persistence Tests
 
-- [ ] Empty script and conflict-free target apply with no prompt.
-- [ ] Existing interior values trigger the conflict prompt; existing boundary-only points are preserved without a prompt.
-- [ ] In both Replace and Merge, preserve existing start/end actions and omit competing generated endpoints; emit endpoints where no existing boundary action is present.
-- [ ] With existing points at 0 and 100 seconds, insert from 1 to 20 seconds without a conflict prompt; crossing interpolation alone is not a conflict.
+- [x] Empty script and conflict-free target apply with no prompt.
+- [x] Existing interior values trigger the conflict prompt; existing boundary-only points are preserved without a prompt.
+- [x] In both Replace and Merge, preserve existing start/end actions and omit competing generated endpoints; emit endpoints where no existing boundary action is present.
+- [x] With existing points at 0 and 100 seconds, insert from 1 to 20 seconds without a conflict prompt; crossing interpolation alone is not a conflict.
 - [ ] Stop/dialog cancellation leave the script and dirty state unchanged.
-- [ ] Replace changes only the agreed target interval, retaining exact outside timestamps/positions.
-- [ ] Merge supports both Keep Existing and Use New for different positions at identical timestamps; identical pairs deduplicate and no duplicate timestamps remain.
+- [x] Replace changes only the agreed target interval, retaining exact outside timestamps/positions.
+- [x] Merge supports both Keep Existing and Use New for different positions at identical timestamps; identical pairs deduplicate and no duplicate timestamps remain.
 - [ ] Any changed document invalidates or refreshes preview/conflict results before Apply.
-- [ ] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
-- [ ] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
+- [x] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
+- [x] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
 - [ ] One completed drag or pattern insertion is one history entry, not many intermediate entries.
 - [ ] A new committed edit after undo clears redo; preview/cancel/Stop do not.
 - [ ] Saving records a checkpoint; undo/redo update dirty state accurately, and opening/creating another document does not reuse old history.
@@ -75,7 +76,7 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 
 ## Feature Test Case Matrix
 
-**Status:** Generator coverage implemented in PatternGeneratorTests; conflict-analysis/candidate portions of C01-C09 in PatternInsertionPlanTests. C10 dialog preference persistence and A application/history cases remain pending. IDs identify verification scenarios, not a claim that the complete insertion feature passes. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
+**Status:** Generator coverage implemented in PatternGeneratorTests; conflict-analysis/candidate portions of C01-C09 in PatternInsertionPlanTests. A02/A03 and the model-level parts of A05-A10 are covered by FunscriptTests/ActionHistoryTests; C10 dialog preference persistence and editor-level A cases remain pending. IDs identify verification scenarios, not a claim that the complete insertion feature passes. Use `(atMs,pos)` notation, Pattern Start, range 0-100, and valid default limits unless overridden. Expected arrays below describe complete results, including existing boundary preservation.
 
 ### Generation and Rounding
 
@@ -85,8 +86,8 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 | G02 | Fast-up/slow-down, same timing, default 25% rise | Exactly `(1000,0), (1500,100), (3000,0)`; cadence unchanged from G01. |
 | G03 | Triangle, range 20-80, two cycles in 4000 ms from 0 | Exactly `(0,20), (1000,80), (2000,20), (3000,80), (4000,20)`; shared boundary at 2000 appears once. |
 | G04 | Triangle, three cycles in 1000 ms from 1000 | Exact seven-point fixture in Deterministic Numeric Cases; final timestamp 2000 ms, no accumulated rounded-period drift. |
-| G05 | Observed 12 cycles/30 seconds, output 12 seconds | Suggest five whole cycles; effective cadence 25 cycles/minute versus observed 24. Direct override to four yields 20 cycles/minute and a 3000 ms period. |
-| G06 | Observed one cycle/2 seconds; output 5 seconds, then 7 seconds | Suggested counts three and four (exact-half rounds upward), not midpoint-to-even. Positive sub-half estimates suggest one. |
+| G05 | Five selected cycles in a 12-second output interval, then change the count to four | Cadence is 25 cycles/minute (2400 ms period), then 20 cycles/minute (3000 ms period); selected counts are honored exactly. |
+| G06 | One selected cycle in a 5-second output interval, then 7 seconds | Cadence follows the interval directly: 12 cycles/minute, then approximately 8.57 cycles/minute. |
 | G07 | Start 1.2345 seconds; output 2.0005 seconds, one triangle cycle | Quantized start 1235, duration 2001; points `(1235,0), (2236,100), (3236,0)`. Half-period rounds upward; authoritative endpoint remains exact. |
 | G08 | Cosine, one cycle in 1000 ms, range 0-100 | Mandatory min/max/end present, additional samples generated, final saved polyline satisfies the continuous one-unit error bound; independent oracle evaluates error extrema. |
 | G09 | Continue Existing, ascending/descending/flat/peak fixtures | Match the phase/value/direction cases in Deterministic Numeric Cases; repeat inputs yield identical output. No extrapolation or manufactured in-range value on fallback. |
@@ -145,6 +146,9 @@ History fixtures should observe action contents and notifications, not depend on
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
 - [ ] Try each conflict choice and verify visible results match preview.
+- [x] Empty intervals show no conflict prompt.
+- [x] Verify Stop, Replace, and Merge are all visible, and the previous selection is remembered when reopening the conflict dialog.
+- [x] Verify the conflict and collision preferences are restored after restarting the application.
 - [ ] Verify preview exposes the actual edge transitions, including preserved boundaries that create ramps or alter the ideal first/last cycle.
 - [ ] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.
 - [ ] Repeated Apply/Cancel operations do not leave stale selection, drag state, or duplicate actions.
@@ -211,3 +215,23 @@ dotnet build ScriptSyncPilot.slnx --nologo
 ```
 
 Results: all 64 Common tests passed and the full solution built, including HandySync, FunscriptEditor, and tests. This does not exercise the WinForms dialogs, visual boundary transitions, remembered-choice behavior across repeated interactions, or timeline updates in a running UI. Undo/redo is not implemented. Complete the manual editor checks above before declaring the feature verified.
+
+### Action History (2026-10-07)
+
+Added Common `ActionEdit`/`ActionHistory` and `Funscript.ApplyEdit`, wired into `TimelineControl` (pattern insertion, value-bar/double-click insertion, Delete, and completed drags) with Edit > Undo/Redo (Ctrl+Z/Ctrl+Y). Dirty state now derives from the history's saved checkpoint.
+
+`ActionHistoryTests` cover minimal delta extraction, ordered undo/redo of pattern/insert/delete/multi-step drag (A06 model level), no-op not clearing redo and new edits clearing it (A07/A10 model level), saved checkpoint across undo/redo/branching and reset (A08/A09 model level), stale-edit rejection, and metadata through undo/redo/save (A05 model level).
+
+Results: 70 Common tests passed; full solution built. Editor-level behavior (selection after undo, title/dirty refresh, timeline reclamp for A11, New/Open/cancel for A09) and memory measurement remain manual checks.
+
+### Direct Output Cycle Entry (2026-10-08)
+
+Simplified the pattern tool to use one output interval and a directly editable full-cycle count. Removed the separate observation interval, observed cycle count, cadence-based suggestion, and observed/effective comparison. Preview reports only the cadence implied by the chosen count and quantized output duration. Updated the active plan, design, verification cases, and editor backlog accordingly.
+
+Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or errors; `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-build` passed all 70 tests. `PatternGeneratorTests.Generate_DirectCycleCountSetsOutputCadence` verifies five cycles in 12 seconds reports 25 cycles/minute and four cycles reports 20 cycles/minute. The modeless UI and editable count control still require manual visual/interaction verification.
+
+### Conflict Dialog Follow-up (2026-10-09)
+
+Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
+
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application.

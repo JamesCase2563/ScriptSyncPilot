@@ -32,6 +32,7 @@ public sealed class TimelineControl : Control
     private double _playheadSeconds;
 
     private int? _draggingIndex;
+    private FunscriptAction[]? _dragBefore;
     private int? _selectedIndex;
     private bool _scrubbing;
     private bool _suppressScrollEvent;
@@ -43,6 +44,10 @@ public sealed class TimelineControl : Control
 
     [System.ComponentModel.Browsable(false)]
     public double PlayheadSeconds => _playheadSeconds;
+
+    /// <summary>Undo/redo history of the loaded script; reset by <see cref="LoadScript"/>.</summary>
+    [System.ComponentModel.Browsable(false)]
+    public ActionHistory History { get; } = new();
 
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -98,12 +103,19 @@ public sealed class TimelineControl : Control
         _script = script;
         _selectedIndex = null;
         _draggingIndex = null;
+        _dragBefore = null;
+        History.Reset();
         ReclampZoom();
     }
 
-    public void NotifyActionsReplaced(int preferredSelectionAt)
+    /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>
+    public bool ReplaceActions(IEnumerable<FunscriptAction> actions, int preferredSelectionAt)
     {
-        _draggingIndex = null;
+        FinishDrag();
+        var before = _script.Actions.ToArray();
+        if (!_script.ReplaceActionsAtomically(actions)) return false;
+        History.Record(ActionEdit.Between(before, _script.Actions));
+
         _scrubbing = false;
         _selectedIndex = null;
         for (var index = 0; index < _script.Actions.Count; index++)
@@ -117,6 +129,43 @@ public sealed class TimelineControl : Control
 
         ScriptChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
+        return true;
+    }
+
+    public bool Undo() => ApplyHistory(History.Undo);
+
+    public bool Redo() => ApplyHistory(History.Redo);
+
+    private bool ApplyHistory(Func<Funscript, ActionEdit?> step)
+    {
+        FinishDrag();
+        if (step(_script) is not { } applied) return false;
+        _scrubbing = false;
+        _selectedIndex = applied.Inserted.Count > 0 ? applied.Index : null;
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+        return true;
+    }
+
+    /// <summary>Applies a small edit and records the resulting delta; raises ScriptChanged only on a real change.</summary>
+    private bool Commit(Action mutate)
+    {
+        FinishDrag();
+        var before = _script.Actions.ToArray();
+        mutate();
+        if (!History.Record(ActionEdit.Between(before, _script.Actions))) return false;
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    /// <summary>Records an in-progress drag as one history entry.</summary>
+    private void FinishDrag()
+    {
+        _draggingIndex = null;
+        if (_dragBefore is not { } before) return;
+        _dragBefore = null;
+        if (History.Record(ActionEdit.Between(before, _script.Actions)))
+            ScriptChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void SetPlayhead(double seconds)
@@ -314,8 +363,10 @@ public sealed class TimelineControl : Control
         var hit = HitTest(e.Location);
         if (hit is { } index)
         {
+            FinishDrag();
             _selectedIndex = index;
             _draggingIndex = index;
+            _dragBefore = _script.Actions.ToArray();
         }
         else
         {
@@ -334,8 +385,7 @@ public sealed class TimelineControl : Control
 
         var at = (int)Math.Round(Math.Clamp(XToTime(e.X), 0, DurationSeconds) * 1000);
         var pos = YToPos(e.Y);
-        _script.AddOrReplace(new FunscriptAction(at, pos));
-        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Commit(() => _script.AddOrReplace(new FunscriptAction(at, pos)));
         Invalidate();
     }
 
@@ -380,8 +430,7 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (_draggingIndex is not null) ScriptChanged?.Invoke(this, EventArgs.Empty);
-        _draggingIndex = null;
+        FinishDrag();
         _scrubbing = false;
     }
 
@@ -389,10 +438,8 @@ public sealed class TimelineControl : Control
     {
         if (e.KeyCode == Keys.Delete && _selectedIndex is { } index)
         {
-            _script.RemoveAt(index);
+            Commit(() => _script.RemoveAt(index));
             _selectedIndex = null;
-            _draggingIndex = null;
-            ScriptChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
             e.Handled = true;
         }
@@ -416,7 +463,7 @@ public sealed class TimelineControl : Control
     {
         var pos = YToPos(y);
         var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
-        _script.AddOrReplace(new FunscriptAction(at, pos));
+        Commit(() => _script.AddOrReplace(new FunscriptAction(at, pos)));
         var actions = _script.Actions;
         for (var i = 0; i < actions.Count; i++)
         {
@@ -424,7 +471,6 @@ public sealed class TimelineControl : Control
             _selectedIndex = i;
             break;
         }
-        ScriptChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 

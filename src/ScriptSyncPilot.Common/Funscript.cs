@@ -68,6 +68,17 @@ public sealed class Funscript
 
     public void RemoveAt(int index) => _actions.RemoveAt(index);
 
+    /// <summary>Splices <paramref name="edit"/> into the actions. Throws if its removed section does not match the current actions.</summary>
+    public void ApplyEdit(ActionEdit edit)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+        if (edit.Index < 0 || edit.Index + edit.Removed.Count > _actions.Count
+            || !_actions.GetRange(edit.Index, edit.Removed.Count).SequenceEqual(edit.Removed))
+            throw new InvalidOperationException("The edit does not match the current actions.");
+        _actions.RemoveRange(edit.Index, edit.Removed.Count);
+        _actions.InsertRange(edit.Index, edit.Inserted);
+    }
+
     /// <summary>Atomically replaces the action list after validating a complete sorted candidate. Preserves root extension data and returns false for a no-op.</summary>
     public bool ReplaceActionsAtomically(IEnumerable<FunscriptAction> actions)
     {

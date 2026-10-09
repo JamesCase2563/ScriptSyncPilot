@@ -44,14 +44,11 @@ public sealed class PatternGeneratorTests
     }
 
     [TestMethod]
-    public void SuggestCycleCount_UsesAwayFromZeroAndMinimumOne()
+    public void Generate_CadenceComesDirectlyFromOutputCountAndDuration()
     {
-        Assert.AreEqual(3, PatternGenerator.SuggestCycleCount(1, 2, 5));
-        Assert.AreEqual(4, PatternGenerator.SuggestCycleCount(1, 2, 7));
-        Assert.AreEqual(1, PatternGenerator.SuggestCycleCount(1, 10, 4));
-        Assert.AreEqual(5, PatternGenerator.SuggestCycleCount(12, 30, 12));
-        Assert.AreEqual(24m, PatternGenerator.ObservedCyclesPerMinute(12, 30));
-        Assert.AreEqual(12.5m, PatternGenerator.DurationForCycles(12, 30, 5));
+        var result = PatternGenerator.Generate(new PatternGenerationOptions(0, 12, 5));
+
+        Assert.AreEqual(25m, result.EffectiveCyclesPerMinute);
     }
 
     [TestMethod]
@@ -97,11 +94,13 @@ public sealed class PatternGeneratorTests
     }
 
     [TestMethod]
-    public void Generate_OverrideFitsWholeCyclesAndReportsEffectiveCadence()
+    public void Generate_DirectCycleCountSetsOutputCadence()
     {
         var result = PatternGenerator.Generate(new PatternGenerationOptions(0, 12, 5));
+        var changedCount = PatternGenerator.Generate(new PatternGenerationOptions(0, 12, 4));
 
         Assert.AreEqual(25m, result.EffectiveCyclesPerMinute);
+        Assert.AreEqual(20m, changedCount.EffectiveCyclesPerMinute);
         Assert.AreEqual(11, result.Actions.Count);
         Assert.AreEqual(12000, result.EndMs);
         Assert.AreEqual(0, result.Actions[^1].Pos);
@@ -226,7 +225,6 @@ public sealed class PatternGeneratorTests
         Assert.AreEqual(99999, result.Actions.Count);
         Assert.ThrowsException<ArgumentException>(() => PatternGenerator.Generate(new PatternGenerationOptions(0, 10000, 50000)));
         Assert.ThrowsException<ArgumentException>(() => PatternGenerator.Generate(new PatternGenerationOptions(0, 1, int.MaxValue)));
-        Assert.ThrowsException<ArgumentException>(() => PatternGenerator.SuggestCycleCount(100000, 1, 1));
     }
 
     [TestMethod]

@@ -1,19 +1,19 @@
 # Pattern Insertion Design
 
-**Status:** Agreed design; pure generation, conflict planning, and single-timeline editor application implemented. Undo/redo and manual UI verification remain pending.
+**Status:** Agreed design; pure generation, conflict planning, single-timeline editor application, and undo/redo implemented. Manual UI verification remains pending.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
 ## Agreed Behavior
 
-One cycle is a complete bottom-to-top-to-bottom movement, not a directional stroke. Users count cycles during video playback over seconds to several minutes, then enter the count and elapsed time. For positive inputs:
+One cycle is a complete bottom-to-top-to-bottom movement, not a directional stroke. Users enter the output interval and directly choose how many full cycles it contains. There is no separate cadence measurement or suggested count.
 
 ```text
-cyclesPerMinute = 60 * observedCycles / observedSeconds
-cyclePeriodMs = 1000 * observedSeconds / observedCycles
+outputCyclePeriodMs = outputDurationMs / outputCycleCount
+outputCyclesPerMinute = 60000 * outputCycleCount / outputDurationMs
 ```
 
-For example, 12 cycles over 30 seconds means 24 cycles/minute and a 2500 ms cycle period. The observation interval measures cadence; it does not automatically define the inserted section length.
+For example, five cycles over 12 seconds means 25 cycles/minute and a 2400 ms cycle period. Changing the cycle count directly changes the output cadence.
 
 Generate only complete cycles. Users can specify a positive integer output cycle count and an output timeframe; squeeze or stretch each cycle's relative profile to fit that count exactly within the timeframe:
 
@@ -22,7 +22,7 @@ outputCyclePeriodMs = outputDurationMs / outputCycleCount
 effectiveCyclesPerMinute = 60000 * outputCycleCount / outputDurationMs
 ```
 
-Never clip a cycle halfway through or extend beyond the requested output timeframe to finish one. If cycle count alone is specified, derive duration from observed cadence. For a specified timeframe, automatically suggest the nearest positive whole-cycle count from measured cadence and duration, with direct editing available. Do not expose rounding-policy options. Show observed and effective cadence when fitting changes it; changing profile shape alone must not change output cadence.
+Never clip a cycle halfway through or extend beyond the requested output interval to finish one. The selected count and interval determine output cadence; changing profile shape alone does not change it.
 
 Decisions recorded from [user answers](notes/2026-10-04_13-39-57.md).
 
@@ -41,7 +41,7 @@ Put additional phase controls in profile settings rather than adding many top-le
 ## Generation and Validation
 
 - Pure generation takes inputs and produces an action list without accessing UI, mpv, files, or hardware.
-- Validate positive finite observation count/time and output duration, a positive integer output cycle count, and integer positions with `0 <= minimum < maximum <= 100`.
+- Validate positive output duration, a positive integer output cycle count, and integer positions with `0 <= minimum < maximum <= 100`.
 - Calculate timestamps from absolute cycle/phase offsets, then round to milliseconds. Do not accumulate a rounded cycle period: that would introduce cadence drift.
 - Emit shared cycle boundaries once. Output timestamps must be strictly increasing and positions valid integers.
 - Reject inputs that collapse required distinct points onto one millisecond or exceed the integer timestamp representation/practical action-count limit. Do not silently distort frequency.
@@ -55,8 +55,7 @@ These rules define the first implementation and its tests. Numeric choices are n
 
 ### Rounding and Timebase
 
-- Use `MidpointRounding.AwayFromZero` for suggested cycle counts, timestamps, and integer positions. All valid times/positions are nonnegative, so an exact half rounds upward. Do not use .NET's default midpoint-to-even rounding.
-- Calculate the suggested count as `max(1, round(observedCycles * outputSeconds / observedSeconds))`. Validate safety limits after rounding; do not silently cap an excessive count. A direct user override remains a positive integer and is not re-rounded.
+- Use `MidpointRounding.AwayFromZero` for timestamps and integer positions. All valid times/positions are nonnegative, so an exact half rounds upward. Do not use .NET's default midpoint-to-even rounding.
 - Keep user-entered timing/cadence calculations in decimal arithmetic where practical. Use double precision for trigonometric profile evaluation; reject nonfinite inputs. Do not round displayed cadence and then feed it back into generation.
 - Quantize the captured start time and total output duration once to integer milliseconds. Reject a duration rounding to zero. Preview shows the quantized start/end and effective cadence.
 - For cycle `k` and relative phase offset `u`, compute `startMs + round(durationMs * (k + u) / cycleCount)`, never repeatedly add a rounded period. Treat total start/end as authoritative: first timestamp is startMs and last is startMs + durationMs.
@@ -93,7 +92,7 @@ When a conflict exists, ask the user:
 
 - Stop: cancel; retain actions, metadata, dirty state, and selection.
 - Replace: remove existing interior values and insert the generated section, retaining existing start/end boundary actions as described above.
-- Merge: combine existing and new actions, with Keep Existing or Use New for different values at identical interior timestamps. Remember the previous collision choice in the dialog; the initial default is not significant. Identical timestamp/position pairs need only one resulting point. Boundary preservation takes precedence over the interior collision choice.
+- Merge: combine existing and new actions, with Keep Existing or Use New for different values at identical interior timestamps. Remember the last conflict resolution and collision choice across application sessions. Identical timestamp/position pairs need only one resulting point. Boundary preservation takes precedence over the interior collision choice.
 
 Without a conflict, apply without a question, including insertion between two distant existing points. Ask for a Merge collision sub-option only when needed to resolve different values at identical timestamps. Do not silently use Common's AddOrReplace policy: one resulting action timestamp can hold only one position. Preview the resolved result rather than implying that Merge preserves the generated profile unchanged.
 
@@ -103,9 +102,9 @@ Common provides `Funscript.ReplaceActionsAtomically(candidate.Actions)`: it copi
 
 ## Implemented Editor Integration
 
-The Edit > Insert Pattern tool provides profile selection/settings, selectable starting phase, observation count with start/end times, observed/effective cycles per minute, movement range, output start/end times and full-cycle count, graph preview, and Insert/Close. Each time input has a "From playhead" button and millisecond precision. The window is modeless so video can be operated while editing; Insert regenerates against the current script before conflict analysis, and closes the window after a successful insert.
+The Edit > Insert Pattern tool provides profile selection/settings, selectable starting phase, movement range, output start/end times and directly editable full-cycle count, output cadence, graph preview, and Insert/Close. Each time input has a "From playhead" button and millisecond precision. The window is modeless so video can be operated while editing; Insert regenerates against the current script before conflict analysis and leaves the tool open after insertion. All pattern controls and the last conflict/collision choices persist in EditorSettings across dialog and application sessions.
 
-Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the tool is open never changes entered times. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result, remembers Keep Existing/Use New during the application session, and preserves boundary actions.
+Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the tool is open never changes entered times. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result and preserves boundary actions.
 
 Apply resolves a candidate through `PatternInsertionPlan` and commits it with `Funscript.ReplaceActionsAtomically`. On a real change, the editor emits one ScriptChanged notification, marking the document dirty and reclamping timeline limits; selection/drag state is refreshed. No-op candidates, Cancel, validation failures, and Stop do not mark the document dirty. No mpv connection is required.
 
@@ -117,6 +116,8 @@ Include a proper editor action-history stack, not a one-off insertion rollback. 
 
 Pattern application is one history entry; manual insertion, deletion, and a completed drag must also participate so intervening edits remain ordered. Preserve root metadata and reconcile selection/drag state after undo/redo. Opening/creating a document starts a separate history; saving tracks a saved-state checkpoint for accurate dirty indication. Do not serialize history into standard funscript output.
 
+Implementation: Common's `ActionEdit.Between(before, after)` stores only the differing contiguous section (common prefix/suffix trimmed), so a click stores one or two actions and a pattern insertion stores its affected section. `ActionHistory` keeps undo/redo stacks of these deltas; `Funscript.ApplyEdit` splices them and rejects an edit whose removed section does not match. Each entry has a never-reused id and the saved checkpoint is the id on top of the undo stack, so branching never falsely reads as clean. The editor's `TimelineControl` owns the history, records each committed edit (a drag is recorded on mouse-up), and resets it on New/Open; Edit > Undo/Redo use Ctrl+Z/Ctrl+Y.
+
 Store deltas for small edits and retain affected sections for bulk changes rather than snapshotting the entire document on every edit. Do not impose a restrictive edit-count limit initially. Two integer fields occupy roughly eight bytes of raw action data: 100,000 actions are about 0.8 MB before overhead. Repeated full-document snapshots can nevertheless become large, and serialized files are larger than raw data. Measure practical history overhead during trial; implementation details must preserve the agreed undo/redo behavior.
 
 ## Remaining Implementation Details and Trial
@@ -125,7 +126,7 @@ Store deltas for small edits and retain affected sections for bulk changes rathe
 
 Common's `PatternGenerator.Generate(PatternGenerationOptions, existingActions)` returns a `GeneratedPattern` with read-only actions, quantized start/end, effective cadence, resolved start phase, and an explicit Pattern Start fallback flag. It never mutates an existing Funscript or accesses UI, media, files, or hardware.
 
-Timing inputs are decimal seconds; cycle count is a positive integer. Options select profile, start mode, range, rise fraction, and a configurable duration ceiling. The 100,000-action cap is fixed initially. Helpers calculate observed cadence, suggested whole-cycle count, and duration from count/cadence. Callers do not pass media duration; generation cannot clip to a loaded video.
+Timing inputs are decimal seconds; cycle count is a positive integer. Options select profile, start mode, range, rise fraction, and a configurable duration ceiling. The 100,000-action cap is fixed initially. The generated result reports cadence directly from the chosen count and quantized output duration. Callers do not pass media duration; generation cannot clip to a loaded video.
 
 Continuation validates a copied sorted/unique action snapshot. Generation errors are reported before returning a candidate. Decimal timing uses midpoint-away-from-zero rounding; analytic full-interval error checks refine quantized linear/cosine segments chronologically. Application-specific boundary suppression and collision handling are deliberately not part of generation.
 

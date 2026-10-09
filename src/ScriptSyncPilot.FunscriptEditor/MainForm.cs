@@ -33,7 +33,7 @@ public sealed class MainForm : Form
 
     private Funscript _script = new();
     private string? _scriptPath;
-    private bool _dirty;
+    private bool IsDirty => _timeline.History.IsDirty;
 
     private MpvSession? _mpv;
     private Process? _ownedMpvProcess;
@@ -66,7 +66,7 @@ public sealed class MainForm : Form
         KeyDown += OnFormKeyDown;
 
         _timeline.SeekRequested += OnSeekRequested;
-        _timeline.ScriptChanged += (_, _) => { _dirty = true; UpdateTitle(); };
+        _timeline.ScriptChanged += (_, _) => UpdateTitle();
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
         {
@@ -93,7 +93,7 @@ public sealed class MainForm : Form
 
         FormClosing += (_, e) =>
         {
-            if (_dirty && !ConfirmDiscardChanges()) { e.Cancel = true; return; }
+            if (IsDirty && !ConfirmDiscardChanges()) { e.Cancel = true; return; }
             _isClosing = true;
             _settings.LastVideoPath = _videoPathBox.Text;
             _settings.MpvIpcPipe = _pipeBox.Text;
@@ -119,6 +119,18 @@ public sealed class MainForm : Form
         menu.Items.Add(file);
 
         var edit = new ToolStripMenuItem("Edit");
+        var undo = new ToolStripMenuItem("Undo", null, (_, _) => _timeline.Undo()) { ShortcutKeys = Keys.Control | Keys.Z };
+        var redo = new ToolStripMenuItem("Redo", null, (_, _) => _timeline.Redo()) { ShortcutKeys = Keys.Control | Keys.Y };
+        edit.DropDownOpening += (_, _) =>
+        {
+            undo.Enabled = _timeline.History.CanUndo;
+            redo.Enabled = _timeline.History.CanRedo;
+        };
+        // Shortcuts only fire on enabled items, so re-enable once the menu closes.
+        edit.DropDownClosed += (_, _) => undo.Enabled = redo.Enabled = true;
+        edit.DropDownItems.Add(undo);
+        edit.DropDownItems.Add(redo);
+        edit.DropDownItems.Add(new ToolStripSeparator());
         edit.DropDownItems.Add("Insert Pattern…", null, (_, _) => InsertPattern());
         menu.Items.Add(edit);
         return menu;
@@ -132,7 +144,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        _patternDialog = new PatternInsertionDialog(() => _timeline.PlayheadSeconds, () => _script.Actions, ApplyPattern);
+        _patternDialog = new PatternInsertionDialog(() => _timeline.PlayheadSeconds, () => _script.Actions, _settings, ApplyPattern);
         _patternDialog.FormClosed += (_, _) => _patternDialog = null;
         _patternDialog.Show(this);
     }
@@ -144,7 +156,7 @@ public sealed class MainForm : Form
         var mergeChoice = PatternMergeChoice.KeepExisting;
         if (plan.HasConflicts)
         {
-            using var conflictDialog = new PatternConflictDialog(plan);
+            using var conflictDialog = new PatternConflictDialog(plan, _settings);
             if (conflictDialog.ShowDialog((IWin32Window?)_patternDialog ?? this) != DialogResult.OK) return false;
             choice = conflictDialog.Choice;
             mergeChoice = conflictDialog.MergeChoice;
@@ -152,8 +164,7 @@ public sealed class MainForm : Form
         }
 
         var candidate = plan.Resolve(choice, mergeChoice);
-        if (_script.ReplaceActionsAtomically(candidate.Actions))
-            _timeline.NotifyActionsReplaced(generated.StartMs);
+        _timeline.ReplaceActions(candidate.Actions, generated.StartMs);
         return true;
     }
 
@@ -266,7 +277,7 @@ public sealed class MainForm : Form
     private void UpdateTitle()
     {
         _scriptPathBox.Text = _scriptPath ?? "";
-        Text = $"ScriptSyncPilot – Funscript Editor – {(_scriptPath is null ? "untitled" : Path.GetFileName(_scriptPath))}{(_dirty ? " *" : "")}";
+        Text = $"ScriptSyncPilot – Funscript Editor – {(_scriptPath is null ? "untitled" : Path.GetFileName(_scriptPath))}{(IsDirty ? " *" : "")}";
     }
 
     private bool ConfirmDiscardChanges() =>
@@ -274,17 +285,16 @@ public sealed class MainForm : Form
 
     private void NewScript()
     {
-        if (_dirty && !ConfirmDiscardChanges()) return;
+        if (IsDirty && !ConfirmDiscardChanges()) return;
         _script = new Funscript();
         _scriptPath = null;
-        _dirty = false;
         _timeline.LoadScript(_script);
         UpdateTitle();
     }
 
     private void OpenScript()
     {
-        if (_dirty && !ConfirmDiscardChanges()) return;
+        if (IsDirty && !ConfirmDiscardChanges()) return;
         using var dlg = new OpenFileDialog { Filter = "Funscript|*.funscript;*.json|All files|*.*" };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         LoadScriptFrom(dlg.FileName);
@@ -296,7 +306,6 @@ public sealed class MainForm : Form
         {
             _script = Funscript.Load(path);
             _scriptPath = path;
-            _dirty = false;
             _timeline.LoadScript(_script);
             UpdateTitle();
             Log($"Loaded funscript with {_script.Actions.Count} actions from {path}.");
@@ -321,7 +330,7 @@ public sealed class MainForm : Form
         {
             _script.Save(path);
             _scriptPath = path;
-            _dirty = false;
+            _timeline.History.MarkSaved();
             UpdateTitle();
             Log($"Saved {_script.Actions.Count} actions to {path}.");
         }

@@ -1,6 +1,6 @@
 # Pattern Insertion Plan
 
-**Status:** In progress; generation, planning, and single-timeline editor application implemented. Undo/redo and manual UI verification pending.
+**Status:** In progress; generation, planning, single-timeline editor application, and undo/redo implemented. Manual UI verification pending.
 **Selected:** 2026-10-04.
 **Affected projects:** Common (pure generation and tests), FunscriptEditor (future application/UI). HandySync behavior is outside scope.
 
@@ -8,17 +8,16 @@ Source: [editor backlog](../../FunscriptEditor/BACKLOG.md). Details: [design](DE
 
 ## Goal
 
-Let a user measure cadence from video, then insert a selectable repeated profile at the playhead. Fit a user-confirmed number of whole cycles into an output timeframe and show any difference between observed and effective cadence.
+Let a user insert a selectable repeated profile over an explicit output interval. The user sets the full-cycle count directly; show the resulting output cadence.
 
 ## First-Version Scope
 
 - Work on the existing single movement timeline; no multitrack/project-format dependency.
-- Enter observed cycle count and observation start/end times (millisecond precision, pickable from the playhead), including intervals lasting several minutes; display calculated cycles per minute.
+- Enter output start/end times at millisecond precision (pickable from the playhead) and set the full-cycle count directly.
 - Select triangle, fast-up/slow-down, or slowed-direction-change profiles.
 - Set minimum/maximum position, starting phase, and profile settings. A future pattern editor may share the settings dialog.
-- Fit an integer count of whole cycles into the output timeframe, with no partial-cycle endings. Observation duration and output duration are distinct inputs.
+- Fit the selected integer count of whole cycles exactly into the output interval, with no partial-cycle endings.
 - Default the configurable section limit to three hours and cap generated output at 100,000 actions initially; these are editor safeguards, not verified API limits.
-- Suggest the nearest positive whole-cycle count automatically, allow direct editing, and show no rounding-policy controls.
 - Offer Continue Existing and Pattern Start; preserve existing section boundary points and preview resulting transitions.
 - Preview generated values and section extent without changing the document.
 - Apply over explicit output start/end times (pickable from the playhead), with Stop/Replace/Merge choices only when destination values conflict. The tool window is modeless so video can be operated while editing.
@@ -40,7 +39,6 @@ Chapters, audio analysis/conversion, multitrack editing, hardware output, automa
 - [x] Use configurable duration limits of a few hours and proper multilevel undo/redo; new edits clear redo.
 - [x] Remember Merge collision choice; initial default is not significant.
 - [x] Preserve existing boundary actions and omit competing generated endpoints, but do not omit endpoints unconditionally or promise smooth transitions.
-- [x] Automatically suggest nearest positive whole-cycle count with direct editing, no rounding-policy controls.
 - [x] Offer Continue Existing and Pattern Start, with additional phase controls in profile settings.
 - [x] Start with 25% rise / 75% return and cosine easing; adaptive sampling targets at most one position-unit deviation.
 - [x] Default configurable duration to three hours and generated output cap to 100,000 actions.
@@ -64,15 +62,15 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 - [x] Compute conflict information and candidate Stop/Replace/Merge results without mutation using Common's PatternInsertionPlan, with exact-fixture and snapshot-isolation tests.
 - [x] Provide a validated atomic Common action-replacement API and verify a Replace candidate preserves outside actions/metadata.
 - [x] Wire candidate commit into the editor as one coherent edit with one notification, dirty update, selection/extent refresh, and conflict-dialog behavior.
-- [ ] Implement action history shared by generated and manual edits, including saved-state checkpoints.
+- [x] Implement action history shared by generated and manual edits, including saved-state checkpoints.
 
 ### 3. Editor Workflow
 
-- [x] Add pattern controls/settings, selectable phase, observed/effective cadence, and preview.
-- [x] Modeless tool window with observation/output start/end inputs pickable from the playhead; Insert regenerates against the current script.
+- [x] Add pattern controls/settings, selectable phase, output cadence, and preview.
+- [x] Modeless tool window with output start/end inputs pickable from the playhead and directly editable cycle count; Insert regenerates against the current script.
 - [x] Prompt only on conflicts; cancel/Stop leave the document unchanged.
 - [x] Refresh timeline state and preserve root metadata through the Common commit API.
-- [ ] Wire multilevel Undo/Redo controls and manual edit history; new committed edits clear redo.
+- [x] Wire multilevel Undo/Redo controls and manual edit history; new committed edits clear redo.
 
 ### 4. Verification and Completion
 
@@ -84,4 +82,4 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 ## Outcome
 
-Generation, conflict planning, and editor candidate application are implemented. Common tests and a full solution build pass; see VERIFICATION.md. Undo/redo and manual UI verification remain outstanding, so the complete feature is not yet verified. PR reference: not yet available.
+Generation, conflict planning, editor candidate application, and delta-based undo/redo are implemented. Common tests and a full solution build pass; see VERIFICATION.md. Manual UI verification remains outstanding, so the complete feature is not yet verified. PR reference: not yet available.

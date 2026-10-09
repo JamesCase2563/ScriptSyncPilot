@@ -6,15 +6,15 @@
 
 Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
 
-Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, and specify the target section's duration or cycle count.
+Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, specify the target section's start/end times, and enter the full-cycle count directly. Show the output cadence implied by those inputs.
 
 ### Cadence
 
-Count full cycles while a video plays over an observation interval lasting seconds to several minutes, then enter count and elapsed time. Calculate cycles per minute as `60 * cycleCount / elapsedSeconds`. A full cycle is bottom-to-top-to-bottom, distinct from one directional stroke.
+The output interval and selected full-cycle count determine cycles per minute as `60 * cycleCount / outputDurationSeconds`. Do not require a separate observation interval or infer/round the count from measured cadence. A full cycle is bottom-to-top-to-bottom, distinct from one directional stroke.
 
 ### Profiles
 
-Distribute movement time within each cycle, squeezing/stretching the profile to match measured cadence. Candidates: triangle wave, fast-up/slow-down, and slowing near direction changes.
+Distribute movement time within each cycle to fit the selected count exactly into the output interval. Candidates: triangle wave, fast-up/slow-down, and slowing near direction changes.
 
 ### Conflict Handling
 
@@ -26,7 +26,7 @@ When a new section conflicts with existing destination values, ask the user to c
 
 If there is no conflict, insert the section without asking. Actual interior value-points count as conflicts, not interpolation between outside points. Preserve existing boundary points instead of competing generated endpoints, and preview the resulting transitions. Merge remembers the user's Keep Existing / Use New choice for identical interior timestamps. Apply the same conflict rule to track copying and conversion.
 
-Generate whole cycles fitted to the timeframe; automatically suggest the nearest positive count with direct override, never partial endings or rounding-policy controls. Offer Continue Existing / Pattern Start and profile settings suitable for a future pattern editor. Initial defaults are 25% rise / 75% return, cosine easing with one-position-unit adaptive sampling, a configurable three-hour section limit, and a 100,000-action generation cap. These are editor safeguards, not verified Handy API limits. See the working design for details.
+Fit the directly selected whole-cycle count to the output interval; never emit partial endings. Offer Continue Existing / Pattern Start and profile settings suitable for a future pattern editor. Keep all pattern dialog values across application sessions. Initial defaults are 25% rise / 75% return, cosine easing with one-position-unit adaptive sampling, a configurable three-hour section limit, and a 100,000-action generation cap. These are editor safeguards, not verified Handy API limits. See the working design for details.
 
 ## Undo and Redo
 

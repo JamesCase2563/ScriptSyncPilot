@@ -7,9 +7,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly Func<double> _playheadSeconds;
     private readonly Func<IReadOnlyList<FunscriptAction>> _currentActions;
     private readonly Func<GeneratedPattern, bool> _insert;
-    private readonly NumericUpDown _observedCycles = Number(12, 1, 1_000_000, 0);
-    private readonly NumericUpDown _observationStart = TimeNumber();
-    private readonly NumericUpDown _observationEnd = TimeNumber();
+    private readonly EditorSettings _settings;
     private readonly NumericUpDown _outputStart = TimeNumber();
     private readonly NumericUpDown _outputEnd = TimeNumber();
     private readonly NumericUpDown _cycleCount = Number(5, 1, 100_000, 0);
@@ -29,10 +27,12 @@ internal sealed class PatternInsertionDialog : Form
     public PatternInsertionDialog(
         Func<double> playheadSeconds,
         Func<IReadOnlyList<FunscriptAction>> currentActions,
+        EditorSettings settings,
         Func<GeneratedPattern, bool> insert)
     {
         _playheadSeconds = playheadSeconds;
         _currentActions = currentActions;
+        _settings = settings;
         _insert = insert;
 
         Text = "Insert Movement Pattern";
@@ -41,18 +41,21 @@ internal sealed class PatternInsertionDialog : Form
         MinimizeBox = false;
         MaximizeBox = false;
         ShowInTaskbar = false;
-        ClientSize = new Size(900, 600);
+        ClientSize = new Size(840, 410);
 
         var playhead = PlayheadValue();
-        _observationStart.Value = playhead;
-        _observationEnd.Value = Math.Min(_observationEnd.Maximum, playhead + 30);
-        _outputStart.Value = playhead;
-        _outputEnd.Value = Math.Min(_outputEnd.Maximum, playhead + 12);
+        _outputStart.Value = Clamp(_settings.PatternOutputStartSeconds ?? playhead, _outputStart);
+        _outputEnd.Value = Clamp(_settings.PatternOutputEndSeconds ?? Math.Min(_outputEnd.Maximum, playhead + 12), _outputEnd);
+        _cycleCount.Value = Clamp(_settings.PatternCycleCount ?? _cycleCount.Value, _cycleCount);
+        _minimumPosition.Value = Clamp(_settings.PatternMinimumPosition ?? (int)_minimumPosition.Value, _minimumPosition);
+        _maximumPosition.Value = Clamp(_settings.PatternMaximumPosition ?? (int)_maximumPosition.Value, _maximumPosition);
+        _riseFraction.Value = Clamp(_settings.PatternRiseFraction ?? _riseFraction.Value, _riseFraction);
+        _maximumHours.Value = Clamp(_settings.PatternMaximumHours ?? (int)_maximumHours.Value, _maximumHours);
 
         _profile.Items.AddRange(["Triangle", "Fast up / slow down", "Slow at direction changes"]);
-        _profile.SelectedIndex = 0;
+        _profile.SelectedIndex = Math.Clamp(_settings.PatternProfile ?? 0, 0, _profile.Items.Count - 1);
         _startMode.Items.AddRange(["Pattern start", "Continue existing"]);
-        _startMode.SelectedIndex = 0;
+        _startMode.SelectedIndex = Math.Clamp(_settings.PatternStartMode ?? 0, 0, _startMode.Items.Count - 1);
 
         var inputs = new TableLayoutPanel
         {
@@ -64,16 +67,9 @@ internal sealed class PatternInsertionDialog : Form
         inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         inputs.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        AddTimeInput(inputs, "Observation start (s)", _observationStart);
-        AddTimeInput(inputs, "Observation end (s)", _observationEnd);
-        AddInput(inputs, "Observed full cycles", _observedCycles);
-        var suggest = new Button { Text = "Suggest cycle count", AutoSize = true, Anchor = AnchorStyles.Left };
-        suggest.Click += (_, _) => SuggestCycleCount();
-        inputs.Controls.Add(suggest, 0, inputs.RowCount++);
-        inputs.SetColumnSpan(suggest, 2);
         AddTimeInput(inputs, "Output start (s)", _outputStart);
         AddTimeInput(inputs, "Output end (s)", _outputEnd);
-        AddInput(inputs, "Output full cycles", _cycleCount);
+        AddInput(inputs, "Full cycles", _cycleCount);
         AddInput(inputs, "Profile", _profile);
         AddInput(inputs, "Start mode", _startMode);
         AddInput(inputs, "Minimum position", _minimumPosition);
@@ -82,8 +78,8 @@ internal sealed class PatternInsertionDialog : Form
         AddInput(inputs, "Maximum section (hours)", _maximumHours);
 
         var preview = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, Padding = new Padding(10) };
-        preview.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        preview.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+        preview.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
+        preview.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
         preview.Controls.Add(_graph, 0, 0);
         preview.Controls.Add(_summary, 0, 1);
 
@@ -98,7 +94,7 @@ internal sealed class PatternInsertionDialog : Form
         _applyButton.Click += (_, _) =>
         {
             // Regenerate against the current script; it may have been edited since the preview.
-            if (GeneratePreview() && GeneratedPattern is { } generated && _insert(generated)) Close();
+            if (GeneratePreview() && GeneratedPattern is { } generated) _insert(generated);
         };
         var cancel = new Button { Text = "Close", AutoSize = true };
         cancel.Click += (_, _) => Close();
@@ -119,9 +115,12 @@ internal sealed class PatternInsertionDialog : Form
 
         _profile.SelectedIndexChanged += (_, _) => InvalidatePreview();
         _startMode.SelectedIndexChanged += (_, _) => InvalidatePreview();
-        foreach (var input in new[] { _observedCycles, _observationStart, _observationEnd, _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours })
-            input.ValueChanged += (_, _) => InvalidatePreview();
-        _profile.SelectedIndexChanged += (_, _) => _riseFraction.Enabled = _profile.SelectedIndex == 1;
+        foreach (var input in new[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours })
+            input.ValueChanged += (_, _) => { InvalidatePreview(); SaveSettings(); };
+        _profile.SelectedIndexChanged += (_, _) => { _riseFraction.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
+        _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
+        FormClosing += (_, _) => SaveSettings();
+        SaveSettings();
     }
 
     private static NumericUpDown Number(decimal value, decimal minimum, decimal maximum, int decimalPlaces, decimal increment = 1) => new()
@@ -133,6 +132,22 @@ internal sealed class PatternInsertionDialog : Form
         Increment = increment,
         Width = 140,
     };
+
+    private static decimal Clamp(decimal value, NumericUpDown input) => Math.Clamp(value, input.Minimum, input.Maximum);
+
+    private void SaveSettings()
+    {
+        _settings.PatternOutputStartSeconds = _outputStart.Value;
+        _settings.PatternOutputEndSeconds = _outputEnd.Value;
+        _settings.PatternCycleCount = (int)_cycleCount.Value;
+        _settings.PatternProfile = _profile.SelectedIndex;
+        _settings.PatternStartMode = _startMode.SelectedIndex;
+        _settings.PatternMinimumPosition = (int)_minimumPosition.Value;
+        _settings.PatternMaximumPosition = (int)_maximumPosition.Value;
+        _settings.PatternRiseFraction = _riseFraction.Value;
+        _settings.PatternMaximumHours = (int)_maximumHours.Value;
+        _settings.Save();
+    }
 
     private static NumericUpDown TimeNumber() => new TimeUpDown
     {
@@ -165,28 +180,10 @@ internal sealed class PatternInsertionDialog : Form
     private decimal PlayheadValue() =>
         Math.Max(0, Math.Round((decimal)_playheadSeconds(), 3, MidpointRounding.AwayFromZero));
 
-    private decimal ObservedSeconds()
-    {
-        var seconds = _observationEnd.Value - _observationStart.Value;
-        return seconds > 0 ? seconds : throw new ArgumentException("Observation end must be after observation start.");
-    }
-
     private decimal OutputSeconds()
     {
         var seconds = _outputEnd.Value - _outputStart.Value;
         return seconds > 0 ? seconds : throw new ArgumentException("Output end must be after output start.");
-    }
-
-    private void SuggestCycleCount()
-    {
-        try
-        {
-            _cycleCount.Value = PatternGenerator.SuggestCycleCount(_observedCycles.Value, ObservedSeconds(), OutputSeconds());
-        }
-        catch (Exception ex) when (ex is ArgumentException or OverflowException)
-        {
-            MessageBox.Show(this, ex.Message, "Cannot suggest cycle count", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
     }
 
     private bool GeneratePreview()
@@ -206,8 +203,7 @@ internal sealed class PatternInsertionDialog : Form
             GenerationOptions = options;
             GeneratedPattern = generated;
             _graph.SetPattern(generated);
-            _summary.Text = $"Observed: {PatternGenerator.ObservedCyclesPerMinute(_observedCycles.Value, ObservedSeconds()):0.##} cycles/min\r\n" +
-                            $"Effective: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
+            _summary.Text = $"Output: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
                             $"Range: {TimeUpDown.Format(generated.StartMs / 1000m)} - {TimeUpDown.Format(generated.EndMs / 1000m)}" +
                             (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "");
             _applyButton.Enabled = true;
@@ -278,8 +274,8 @@ internal sealed class TimeUpDown : NumericUpDown
 
 internal sealed class PatternConflictDialog : Form
 {
-    private static PatternMergeChoice _lastMergeChoice = PatternMergeChoice.KeepExisting;
     private readonly PatternInsertionPlan _plan;
+    private readonly EditorSettings _settings;
     private readonly RadioButton _stop = new() { Text = "Stop; leave the script unchanged", AutoSize = true };
     private readonly RadioButton _replace = new() { Text = "Replace conflicting interior points", AutoSize = true };
     private readonly RadioButton _merge = new() { Text = "Merge with existing points", AutoSize = true };
@@ -292,30 +288,41 @@ internal sealed class PatternConflictDialog : Form
 
     public PatternMergeChoice MergeChoice => (PatternMergeChoice)_mergeChoice.SelectedIndex;
 
-    public PatternConflictDialog(PatternInsertionPlan plan)
+    public PatternConflictDialog(PatternInsertionPlan plan, EditorSettings settings)
     {
         _plan = plan;
+        _settings = settings;
         Text = "Pattern Conflicts";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        ClientSize = new Size(480, 430);
+        ClientSize = new Size(480, 500);
 
         _mergeChoice.Items.AddRange(["Keep existing value", "Use generated value"]);
-        _mergeChoice.SelectedIndex = (int)_lastMergeChoice;
-        _stop.Checked = true;
-        _mergeChoice.Enabled = false;
-        _stop.CheckedChanged += (_, _) => RefreshResolvedPreview();
-        _replace.CheckedChanged += (_, _) => RefreshResolvedPreview();
+        var mergeChoice = _settings.LastPatternMergeChoice is >= 0 and <= 1
+            ? _settings.LastPatternMergeChoice.Value
+            : (int)PatternMergeChoice.KeepExisting;
+        _mergeChoice.SelectedIndex = mergeChoice;
+        var conflictChoice = _settings.LastPatternConflictChoice is >= 0 and <= 2
+            ? (PatternConflictChoice)_settings.LastPatternConflictChoice.Value
+            : PatternConflictChoice.Stop;
+        _stop.Checked = conflictChoice == PatternConflictChoice.Stop;
+        _replace.Checked = conflictChoice == PatternConflictChoice.Replace;
+        _merge.Checked = conflictChoice == PatternConflictChoice.Merge;
+        _mergeChoice.Enabled = conflictChoice == PatternConflictChoice.Merge && plan.RequiresMergeChoice;
+        _stop.CheckedChanged += (_, _) => { if (_stop.Checked) RememberChoice(PatternConflictChoice.Stop); RefreshResolvedPreview(); };
+        _replace.CheckedChanged += (_, _) => { if (_replace.Checked) RememberChoice(PatternConflictChoice.Replace); RefreshResolvedPreview(); };
         _merge.CheckedChanged += (_, _) =>
         {
+            if (_merge.Checked) RememberChoice(PatternConflictChoice.Merge);
             _mergeChoice.Enabled = _merge.Checked && plan.RequiresMergeChoice;
             RefreshResolvedPreview();
         };
         _mergeChoice.SelectedIndexChanged += (_, _) =>
         {
-            _lastMergeChoice = (PatternMergeChoice)_mergeChoice.SelectedIndex;
+            _settings.LastPatternMergeChoice = _mergeChoice.SelectedIndex;
+            _settings.Save();
             RefreshResolvedPreview();
         };
 
@@ -330,6 +337,8 @@ internal sealed class PatternConflictDialog : Form
         var options = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             Padding = new Padding(12),
@@ -366,6 +375,12 @@ internal sealed class PatternConflictDialog : Form
         AcceptButton = accept;
         CancelButton = cancel;
         RefreshResolvedPreview();
+    }
+
+    private void RememberChoice(PatternConflictChoice choice)
+    {
+        _settings.LastPatternConflictChoice = (int)choice;
+        _settings.Save();
     }
 
     private void RefreshResolvedPreview()

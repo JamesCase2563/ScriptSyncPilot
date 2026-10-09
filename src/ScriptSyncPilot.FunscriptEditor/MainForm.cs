@@ -162,7 +162,8 @@ public sealed class MainForm : Form
             ApplyPattern,
             OnPatternDialogKeyDown,
             MovePlayheadTo,
-            _timeline.SetPatternPreview);
+            _timeline.SetPatternPreview,
+            _timeline.SetPatternPreviewRange);
         _patternDialog.FormClosed += (_, _) =>
         {
             _patternDialog = null;

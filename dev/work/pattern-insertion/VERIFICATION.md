@@ -91,7 +91,7 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 | ID | Input | Expected result |
 | --- | --- | --- |
 | G01 | Triangle, start 1000 ms, one cycle in 2000 ms | Exactly `(1000,0), (2000,100), (3000,0)`; effective cadence 30 cycles/minute. |
-| G02 | Fast-up/slow-down, same timing, default 25% rise | Exactly `(1000,0), (1500,100), (3000,0)`; cadence unchanged from G01. |
+| G02 | Asymmetric cycle, same timing, default 25% rise time | Exactly `(1000,0), (1500,100), (3000,0)`; cadence unchanged from G01. |
 | G03 | Triangle, range 20-80, two cycles in 4000 ms from 0 | Exactly `(0,20), (1000,80), (2000,20), (3000,80), (4000,20)`; shared boundary at 2000 appears once. |
 | G04 | Triangle, three cycles in 1000 ms from 1000 | Exact seven-point fixture in Deterministic Numeric Cases; final timestamp 2000 ms, no accumulated rounded-period drift. |
 | G05 | Five selected cycles in a 12-second output interval, then change the count to four | Cadence is 25 cycles/minute (2400 ms period), then 20 cycles/minute (3000 ms period); selected counts are honored exactly. |
@@ -158,8 +158,10 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Verify generated preview appears on the main timeline with a tinted range and distinct points/line.
-- [x] Verify the timeline preview clears when invalidated, inserted, or the dialog closes.
+- [ ] Verify the range band updates as start/end values change and turns red for invalid intervals; it remains until the dialog closes.
+- [ ] Verify generated points/line clear when preview is invalidated or inserted, while the range band remains until dialog close.
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
+- [ ] Confirm the profile is labeled "Asymmetric cycle", the setting is "Rise time (%)", and previously saved rise fractions display as the equivalent percentage.
 - [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.
 - [x] Existing actions at the output start/end take precedence over generated endpoint actions.

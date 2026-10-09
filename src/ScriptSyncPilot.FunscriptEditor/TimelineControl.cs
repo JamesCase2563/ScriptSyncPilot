@@ -27,6 +27,9 @@ public sealed class TimelineControl : Control
 
     private Funscript _script = new();
     private GeneratedPattern? _patternPreview;
+    private int? _patternRangeStartMs;
+    private int? _patternRangeEndMs;
+    private bool _patternRangeInvalid;
     private double _mediaDurationSeconds;
     private double _pixelsPerSecond = 100;
     private double _viewStartSeconds;
@@ -70,7 +73,8 @@ public sealed class TimelineControl : Control
         {
             var scriptEnd = _script.Actions.Count > 0 ? _script.Actions[^1].At / 1000.0 : 0;
             var previewEnd = _patternPreview?.EndMs / 1000.0 ?? 0;
-            var longest = Math.Max(Math.Max(scriptEnd, _mediaDurationSeconds), previewEnd);
+            var rangeEnd = Math.Max(_patternRangeStartMs ?? 0, _patternRangeEndMs ?? 0) / 1000.0;
+            var longest = Math.Max(Math.Max(Math.Max(scriptEnd, _mediaDurationSeconds), previewEnd), rangeEnd);
             var minimumDuration = _mediaDurationSeconds > 0 ? 0 : FallbackDurationSeconds;
             return Math.Max(longest, minimumDuration);
         }
@@ -180,6 +184,18 @@ public sealed class TimelineControl : Control
     {
         var durationBefore = DurationSeconds;
         _patternPreview = pattern;
+        if (DurationSeconds != durationBefore)
+            ReclampZoom();
+        else
+            Invalidate();
+    }
+
+    public void SetPatternPreviewRange(int? startMs, int? endMs, bool invalid)
+    {
+        var durationBefore = DurationSeconds;
+        _patternRangeStartMs = startMs;
+        _patternRangeEndMs = endMs;
+        _patternRangeInvalid = invalid;
         if (DurationSeconds != durationBefore)
             ReclampZoom();
         else
@@ -327,13 +343,20 @@ public sealed class TimelineControl : Control
 
     private void PaintPatternRange(Graphics graphics)
     {
-        if (_patternPreview is not { } pattern) return;
-        var left = Math.Clamp(TimeToX(pattern.StartMs / 1000.0), 0, BarLeft);
-        var right = Math.Clamp(TimeToX(pattern.EndMs / 1000.0), 0, BarLeft);
-        if (right <= left) return;
-
-        using var rangeBrush = new SolidBrush(Color.FromArgb(42, 255, 190, 60));
-        graphics.FillRectangle(rangeBrush, (float)left, TrackTop, (float)(right - left), TrackHeight);
+        if (_patternRangeStartMs is not { } startMs || _patternRangeEndMs is not { } endMs) return;
+        var startX = TimeToX(startMs / 1000.0);
+        var endX = TimeToX(endMs / 1000.0);
+        var left = Math.Clamp(Math.Min(startX, endX), 0, BarLeft);
+        var right = Math.Clamp(Math.Max(startX, endX), 0, BarLeft);
+        var color = _patternRangeInvalid ? Color.FromArgb(54, 225, 70, 70) : Color.FromArgb(42, 255, 190, 60);
+        using var rangeBrush = new SolidBrush(color);
+        if (_patternRangeInvalid && right - left < 4 && startX >= 0 && startX <= BarLeft)
+        {
+            graphics.FillRectangle(rangeBrush, (float)(startX - 2), TrackTop, 4, TrackHeight);
+            return;
+        }
+        if (right > left)
+            graphics.FillRectangle(rangeBrush, (float)left, TrackTop, (float)(right - left), TrackHeight);
     }
 
     private void PaintPatternActions(Graphics graphics)

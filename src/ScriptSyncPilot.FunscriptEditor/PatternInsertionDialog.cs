@@ -10,6 +10,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly Action<double> _movePlayhead;
     private readonly Action<KeyEventArgs> _playbackKeyDown;
     private readonly Action<GeneratedPattern?> _previewChanged;
+    private readonly Action<int?, int?, bool> _previewRangeChanged;
     private readonly EditorSettings _settings;
     private readonly ToolTip _timeToolTip = new();
     private readonly NumericUpDown _outputStart = TimeNumber();
@@ -17,7 +18,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly NumericUpDown _cycleCount = Number(5, 1, 100_000, 0);
     private readonly NumericUpDown _minimumPosition = Number(0, 0, 99, 0);
     private readonly NumericUpDown _maximumPosition = Number(100, 1, 100, 0);
-    private readonly NumericUpDown _riseFraction = Number(0.25m, 0.01m, 0.99m, 2, 0.05m);
+    private readonly NumericUpDown _riseTimePercent = Number(25, 0, 100, 0, 5);
     private readonly NumericUpDown _maximumHours = Number(3, 1, 24, 0);
     private readonly ComboBox _profile = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
     private readonly ComboBox _startMode = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
@@ -34,7 +35,8 @@ internal sealed class PatternInsertionDialog : Form
         Func<GeneratedPattern, bool> insert,
         Action<KeyEventArgs> playbackKeyDown,
         Action<double> movePlayhead,
-        Action<GeneratedPattern?> previewChanged)
+        Action<GeneratedPattern?> previewChanged,
+        Action<int?, int?, bool> previewRangeChanged)
     {
         _playheadSeconds = playheadSeconds;
         _currentActions = currentActions;
@@ -43,6 +45,7 @@ internal sealed class PatternInsertionDialog : Form
         _playbackKeyDown = playbackKeyDown;
         _movePlayhead = movePlayhead;
         _previewChanged = previewChanged;
+        _previewRangeChanged = previewRangeChanged;
 
         Text = "Insert Movement Pattern";
         StartPosition = FormStartPosition.CenterParent;
@@ -59,10 +62,10 @@ internal sealed class PatternInsertionDialog : Form
         _cycleCount.Value = Clamp(_settings.PatternCycleCount ?? _cycleCount.Value, _cycleCount);
         _minimumPosition.Value = Clamp(_settings.PatternMinimumPosition ?? (int)_minimumPosition.Value, _minimumPosition);
         _maximumPosition.Value = Clamp(_settings.PatternMaximumPosition ?? (int)_maximumPosition.Value, _maximumPosition);
-        _riseFraction.Value = Clamp(_settings.PatternRiseFraction ?? _riseFraction.Value, _riseFraction);
+        _riseTimePercent.Value = Clamp((_settings.PatternRiseFraction ?? 0.25m) * 100m, _riseTimePercent);
         _maximumHours.Value = Clamp(_settings.PatternMaximumHours ?? (int)_maximumHours.Value, _maximumHours);
 
-        _profile.Items.AddRange(["Triangle", "Fast up / slow down", "Slow at direction changes"]);
+        _profile.Items.AddRange(["Triangle", "Asymmetric cycle", "Slow at direction changes"]);
         _profile.SelectedIndex = Math.Clamp(_settings.PatternProfile ?? 0, 0, _profile.Items.Count - 1);
         _startMode.Items.AddRange(["Pattern start", "Continue existing"]);
         _startMode.SelectedIndex = Math.Clamp(_settings.PatternStartMode ?? 0, 0, _startMode.Items.Count - 1);
@@ -84,7 +87,7 @@ internal sealed class PatternInsertionDialog : Form
         AddInput(inputs, "Start mode", _startMode);
         AddInput(inputs, "Minimum position", _minimumPosition);
         AddInput(inputs, "Maximum position", _maximumPosition);
-        AddInput(inputs, "Fast-up rise fraction", _riseFraction);
+        AddInput(inputs, "Rise time (%)", _riseTimePercent);
         AddInput(inputs, "Maximum section (hours)", _maximumHours);
 
         var body = new TableLayoutPanel
@@ -106,7 +109,8 @@ internal sealed class PatternInsertionDialog : Form
         _applyButton.Click += (_, _) =>
         {
             // Regenerate against the current script; it may have been edited since the preview.
-            if (GeneratePreview() && GeneratedPattern is { } generated) _insert(generated);
+            if (GeneratePreview() && GeneratedPattern is { } generated && _insert(generated))
+                InvalidatePreview();
         };
         var cancel = new Button { Text = "Close", AutoSize = true };
         cancel.Click += (_, _) => Close();
@@ -127,22 +131,24 @@ internal sealed class PatternInsertionDialog : Form
 
         _profile.SelectedIndexChanged += (_, _) => InvalidatePreview();
         _startMode.SelectedIndexChanged += (_, _) => InvalidatePreview();
-        foreach (var input in new[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours })
+        foreach (var input in new[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseTimePercent, _maximumHours })
             input.ValueChanged += (_, _) => { InvalidatePreview(); SaveSettings(); };
-        _profile.SelectedIndexChanged += (_, _) => { _riseFraction.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
+        _profile.SelectedIndexChanged += (_, _) => { _riseTimePercent.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
         FormClosed += (_, _) => _timeToolTip.Dispose();
         FormClosed += (_, _) => _previewChanged(null);
+        FormClosed += (_, _) => _previewRangeChanged(null, null, false);
         KeyDown += (_, e) =>
         {
             var fileShortcut = e.Control && !e.Alt && !e.Shift && e.KeyCode is Keys.N or Keys.O or Keys.S;
-            if (!fileShortcut && new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours, _profile, _startMode }
+            if (!fileShortcut && new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseTimePercent, _maximumHours, _profile, _startMode }
                 .Any(control => control.ContainsFocus))
                 return;
             _playbackKeyDown(e);
         };
         SaveSettings();
+        UpdateTimelineRangePreview();
     }
 
     private static NumericUpDown Number(decimal value, decimal minimum, decimal maximum, int decimalPlaces, decimal increment = 1) => new()
@@ -166,7 +172,7 @@ internal sealed class PatternInsertionDialog : Form
         _settings.PatternStartMode = _startMode.SelectedIndex;
         _settings.PatternMinimumPosition = (int)_minimumPosition.Value;
         _settings.PatternMaximumPosition = (int)_maximumPosition.Value;
-        _settings.PatternRiseFraction = _riseFraction.Value;
+        _settings.PatternRiseFraction = _riseTimePercent.Value / 100m;
         _settings.PatternMaximumHours = (int)_maximumHours.Value;
         _settings.Save();
     }
@@ -221,6 +227,15 @@ internal sealed class PatternInsertionDialog : Form
     private decimal PlayheadValue() =>
         Math.Max(0, Math.Round((decimal)_playheadSeconds(), 3, MidpointRounding.AwayFromZero));
 
+    private void UpdateTimelineRangePreview(bool invalid = false)
+    {
+        var startMs = (int)Math.Round(_outputStart.Value * 1000m, MidpointRounding.AwayFromZero);
+        var endMs = (int)Math.Round(_outputEnd.Value * 1000m, MidpointRounding.AwayFromZero);
+        invalid |= _outputEnd.Value <= _outputStart.Value
+            || _outputEnd.Value - _outputStart.Value > _maximumHours.Value * 3600m;
+        _previewRangeChanged(startMs, endMs, invalid);
+    }
+
     private decimal OutputSeconds()
     {
         var seconds = _outputEnd.Value - _outputStart.Value;
@@ -237,13 +252,14 @@ internal sealed class PatternInsertionDialog : Form
                 StartMode = (PatternStartMode)_startMode.SelectedIndex,
                 MinimumPosition = (int)_minimumPosition.Value,
                 MaximumPosition = (int)_maximumPosition.Value,
-                RiseFraction = _riseFraction.Value,
+                RiseFraction = _riseTimePercent.Value / 100m,
                 MaximumDurationSeconds = _maximumHours.Value * 3600m,
             };
             var generated = PatternGenerator.Generate(options, _currentActions());
             GenerationOptions = options;
             GeneratedPattern = generated;
             _previewChanged(generated);
+            UpdateTimelineRangePreview();
             _summary.Text = $"Output: {generated.EffectiveCyclesPerMinute:0.##} cycles/min | {generated.Actions.Count:N0} actions\r\n" +
                             $"Range: {TimeUpDown.Format(generated.StartMs / 1000m)} - {TimeUpDown.Format(generated.EndMs / 1000m)}" +
                             (generated.UsedPatternStartFallback ? " | Continue Existing unavailable; using Pattern Start" : "") +
@@ -256,6 +272,7 @@ internal sealed class PatternInsertionDialog : Form
             GeneratedPattern = null;
             GenerationOptions = null;
             _previewChanged(null);
+            UpdateTimelineRangePreview();
             _summary.Text = ex.Message;
             _applyButton.Enabled = false;
             return false;
@@ -267,6 +284,7 @@ internal sealed class PatternInsertionDialog : Form
         GeneratedPattern = null;
         GenerationOptions = null;
         _previewChanged(null);
+        UpdateTimelineRangePreview();
         _summary.Text = "Change settings, then preview the generated movement.";
         _applyButton.Enabled = false;
     }

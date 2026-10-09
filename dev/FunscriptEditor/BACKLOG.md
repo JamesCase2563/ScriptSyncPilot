@@ -14,7 +14,7 @@ The output interval and selected full-cycle count determine cycles per minute as
 
 ### Profiles
 
-Distribute movement time within each cycle to fit the selected count exactly into the output interval. Candidates: triangle wave, fast-up/slow-down, and slowing near direction changes.
+Distribute movement time within each cycle to fit the selected count exactly into the output interval. Profiles: triangle wave, configurable asymmetric cycle, and slowing near direction changes.
 
 ### Conflict Handling
 

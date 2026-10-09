@@ -14,7 +14,7 @@ Let a user insert a selectable repeated profile over an explicit output interval
 
 - Work on the existing single movement timeline; no multitrack/project-format dependency.
 - Enter output start/end times at millisecond precision (pickable from the playhead) and set the full-cycle count directly.
-- Select triangle, fast-up/slow-down, or slowed-direction-change profiles.
+- Select triangle, asymmetric-cycle, or slowed-direction-change profiles.
 - Set minimum/maximum position, starting phase, and profile settings. A future pattern editor may share the settings dialog.
 - Fit the selected integer count of whole cycles exactly into the output interval, with no partial-cycle endings.
 - Default the configurable section limit to three hours and cap generated output at 100,000 actions initially; these are editor safeguards, not verified API limits.

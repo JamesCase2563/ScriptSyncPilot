@@ -151,7 +151,8 @@ public sealed class MainForm : Form
             () => _script.Actions,
             _settings,
             ApplyPattern,
-            e => OnFormKeyDown(this, e));
+            e => OnFormKeyDown(this, e),
+            MovePlayheadTo);
         _patternDialog.FormClosed += (_, _) =>
         {
             _patternDialog = null;
@@ -584,6 +585,12 @@ public sealed class MainForm : Form
     {
         if (_mpv is null) return;
         _ = SeekAsync(seconds);
+    }
+
+    private void MovePlayheadTo(double seconds)
+    {
+        _timeline.SetPlayhead(seconds);
+        OnSeekRequested(seconds);
     }
 
     private async Task SeekAsync(double seconds)

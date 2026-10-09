@@ -7,8 +7,10 @@ internal sealed class PatternInsertionDialog : Form
     private readonly Func<double> _playheadSeconds;
     private readonly Func<IReadOnlyList<FunscriptAction>> _currentActions;
     private readonly Func<GeneratedPattern, bool> _insert;
+    private readonly Action<double> _movePlayhead;
     private readonly Action<KeyEventArgs> _playbackKeyDown;
     private readonly EditorSettings _settings;
+    private readonly ToolTip _timeToolTip = new();
     private readonly NumericUpDown _outputStart = TimeNumber();
     private readonly NumericUpDown _outputEnd = TimeNumber();
     private readonly NumericUpDown _cycleCount = Number(5, 1, 100_000, 0);
@@ -30,13 +32,15 @@ internal sealed class PatternInsertionDialog : Form
         Func<IReadOnlyList<FunscriptAction>> currentActions,
         EditorSettings settings,
         Func<GeneratedPattern, bool> insert,
-        Action<KeyEventArgs> playbackKeyDown)
+        Action<KeyEventArgs> playbackKeyDown,
+        Action<double> movePlayhead)
     {
         _playheadSeconds = playheadSeconds;
         _currentActions = currentActions;
         _settings = settings;
         _insert = insert;
         _playbackKeyDown = playbackKeyDown;
+        _movePlayhead = movePlayhead;
 
         Text = "Insert Movement Pattern";
         StartPosition = FormStartPosition.CenterParent;
@@ -127,6 +131,7 @@ internal sealed class PatternInsertionDialog : Form
         _profile.SelectedIndexChanged += (_, _) => { _riseFraction.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
+        FormClosed += (_, _) => _timeToolTip.Dispose();
         _graph.MouseDown += (_, _) => _graph.Focus();
         KeyDown += (_, e) =>
         {
@@ -145,7 +150,7 @@ internal sealed class PatternInsertionDialog : Form
         Maximum = maximum,
         DecimalPlaces = decimalPlaces,
         Increment = increment,
-        Width = 140,
+        Width = 120,
     };
 
     private static decimal Clamp(decimal value, NumericUpDown input) => Math.Clamp(value, input.Minimum, input.Maximum);
@@ -183,12 +188,24 @@ internal sealed class PatternInsertionDialog : Form
 
     private void AddTimeInput(TableLayoutPanel panel, string label, NumericUpDown input)
     {
-        var pick = new Button { Text = "From playhead", AutoSize = true, Anchor = AnchorStyles.Left };
+        var pick = new Button { Text = "← From playhead", AutoSize = true, Anchor = AnchorStyles.Left };
         pick.Click += (_, _) => input.Value = Math.Clamp(PlayheadValue(), input.Minimum, input.Maximum);
+        _timeToolTip.SetToolTip(pick, "Copy the current playhead time into this field.");
+        var seek = new Button
+        {
+            Text = "→",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            AccessibleName = "Move playhead to entered time",
+            AccessibleDescription = "Seek the timeline and attached video to this time.",
+        };
+        seek.Click += (_, _) => _movePlayhead((double)input.Value);
+        _timeToolTip.SetToolTip(seek, "Move the playhead to this time.");
         var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         input.Anchor = AnchorStyles.Left;
         row.Controls.Add(input);
         row.Controls.Add(pick);
+        row.Controls.Add(seek);
         AddInput(panel, label, row);
     }
 

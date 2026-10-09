@@ -149,6 +149,7 @@ History fixtures should observe action contents and notifications, not depend on
 
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [x] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
+- [x] For both output times, verify "From playhead" copies the current time into its field and the adjacent arrow moves the timeline/playback playhead to the field value.
 - [x] Clicking the pattern preview or blank dialog background transfers keyboard focus for playback shortcuts without interfering with arrow-key editing in input fields.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
@@ -164,7 +165,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Save a script, insert a pattern, Undo/Redo and verify the title's clean/dirty state; after Undo, a new manual edit clears Redo.
 - [x] Repeated Insert operations at the same timestamp do not duplicate actions; Cancel leaves the script unchanged.
 - [x] Repeated Insert/Close operations leave selection and drag state valid.
-- [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales.
+- [x] Controls fit at ordinary/resized Windows window sizes and supported DPI scales.
 - [x] An invalid output interval shows an actionable error below the preview.
 
 ## Required Gates

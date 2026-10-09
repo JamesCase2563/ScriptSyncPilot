@@ -14,7 +14,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [ ] Remember the last Keep Existing/Use New collision choice across dialog uses.
 - [x] Restore the last conflict and collision choices after restarting the application.
 - [x] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
-- [ ] Undo/redo multiple generated and manual edits; a new committed edit clears redo.
+- [x] Undo/redo pattern insertion and a subsequent manual edit; a new committed edit after undo clears redo.
 - [x] Preview without changing actions, selection, metadata, or dirty state.
 - [x] Apply at the captured timestamp; require no mpv/Handy connection.
 - [x] Conflict-free intervals apply without a conflict prompt.
@@ -137,7 +137,7 @@ S = [(0,10), (1000,20), (1500,30), (2000,40),
 | A05 | Apply C05, then Undo and Redo | Undo restores S exactly; Redo restores C05 exactly, both retaining metadata. Dirty returns to saved state on Undo and becomes true on Redo. Each operation refreshes timeline/selection safely. |
 | A06 | Pattern insertion, manual insertion, deletion, completed drag | Undo all four in reverse order and redo all four in forward order. Pattern and whole drag are each one history entry; mouse-move intermediates are not entries. |
 | A07 | Undo an edit, preview/cancel, then commit a new manual edit | Preview/cancel preserve redo. The new committed edit clears redo; previous history remains undoable. A Stop that inserts a prefix is itself a committed edit and clears redo. |
-| A08 | Save after insertion, Undo, Redo, then branch with a new edit | Undo is dirty, Redo to the saved checkpoint is clean; branching away does not accidentally match a saved checkpoint merely because stack lengths match. |
+| A08 | Save a script, insert a pattern, Undo, Redo, then Undo and branch with a manual edit | Undo to the saved checkpoint is clean, Redo is dirty, and branching clears redo. |
 | A09 | New/Open after history has entries; cancel Open separately | Successfully switching documents resets history and saved checkpoint appropriately. Cancelling Open leaves existing history/document unchanged. |
 | A10 | Apply no-op C06 while clean or with existing redo history | No new history entry/event/dirty change and redo remains available. Conflict-option preference may still be remembered independently of action history. |
 | A11 | Apply G13, Undo, Redo with a shorter loaded video | Timeline includes the generated endpoint after Apply/Redo and reclamps after Undo; media duration remains unchanged throughout. |
@@ -156,6 +156,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [ ] Verify preview exposes the actual edge transitions, including preserved boundaries that create ramps or alter the ideal first/last cycle.
 - [x] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.
 - [x] After insertion, timeline extent refreshes with and without video attached; the first inserted point is selected and the previous selection is cleared.
+- [x] Save a script, insert a pattern, Undo/Redo and verify the title's clean/dirty state; after Undo, a new manual edit clears Redo.
 - [ ] Repeated Apply/Cancel operations do not leave stale selection, drag state, or duplicate actions.
 - [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales; invalid input gives actionable feedback.
 

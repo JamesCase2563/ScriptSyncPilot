@@ -72,14 +72,18 @@ public sealed class PatternInsertionPlanTests
     }
 
     [TestMethod]
-    public void Stop_ReturnsOriginalSnapshotAndNoChanges()
+    public void Stop_InsertsGeneratedPrefixBeforeFirstInteriorPoint()
     {
-        var source = PopulatedDestination();
+        FunscriptAction[] source = [new(0, 10), new(1000, 20), new(2200, 30), new(3000, 60), new(4000, 70)];
         var plan = PatternInsertionPlan.Create(source, Pattern());
         var candidate = plan.Resolve(PatternConflictChoice.Stop);
 
-        Assert.IsFalse(candidate.HasChanges);
-        CollectionAssert.AreEqual(source, candidate.Actions.ToArray());
+        Assert.IsTrue(candidate.HasChanges);
+        CollectionAssert.AreEqual(new[]
+        {
+            new FunscriptAction(0, 10), new FunscriptAction(1000, 20), new FunscriptAction(2000, 100),
+            new FunscriptAction(2200, 30), new FunscriptAction(3000, 60), new FunscriptAction(4000, 70),
+        }, candidate.Actions.ToArray());
     }
 
     [TestMethod]

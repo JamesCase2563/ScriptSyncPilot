@@ -68,7 +68,7 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 - [x] Add pattern controls/settings, selectable phase, output cadence, and preview.
 - [x] Modeless tool window with output start/end inputs pickable from the playhead and directly editable cycle count; Insert regenerates against the current script.
-- [x] Prompt only on conflicts; cancel/Stop leave the document unchanged.
+- [x] Prompt only on conflicts; Cancel leaves the document unchanged and Stop inserts up to the first existing interior point.
 - [x] Refresh timeline state and preserve root metadata through the Common commit API.
 - [x] Wire multilevel Undo/Redo controls and manual edit history; new committed edits clear redo.
 

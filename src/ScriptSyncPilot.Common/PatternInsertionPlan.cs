@@ -82,7 +82,12 @@ public sealed class PatternInsertionPlan
         if (!Enum.IsDefined(choice)) throw new ArgumentOutOfRangeException(nameof(choice));
         if (!Enum.IsDefined(mergeChoice)) throw new ArgumentOutOfRangeException(nameof(mergeChoice));
         if (choice == PatternConflictChoice.Stop)
-            return new PatternInsertionCandidate(choice, OriginalActions, false);
+        {
+            var stopAt = ConflictingActions.Count > 0 ? ConflictingActions[0].At : EndMs + 1L;
+            var prefix = _insertableActions.Where(action => action.At < stopAt).ToArray();
+            var stopped = OriginalActions.Concat(prefix).OrderBy(action => action.At).ToArray();
+            return new PatternInsertionCandidate(choice, Array.AsReadOnly(stopped), !OriginalActions.SequenceEqual(stopped));
+        }
 
         var retained = choice == PatternConflictChoice.Replace
             ? OriginalActions.Where(action => !IsInterior(action)).ToArray()

@@ -19,6 +19,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [ ] Apply at the captured timestamp; require no mpv/Handy connection.
 - [x] Conflict-free intervals apply without a conflict prompt.
 - [x] Conflicting intervals show Stop, Replace, and Merge; the last resolution is restored on later dialog uses.
+- [x] Stop inserts generated points before the first existing interior point, preserves that point and the remaining script, and may end mid-cycle; Cancel leaves the script unchanged. Stop marks the document dirty, while Cancel preserves the clean state.
 - [x] Preserve outside-section actions and root JSON properties after edit/save.
 - [ ] Refresh timeline extent/zoom/scroll limits and avoid stale selection/drag indices.
 - [ ] Generate the complete requested section beyond the current timeline/script endpoint, including a new or partly authored script.
@@ -63,14 +64,15 @@ These cases specify expected results. Core generation/rounding/continuation/anal
 - [x] Existing interior values trigger the conflict prompt; existing boundary-only points are preserved without a prompt.
 - [x] In both Replace and Merge, preserve existing start/end actions and omit competing generated endpoints; emit endpoints where no existing boundary action is present.
 - [x] With existing points at 0 and 100 seconds, insert from 1 to 20 seconds without a conflict prompt; crossing interpolation alone is not a conflict.
-- [ ] Stop/dialog cancellation leave the script and dirty state unchanged.
+- [x] Canceling the conflict dialog leaves the script and dirty state unchanged.
+- [x] Stop inserts the generated prefix before the first interior point without replacing it or later actions, and marks the document dirty.
 - [x] Replace changes only the agreed target interval, retaining exact outside timestamps/positions.
 - [x] Merge supports both Keep Existing and Use New for different positions at identical timestamps; identical pairs deduplicate and no duplicate timestamps remain.
 - [ ] Any changed document invalidates or refreshes preview/conflict results before Apply.
 - [x] Save/reload retains lowercase actions, edited values, and metadata/version/range/inverted/custom root properties.
 - [x] Undo/redo a sequence containing pattern insertion, manual insertion, deletion, and dragging in correct order without discarding metadata.
 - [ ] One completed drag or pattern insertion is one history entry, not many intermediate entries.
-- [ ] A new committed edit after undo clears redo; preview/cancel/Stop do not.
+- [ ] A new committed edit after undo clears redo; preview/Cancel do not, while a Stop prefix is treated as a committed edit.
 - [ ] Saving records a checkpoint; undo/redo update dirty state accurately, and opening/creating another document does not reuse old history.
 - [ ] Small edits store deltas and bulk edits retain affected sections, not full-document snapshots per operation; measure memory across repeated large insertions and undo/redo without a restrictive edit-count cap.
 
@@ -114,7 +116,7 @@ S = [(0,10), (1000,20), (1500,30), (2000,40),
 | C01 | Empty destination, apply P | No conflict prompt; exact result P. |
 | C02 | Destination `[(0,10), (4000,70)]`, apply P | No prompt despite crossing interpolation; result `[(0,10), (1000,0), (2000,100), (3000,0), (4000,70)]`. |
 | C03 | Destination `[(0,10), (1000,20), (3000,60), (4000,70)]`, apply P | Boundary-only values do not prompt; result `[(0,10), (1000,20), (2000,100), (3000,60), (4000,70)]`. Preview shows changed edge shape, not guaranteed smoothness. |
-| C04 | S with P, Stop or close conflict dialog | Conflict reported for interior timestamps 1500, 2000, 2500; original S unchanged. Stop and closing are tested independently. |
+| C04 | S with P, Stop or close conflict dialog | Conflict reported for interior timestamps 1500, 2000, 2500. Stop inserts generated points strictly before 1500 and preserves all existing actions from 1500 onward; closing the dialog leaves S unchanged. |
 | C05 | S with P, Replace | Result `[(0,10), (1000,20), (2000,100), (3000,60), (4000,70)]`; no duplicate endpoints, outside actions unchanged. |
 | C06 | S with P, Merge / Keep Existing | Result S; generated interior value at 2000 loses. No action change means no history entry or new dirty state. |
 | C07 | S with P, Merge / Use New | Result `[(0,10), (1000,20), (1500,30), (2000,100), (2500,50), (3000,60), (4000,70)]`; existing boundaries win irrespective of the interior option. |
@@ -126,13 +128,13 @@ S = [(0,10), (1000,20), (1500,30), (2000,40),
 
 | ID | Setup/action | Expected result |
 | --- | --- | --- |
-| A01 | Preview P against S; cancel or Stop | Actions, root metadata, selection, dirty flag, undo/redo stacks, and saved checkpoint all unchanged. No ScriptChanged event. |
+| A01 | Preview P against S; cancel conflict dialog | Actions, root metadata, selection, dirty flag, undo/redo stacks, and saved checkpoint all unchanged. No ScriptChanged event. |
 | A02 | Apply C05 candidate to a saved Funscript with metadata/version/inverted fields using `ReplaceActionsAtomically` | Entire candidate replaces actions in the same Funscript instance, outside values and root properties persist through save/reload, no intermediate candidate is exposed. Editor event/history behavior remains pending. |
 | A03 | Commit unsorted/duplicate timestamps, negative time, invalid position, then a valid candidate | Each invalid candidate throws before mutation; original actions remain intact. The valid planner candidate commits as one collection replacement. Dirty/event/history integration remains pending. |
 | A04 | Preview S, then manually add `(1750,90)` before Apply | Old snapshot is not committed. Recompute/invalidate preview and conflict information; cancelling leaves the newer document, including the manual point, intact. |
 | A05 | Apply C05, then Undo and Redo | Undo restores S exactly; Redo restores C05 exactly, both retaining metadata. Dirty returns to saved state on Undo and becomes true on Redo. Each operation refreshes timeline/selection safely. |
 | A06 | Pattern insertion, manual insertion, deletion, completed drag | Undo all four in reverse order and redo all four in forward order. Pattern and whole drag are each one history entry; mouse-move intermediates are not entries. |
-| A07 | Undo an edit, preview/cancel/Stop, then commit a new manual edit | Preview/cancel/Stop preserve redo. The new committed edit clears redo; previous history remains undoable. |
+| A07 | Undo an edit, preview/cancel, then commit a new manual edit | Preview/cancel preserve redo. The new committed edit clears redo; previous history remains undoable. A Stop that inserts a prefix is itself a committed edit and clears redo. |
 | A08 | Save after insertion, Undo, Redo, then branch with a new edit | Undo is dirty, Redo to the saved checkpoint is clean; branching away does not accidentally match a saved checkpoint merely because stack lengths match. |
 | A09 | New/Open after history has entries; cancel Open separately | Successfully switching documents resets history and saved checkpoint appropriately. Cancelling Open leaves existing history/document unchanged. |
 | A10 | Apply no-op C06 while clean or with existing redo history | No new history entry/event/dirty change and redo remains available. Conflict-option preference may still be remembered independently of action history. |
@@ -145,7 +147,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [ ] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
-- [ ] Try each conflict choice and verify visible results match preview.
+- [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.
 - [x] Verify Stop, Replace, and Merge are all visible, and the previous selection is remembered when reopening the conflict dialog.
 - [x] Verify the conflict and collision preferences are restored after restarting the application.
@@ -234,4 +236,6 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged.
+
+Stop behavior follow-up: Stop now inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop

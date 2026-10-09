@@ -276,7 +276,7 @@ internal sealed class PatternConflictDialog : Form
 {
     private readonly PatternInsertionPlan _plan;
     private readonly EditorSettings _settings;
-    private readonly RadioButton _stop = new() { Text = "Stop; leave the script unchanged", AutoSize = true };
+    private readonly RadioButton _stop = new() { Text = "Stop at first existing point", AutoSize = true };
     private readonly RadioButton _replace = new() { Text = "Replace conflicting interior points", AutoSize = true };
     private readonly RadioButton _merge = new() { Text = "Merge with existing points", AutoSize = true };
     private readonly ComboBox _mergeChoice = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };

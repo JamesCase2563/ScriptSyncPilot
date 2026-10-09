@@ -90,7 +90,7 @@ Do not omit generated endpoints unconditionally: emit them where no existing bou
 
 When a conflict exists, ask the user:
 
-- Stop: cancel; retain actions, metadata, dirty state, and selection.
+- Stop: insert generated actions strictly before the first existing interior point, then retain that point and all following existing actions. Stop may end partway through a cycle; Cancel closes the conflict dialog without changing the script.
 - Replace: remove existing interior values and insert the generated section, retaining existing start/end boundary actions as described above.
 - Merge: combine existing and new actions, with Keep Existing or Use New for different values at identical interior timestamps. Remember the last conflict resolution and collision choice across application sessions. Identical timestamp/position pairs need only one resulting point. Boundary preservation takes precedence over the interior collision choice.
 
@@ -106,13 +106,13 @@ The Edit > Insert Pattern tool provides profile selection/settings, selectable s
 
 Preview is non-destructive and shows the generated section's start/end/cadence. Moving video playback while the tool is open never changes entered times. The conflict dialog appears only when the planner finds interior points; it previews the selected Stop/Replace/Merge result and preserves boundary actions.
 
-Apply resolves a candidate through `PatternInsertionPlan` and commits it with `Funscript.ReplaceActionsAtomically`. On a real change, the editor emits one ScriptChanged notification, marking the document dirty and reclamping timeline limits; selection/drag state is refreshed. No-op candidates, Cancel, validation failures, and Stop do not mark the document dirty. No mpv connection is required.
+Apply resolves a candidate through `PatternInsertionPlan` and commits it with `Funscript.ReplaceActionsAtomically`. On a real change, the editor emits one ScriptChanged notification, marking the document dirty and reclamping timeline limits; selection/drag state is refreshed. No-op candidates, Cancel, and validation failures do not mark the document dirty. No mpv connection is required.
 
-If the resolved action list is identical to the current list, application is a no-op: do not emit ScriptChanged, add a history entry, change the dirty flag, or clear redo. Remembering a dialog preference is independent of document action history.
+If the resolved action list is identical to the current list, application is a no-op: do not emit ScriptChanged, add a history entry, change the dirty flag, or clear redo. Stop is a real edit when its generated prefix adds actions; Cancel is not an edit. Remembering a dialog preference is independent of document action history.
 
 ## Undo and Redo
 
-Include a proper editor action-history stack, not a one-off insertion rollback. Users can undo and redo multiple edits. A new committed edit after undo clears the redo stack; preview, cancellation, and Stop are not edits and do not clear it. This is the conventional user expectation.
+Include a proper editor action-history stack, not a one-off insertion rollback. Users can undo and redo multiple edits. A new committed edit after undo clears the redo stack; preview and cancellation are not edits and do not clear it. Stop creates a history entry when it inserts a prefix. This is the conventional user expectation.
 
 Pattern application is one history entry; manual insertion, deletion, and a completed drag must also participate so intervening edits remain ordered. Preserve root metadata and reconcile selection/drag state after undo/redo. Opening/creating a document starts a separate history; saving tracks a saved-state checkpoint for accurate dirty indication. Do not serialize history into standard funscript output.
 
@@ -134,7 +134,7 @@ Continuation validates a copied sorted/unique action snapshot. Generation errors
 
 `PatternInsertionPlan.Create(existingActions, generatedPattern)` validates and copies both inputs. It exposes original/generated snapshots, interior conflicting actions, differing-value interior collisions, and flags for preserved start/end boundaries. `HasConflicts` indicates whether a future UI should ask Stop/Replace/Merge; `RequiresMergeChoice` indicates differing values at identical interior timestamps. Crossing lines and boundary-only actions do not set those flags.
 
-`Resolve(choice, mergeChoice)` builds a read-only complete action candidate without touching the source Funscript, metadata, dirty state, or history. Stop returns the original snapshot with HasChanges false. Replace removes only interior actions; Merge combines timestamps and selects Keep Existing or Use New for collisions. Existing endpoints are retained for either policy. Identical values deduplicate; HasChanges compares the full result to the captured original so a no-op remains detectable.
+`Resolve(choice, mergeChoice)` builds a read-only complete action candidate without touching the source Funscript, metadata, dirty state, or history. Stop returns the original snapshot plus generated actions strictly before the first existing interior point; if there are no conflicts, it returns the full generated result. Replace removes only interior actions; Merge combines timestamps and selects Keep Existing or Use New for collisions. Existing endpoints are retained for every policy. Identical values deduplicate; HasChanges compares the full result to the captured original so a no-op remains detectable.
 
 Inputs must contain valid, sorted, unique timestamps. Generated actions must span StartMs/EndMs and fit the generation cap. Plans remain stable when caller collections change later; the future apply layer must verify the original snapshot is still current before committing. The planner does not present dialogs, remember preferences, commit candidates, or implement undo.
 

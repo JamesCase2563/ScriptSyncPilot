@@ -160,7 +160,6 @@ public sealed class MainForm : Form
             if (conflictDialog.ShowDialog((IWin32Window?)_patternDialog ?? this) != DialogResult.OK) return false;
             choice = conflictDialog.Choice;
             mergeChoice = conflictDialog.MergeChoice;
-            if (choice == PatternConflictChoice.Stop) return false;
         }
 
         var candidate = plan.Resolve(choice, mergeChoice);

@@ -7,6 +7,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly Func<double> _playheadSeconds;
     private readonly Func<IReadOnlyList<FunscriptAction>> _currentActions;
     private readonly Func<GeneratedPattern, bool> _insert;
+    private readonly Action<KeyEventArgs> _playbackKeyDown;
     private readonly EditorSettings _settings;
     private readonly NumericUpDown _outputStart = TimeNumber();
     private readonly NumericUpDown _outputEnd = TimeNumber();
@@ -28,12 +29,14 @@ internal sealed class PatternInsertionDialog : Form
         Func<double> playheadSeconds,
         Func<IReadOnlyList<FunscriptAction>> currentActions,
         EditorSettings settings,
-        Func<GeneratedPattern, bool> insert)
+        Func<GeneratedPattern, bool> insert,
+        Action<KeyEventArgs> playbackKeyDown)
     {
         _playheadSeconds = playheadSeconds;
         _currentActions = currentActions;
         _settings = settings;
         _insert = insert;
+        _playbackKeyDown = playbackKeyDown;
 
         Text = "Insert Movement Pattern";
         StartPosition = FormStartPosition.CenterParent;
@@ -41,6 +44,7 @@ internal sealed class PatternInsertionDialog : Form
         MinimizeBox = false;
         MaximizeBox = false;
         ShowInTaskbar = false;
+        KeyPreview = true;
         ClientSize = new Size(840, 410);
 
         var playhead = PlayheadValue();
@@ -120,6 +124,13 @@ internal sealed class PatternInsertionDialog : Form
         _profile.SelectedIndexChanged += (_, _) => { _riseFraction.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
+        KeyDown += (_, e) =>
+        {
+            if (new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours, _profile, _startMode }
+                .Any(control => control.ContainsFocus))
+                return;
+            _playbackKeyDown(e);
+        };
         SaveSettings();
     }
 

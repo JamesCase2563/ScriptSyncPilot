@@ -144,7 +144,12 @@ public sealed class MainForm : Form
             return;
         }
 
-        _patternDialog = new PatternInsertionDialog(() => _timeline.PlayheadSeconds, () => _script.Actions, _settings, ApplyPattern);
+        _patternDialog = new PatternInsertionDialog(
+            () => _timeline.PlayheadSeconds,
+            () => _script.Actions,
+            _settings,
+            ApplyPattern,
+            e => OnFormKeyDown(this, e));
         _patternDialog.FormClosed += (_, _) => _patternDialog = null;
         _patternDialog.Show(this);
     }

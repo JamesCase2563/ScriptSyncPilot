@@ -45,7 +45,7 @@ internal sealed class PatternInsertionDialog : Form
         MaximizeBox = false;
         ShowInTaskbar = false;
         KeyPreview = true;
-        ClientSize = new Size(840, 410);
+        ClientSize = new Size(840, 350);
 
         var playhead = PlayheadValue();
         _outputStart.Value = Clamp(_settings.PatternOutputStartSeconds ?? playhead, _outputStart);

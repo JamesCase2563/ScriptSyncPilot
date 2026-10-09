@@ -164,7 +164,8 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Save a script, insert a pattern, Undo/Redo and verify the title's clean/dirty state; after Undo, a new manual edit clears Redo.
 - [x] Repeated Insert operations at the same timestamp do not duplicate actions; Cancel leaves the script unchanged.
 - [x] Repeated Insert/Close operations leave selection and drag state valid.
-- [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales; invalid input gives actionable feedback.
+- [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales.
+- [x] An invalid output interval shows an actionable error below the preview.
 
 ## Required Gates
 
@@ -249,6 +250,8 @@ Manual verification confirmed conflict-free intervals do not prompt, but reporte
 Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Existing actions at the output start/end take precedence over generated endpoint actions, and the preview shows the resulting edge transitions correctly. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Repeated Insert operations at the same timestamp do not duplicate actions, Cancel leaves the script unchanged, and repeated Insert/Close cycles leave selection and drag state valid. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section. Timeline extent refreshes with and without video attached, and the first inserted point is selected instead of the previous selection. Undoing a drag or deletion restores the expected actions and updates the title to the saved clean state. Drag/delete and undo/redo continue to work correctly after pattern insertion. Editing the script while the tool is open refreshes the generated pattern and conflict results before insertion. Video can be operated while the tool is open without changing entered times, and "From playhead" fills the selected time field.
 
 Stop behavior follow-up: Stop inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. Manual verification confirmed the preview and applied result; the planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors.
+
+Dialog sizing follow-up: invalid output intervals display the validation message below the preview. Reduced the dialog client height from 410 to 350 pixels while keeping the graph and summary dimensions unchanged; the editor build succeeds. Verify the tighter layout at normal and high DPI before checking the layout item above.
 
 ### Modeless Playback Keyboard Shortcuts (2026-10-09)
 

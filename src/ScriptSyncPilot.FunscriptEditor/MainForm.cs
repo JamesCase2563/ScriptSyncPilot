@@ -102,6 +102,8 @@ public sealed class MainForm : Form
             if (_wheelFilter is not null) Application.RemoveMessageFilter(_wheelFilter);
             ShutdownPlayback();
         };
+
+        MouseDown += (_, _) => _timeline.Focus();
     }
 
     private Control BuildMenu()
@@ -150,7 +152,11 @@ public sealed class MainForm : Form
             _settings,
             ApplyPattern,
             e => OnFormKeyDown(this, e));
-        _patternDialog.FormClosed += (_, _) => _patternDialog = null;
+        _patternDialog.FormClosed += (_, _) =>
+        {
+            _patternDialog = null;
+            if (!IsDisposed && _timeline.CanFocus) _timeline.Focus();
+        };
         _patternDialog.Show(this);
     }
 

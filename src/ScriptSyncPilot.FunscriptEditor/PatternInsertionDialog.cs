@@ -18,7 +18,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly NumericUpDown _maximumHours = Number(3, 1, 24, 0);
     private readonly ComboBox _profile = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
     private readonly ComboBox _startMode = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
-    private readonly PatternGraphControl _graph = new() { Dock = DockStyle.Fill };
+    private readonly PatternGraphControl _graph = new() { Dock = DockStyle.Fill, TabStop = true };
     private readonly Label _summary = new() { Dock = DockStyle.Fill, AutoSize = false, TextAlign = ContentAlignment.MiddleLeft };
     private readonly Button _applyButton = new() { Text = "Insert", Enabled = false, AutoSize = true };
 
@@ -92,6 +92,9 @@ internal sealed class PatternInsertionDialog : Form
         body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         body.Controls.Add(inputs, 0, 0);
         body.Controls.Add(preview, 1, 0);
+        MouseDown += (_, _) => _graph.Focus();
+        body.MouseDown += (_, _) => _graph.Focus();
+        preview.MouseDown += (_, _) => _graph.Focus();
 
         var suggestPreview = new Button { Text = "Preview", AutoSize = true };
         suggestPreview.Click += (_, _) => GeneratePreview();
@@ -124,6 +127,7 @@ internal sealed class PatternInsertionDialog : Form
         _profile.SelectedIndexChanged += (_, _) => { _riseFraction.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
+        _graph.MouseDown += (_, _) => _graph.Focus();
         KeyDown += (_, e) =>
         {
             if (new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseFraction, _maximumHours, _profile, _startMode }

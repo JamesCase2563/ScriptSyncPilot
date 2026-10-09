@@ -149,6 +149,8 @@ History fixtures should observe action contents and notifications, not depend on
 
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
+- [x] Clicking the pattern preview or blank dialog background transfers keyboard focus for playback shortcuts without interfering with arrow-key editing in input fields.
+- [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Try each conflict choice and verify visible results match preview.

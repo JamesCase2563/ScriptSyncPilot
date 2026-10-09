@@ -16,14 +16,14 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [x] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
 - [ ] Undo/redo multiple generated and manual edits; a new committed edit clears redo.
 - [x] Preview without changing actions, selection, metadata, or dirty state.
-- [ ] Apply at the captured timestamp; require no mpv/Handy connection.
+- [x] Apply at the captured timestamp; require no mpv/Handy connection.
 - [x] Conflict-free intervals apply without a conflict prompt.
 - [x] Conflicting intervals show Stop, Replace, and Merge; the last resolution is restored on later dialog uses.
 - [x] Stop inserts generated points before the first existing interior point, preserves that point and the remaining script, and may end mid-cycle; Cancel leaves the script unchanged. Stop marks the document dirty, while Cancel preserves the clean state.
 - [x] Preserve outside-section actions and root JSON properties after edit/save.
 - [ ] Refresh timeline extent/zoom/scroll limits and avoid stale selection/drag indices.
-- [ ] Generate the complete requested section beyond the current timeline/script endpoint, including a new or partly authored script.
-- [ ] Load an unrelated video shorter than the requested section and verify insertion is not rejected or truncated by its duration.
+- [x] Generate the complete requested section beyond the current timeline/script endpoint, including a new or partly authored script.
+- [x] Load an unrelated video shorter than the requested section and verify insertion is not rejected or truncated by its duration.
 - [x] Change every pattern control, close and reopen the dialog, then restart the app and verify all values are restored. Insert once and verify the dialog remains open with its values intact.
 
 ## Generation Tests
@@ -144,7 +144,7 @@ History fixtures should observe action contents and notifications, not depend on
 
 ## Manual Editor Checks
 
-- [ ] Generate into a new document and a loaded script, with and without mpv attached.
+- [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [ ] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [ ] Edit the script while the tool is open; Insert uses the current script, not the earlier preview.
 - [x] Try each conflict choice and verify visible results match preview.
@@ -152,7 +152,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Verify Stop, Replace, and Merge are all visible, and the previous selection is remembered when reopening the conflict dialog.
 - [x] Verify the conflict and collision preferences are restored after restarting the application.
 - [ ] Verify preview exposes the actual edge transitions, including preserved boundaries that create ramps or alter the ideal first/last cycle.
-- [ ] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.
+- [x] Insert beyond both timeline and media endpoints; verify Fit All and high-zoom scrolling reach the complete generated section while the original media duration remains unchanged.
 - [ ] Repeated Apply/Cancel operations do not leave stale selection, drag state, or duplicate actions.
 - [ ] Controls fit at ordinary/resized Windows window sizes and supported DPI scales; invalid input gives actionable feedback.
 
@@ -236,6 +236,6 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start. Insertion works without mpv, beyond script and media endpoints, and with a video shorter than the requested section; Fit All and high-zoom scrolling reach the full generated section.
 
-Stop behavior follow-up: Stop now inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. The planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors. Verify the Stop preview and applied result in the running editor.
+Stop behavior follow-up: Stop inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. Manual verification confirmed the preview and applied result; the planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors.

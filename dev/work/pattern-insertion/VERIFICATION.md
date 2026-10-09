@@ -13,9 +13,9 @@ See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include
 - [x] Remember the last Stop/Replace/Merge resolution across dialog uses.
 - [ ] Remember the last Keep Existing/Use New collision choice across dialog uses.
 - [x] Restore the last conflict and collision choices after restarting the application.
-- [ ] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
+- [x] Offer Continue Existing and Pattern Start, with a visible fallback when continuation cannot be resolved.
 - [ ] Undo/redo multiple generated and manual edits; a new committed edit clears redo.
-- [ ] Preview without changing actions, selection, metadata, or dirty state.
+- [x] Preview without changing actions, selection, metadata, or dirty state.
 - [ ] Apply at the captured timestamp; require no mpv/Handy connection.
 - [x] Conflict-free intervals apply without a conflict prompt.
 - [x] Conflicting intervals show Stop, Replace, and Merge; the last resolution is restored on later dialog uses.
@@ -236,6 +236,6 @@ Verification: `dotnet build ScriptSyncPilot.slnx` succeeded with no warnings or 
 
 Manual verification confirmed conflict-free intervals do not prompt, but reported that Merge was clipped and the last resolution was not remembered. Made the conflict-options panel autosize, increased the dialog height, and persisted the Stop/Replace/Merge and Keep Existing/Use New selections in EditorSettings. The editor builds successfully to a temporary output directory; visual verification of the conflict choices and in-session selection is recorded below.
 
-Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged.
+Follow-up manual check: all three conflict options are visible, the dialog restores the previous selection when reopened, and all selections remain remembered after restarting the application. Replace and Merge work as expected. Stop inserts the prefix before the first existing point and marks the document dirty; Cancel leaves the clean document unchanged. Preview leaves the script, selection, and clean state unchanged when the tool is closed without inserting. Continue Existing follows the script between existing points; outside the range, it falls back to Pattern Start.
 
 Stop behavior follow-up: Stop now inserts generated points strictly before the earliest existing interior point; Cancel remains the no-change action. Partial final cycles are allowed for this Stop prefix. The planner test verifies preservation of the first conflict and remaining actions. All 70 Common tests pass, and the editor builds to a temporary output directory with zero warnings/errors. Verify the Stop preview and applied result in the running editor.

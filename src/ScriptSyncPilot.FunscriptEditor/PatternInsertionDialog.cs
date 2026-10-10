@@ -18,7 +18,7 @@ internal sealed class PatternInsertionDialog : Form
     private readonly NumericUpDown _cycleCount = Number(5, 1, 100_000, 0);
     private readonly NumericUpDown _minimumPosition = Number(0, 0, 99, 0);
     private readonly NumericUpDown _maximumPosition = Number(100, 1, 100, 0);
-    private readonly NumericUpDown _riseTimePercent = Number(25, 0, 100, 0, 5);
+    private readonly NumericUpDown _riseTimePercent = Number(25, 1, 99, 0, 5);
     private readonly NumericUpDown _maximumHours = Number(3, 1, 24, 0);
     private readonly ComboBox _profile = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };
     private readonly ComboBox _startMode = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };

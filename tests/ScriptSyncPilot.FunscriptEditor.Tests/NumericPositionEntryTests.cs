@@ -197,6 +197,38 @@ public sealed class NumericPositionEntryTests
         });
     }
 
+    [TestMethod]
+    public void PlaybackFollow_RecentersAtRightEdgeWithoutSeekingOrChangingZoom()
+    {
+        RunSta(() =>
+        {
+            using var timeline = new TimelineControl { Size = new Size(1040, 200) };
+            var script = new Funscript();
+            timeline.LoadScript(script);
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+            var seeks = 0;
+            timeline.SeekRequested += _ => seeks++;
+            timeline.SetPlayhead(9.9, followPlayback: true);
+            Assert.AreEqual(0, scrollbar.Value);
+            timeline.SetPlayhead(10, followPlayback: true);
+            Assert.AreEqual(5000, scrollbar.Value);
+            timeline.SetPlayhead(14.9, followPlayback: true);
+            Assert.AreEqual(5000, scrollbar.Value);
+            timeline.SetPlayhead(15, followPlayback: true);
+            Assert.AreEqual(10000, scrollbar.Value);
+            timeline.SetPlayhead(40);
+            Assert.AreEqual(10000, scrollbar.Value);
+            timeline.SetPlayhead(59, followPlayback: true);
+            Assert.AreEqual(50000, scrollbar.Value);
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            Assert.AreEqual(59.0, timeline.PlayheadSeconds);
+            Assert.AreEqual(0, seeks);
+            Assert.IsFalse(timeline.History.CanUndo);
+            Assert.AreEqual(0, script.Actions.Count);
+        });
+    }
+
     private static void RunSta(Action action)
     {
         Exception? failure = null;

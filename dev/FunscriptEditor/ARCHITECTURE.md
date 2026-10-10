@@ -27,6 +27,8 @@ Middle-button dragging in the timeline pans the viewport horizontally without se
 
 ## Playback Lifecycle
 
+During active playback, reaching the visible timeline's right edge recenters the viewport on the playhead without changing zoom or seeking. Existing timeline bounds limit centering near the end. Auto-follow is suppressed during panning, point dragging, or scrubbing; paused/manual playhead updates do not recenter.
+
 Launch/attach transitions share a gate and disable connection buttons. Attach retains its cancellation source and checks lifecycle identity before publishing. Position/pause/duration/disconnect events retain session identity, and queued UI callbacks reject obsolete sessions. Successful attachment refreshes current observed properties.
 
 Shutdown cancels/disposes the session, clears media duration, disables transport, and terminates owned mpv, not externally managed players. Failed attachment and active-session disconnect reuse cleanup.

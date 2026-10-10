@@ -545,7 +545,7 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             if (!ReferenceEquals(_mpv, session)) return;
-            _timeline.SetPlayhead(seconds);
+            _timeline.SetPlayhead(seconds, followPlayback: !session.IsPaused);
             _timeLabel.Text = $"{seconds:0.000} / {session.DurationSeconds:0.000} s";
         });
     }

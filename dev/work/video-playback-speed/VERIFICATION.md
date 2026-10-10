@@ -32,6 +32,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Manual Playback Checks
 
+- [ ] During playback at zoomed-in scale, reaching the visible right edge recenters the viewport on the playhead without seeking or changing zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
 - [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
 - [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
@@ -121,3 +122,7 @@ Unmodified Space on the focused timeline raises PlayPauseRequested, wired to the
 ### Middle-Button Timeline Panning (2026-10-10)
 
 Added captured horizontal panning with existing viewport clamp/scrollbar helpers. It does not seek or commit edits; release, capture loss, and document loading end the gesture. The isolated editor build and focused MiddleDrag test passed, covering direction, both bounds, release/capture loss, and unchanged playhead/actions/history. Physical mouse interaction remains a manual check.
+
+### Playback Edge Following (2026-10-10)
+
+Active mpv position updates now request viewport following: when the playhead reaches the visible right edge, the timeline recenters on it within existing bounds. Zoom and video position are unchanged; active pan/point-drag/scrub gestures suppress following, and paused/manual updates retain their viewport. The isolated editor build and PlaybackFollow/MiddleDrag tests passed (2 tests); actual playback interaction remains pending manual verification.

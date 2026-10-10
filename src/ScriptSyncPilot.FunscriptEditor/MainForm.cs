@@ -92,6 +92,8 @@ public sealed class MainForm : Form
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
         _attachButton.Click += async (_, _) => await AttachExistingAsync();
         _playPauseButton.Click += async (_, _) => await TogglePlayPauseAsync();
+        _speedInput.ValueChanged += async (_, _) => await SetPlaybackSpeedAsync((double)_speedInput.Value);
+        _resetSpeedButton.Click += async (_, _) => await SetPlaybackSpeedAsync(1.0);
         _back10SButton.Click += async (_, _) => await StepAsync(-10);
         _back1SButton.Click += async (_, _) => await StepAsync(-1);
         _backFrameButton.Click += async (_, _) => await StepFrameAsync(forward: false);
@@ -649,6 +651,22 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
             Log($"Play/pause failed: {ex.Message}");
+        }
+    }
+
+    private async Task SetPlaybackSpeedAsync(double speed)
+    {
+        var session = _mpv;
+        if (session is null || _isClosing) return;
+        var token = _lifetimeCts.Token;
+        try
+        {
+            await session.SetSpeedAsync(speed, token);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or ArgumentException)
+        {
+            if (!_isClosing && ReferenceEquals(_mpv, session))
+                Log($"Speed change failed: {ex.Message}");
         }
     }
 

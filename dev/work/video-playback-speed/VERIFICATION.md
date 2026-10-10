@@ -88,3 +88,9 @@ Initial fixture runs failed because AutoFlush was enabled before connection and 
 Added a grouped transport input with 0.25-2.00x bounds, two decimal places, 0.05x increments, a 1x reset button, and a player-rate display initially reading unknown. Input and reset remain disabled until command/observation wiring is implemented; no speed writes, observation updates, or keyboard changes added in this step.
 
 `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` succeeded. Running-UI layout and playback behavior checks remain pending.
+
+### Editor Speed Write Wiring (2026-10-10)
+
+Speed input changes and the 1x reset now call SetPlaybackSpeedAsync, capturing the active MpvSession and lifetime token before awaiting Common's SetSpeedAsync. I/O, cancellation, disposal, and validation failures are caught; logging is limited to the still-current session while the form is open. Write completion does not change observed-rate presentation or document state. Controls remain disabled until observation wiring is implemented.
+
+The first isolated build with --no-restore failed because the new artifacts directory had no assets file. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --artifacts-path artifacts/video-speed-verification` restored and built successfully. Manual command/reset behavior remains pending.

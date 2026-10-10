@@ -46,7 +46,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 ### 3. Editor Integration
 
 - [x] Add compact speed editing, actual-rate display, and 1x reset. Controls remain disabled until command/observation wiring is implemented.
-- [ ] Wire writes through the current session and lifetime token; log failures without unhandled UI exceptions.
+- [x] Wire writes through the current session and lifetime token; log failures without unhandled UI exceptions. Controls remain disabled pending observation wiring.
 - [ ] Refresh observed values with session identity checks and suppress feedback writes.
 - [ ] Disable unavailable controls and clear stale observed state on shutdown/replacement.
 - [ ] Keep native numeric-field editing and existing timeline/keyboard behavior unchanged.

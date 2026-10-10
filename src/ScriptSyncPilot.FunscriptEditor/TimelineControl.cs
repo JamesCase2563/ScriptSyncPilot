@@ -522,23 +522,27 @@ public sealed class TimelineControl : Control
 
     public override bool PreProcessMessage(ref Message msg)
     {
-        if (Focused && msg.Msg == 0x0100 && ModifierKeys == Keys.None)
+        if (TryDecodePositionKey(msg.Msg, msg.LParam.ToInt64(), Focused, ModifierKeys, out var position))
         {
-            var keyData = msg.LParam.ToInt64();
-            var scanCode = (int)((keyData >> 16) & 0xff);
-            var extended = (keyData & (1L << 24)) != 0;
-            var position = scanCode == 0x29 ? 0
-                : scanCode is >= 0x02 and <= 0x0b ? (scanCode - 1) * 10
-                : -1;
-            if (!extended && position >= 0)
-            {
-                var repeated = (keyData & (1L << 30)) != 0;
-                if (!repeated) InsertPositionAtPlayhead(position);
-                return true;
-            }
+            if (position is { } value) InsertPositionAtPlayhead(value);
+            return true;
         }
 
         return base.PreProcessMessage(ref msg);
+    }
+
+    internal static bool TryDecodePositionKey(int message, long keyData, bool focused, Keys modifiers, out int? position)
+    {
+        position = null;
+        if (!focused || message != 0x0100 || modifiers != Keys.None || (keyData & (1L << 24)) != 0)
+            return false;
+        var scanCode = (int)((keyData >> 16) & 0xff);
+        var value = scanCode == 0x29 ? 0
+            : scanCode is >= 0x02 and <= 0x0b ? (scanCode - 1) * 10
+            : -1;
+        if (value < 0) return false;
+        if ((keyData & (1L << 30)) == 0) position = value;
+        return true;
     }
 
     protected override bool IsInputKey(Keys keyData)

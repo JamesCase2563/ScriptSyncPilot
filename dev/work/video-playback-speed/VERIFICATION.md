@@ -32,6 +32,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Manual Playback Checks
 
+- [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
 - [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
 - [ ] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
@@ -116,3 +117,7 @@ Transport button clicks now immediately return focus to the timeline, without in
 ### Space Play/Pause (2026-10-10)
 
 Unmodified Space on the focused timeline raises PlayPauseRequested, wired to the editor's existing playback toggle. Held repeats are consumed without another toggle; other controls and modified Space retain existing processing. The isolated editor build and focused Routing_FocusedTimeline test passed, verifying one request per press and no action insertion. Actual mpv playback and native input behavior remain manual checks.
+
+### Middle-Button Timeline Panning (2026-10-10)
+
+Added captured horizontal panning with existing viewport clamp/scrollbar helpers. It does not seek or commit edits; release, capture loss, and document loading end the gesture. The isolated editor build and focused MiddleDrag test passed, covering direction, both bounds, release/capture loss, and unchanged playhead/actions/history. Physical mouse interaction remains a manual check.

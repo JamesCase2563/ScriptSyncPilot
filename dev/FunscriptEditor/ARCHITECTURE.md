@@ -23,6 +23,8 @@ With the timeline focused, eleven physical top-row scan codes insert positions a
 
 Keyboard and value-bar entry share `InsertPositionAtPlayhead`, which validates 0-100, captures/clamps/rounds the playhead using the existing timestamp policy, and commits through AddOrReplace and action history. An existing timestamp is updated without duplicates; identical values do not create history or invalidate redo. The affected point is selected. Automated editor tests and user-performed manual checks cover this behavior.
 
+Middle-button dragging in the timeline pans the viewport horizontally without seeking or editing actions. Panning uses mouse capture, clamps to existing viewport bounds, and updates the scrollbar; release, capture loss, or document loading ends it. Left-button point dragging and scrubbing retain their existing behavior.
+
 ## Playback Lifecycle
 
 Launch/attach transitions share a gate and disable connection buttons. Attach retains its cancellation source and checks lifecycle identity before publishing. Position/pause/duration/disconnect events retain session identity, and queued UI callbacks reject obsolete sessions. Successful attachment refreshes current observed properties.

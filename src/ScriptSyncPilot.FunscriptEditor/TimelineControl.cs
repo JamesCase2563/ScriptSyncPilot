@@ -39,6 +39,8 @@ public sealed class TimelineControl : Control
     private FunscriptAction[]? _dragBefore;
     private int? _selectedIndex;
     private bool _scrubbing;
+    private int? _panStartX;
+    private double _panStartSeconds;
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
 
@@ -107,6 +109,7 @@ public sealed class TimelineControl : Control
 
     public void LoadScript(Funscript script)
     {
+        EndPan();
         _script = script;
         _selectedIndex = null;
         _draggingIndex = null;
@@ -428,6 +431,18 @@ public sealed class TimelineControl : Control
     protected override void OnMouseDown(MouseEventArgs e)
     {
         Focus();
+        if (e.Button == MouseButtons.Middle)
+        {
+            if (_draggingIndex is not null || _scrubbing || e.X >= BarLeft) return;
+            _panStartX = e.X;
+            _panStartSeconds = _viewStartSeconds;
+            _hoverBarPos = null;
+            Cursor = Cursors.SizeWE;
+            Capture = true;
+            Invalidate();
+            return;
+        }
+        if (_panStartX is not null) return;
         if (e.Button != MouseButtons.Left) return;
 
         if (e.X >= BarLeft)
@@ -467,6 +482,14 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (_panStartX is { } startX)
+        {
+            _viewStartSeconds = _panStartSeconds - (e.X - startX) / _pixelsPerSecond;
+            ClampViewStart();
+            UpdateScrollBar();
+            Invalidate();
+            return;
+        }
         if (e.X >= BarLeft && _draggingIndex is null && !_scrubbing)
         {
             _hoverBarPos = YToPos(e.Y);
@@ -506,8 +529,27 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
+        if (_panStartX is not null)
+        {
+            if (e.Button == MouseButtons.Middle) EndPan();
+            return;
+        }
         FinishDrag();
         _scrubbing = false;
+    }
+
+    private void EndPan()
+    {
+        if (_panStartX is null) return;
+        _panStartX = null;
+        Cursor = Cursors.Default;
+        Capture = false;
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        if (!Capture) EndPan();
+        base.OnMouseCaptureChanged(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

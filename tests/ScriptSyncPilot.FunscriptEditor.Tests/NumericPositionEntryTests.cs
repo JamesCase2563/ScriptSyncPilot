@@ -143,6 +143,60 @@ public sealed class NumericPositionEntryTests
         });
     }
 
+    [TestMethod]
+    public void MiddleDrag_PansAndClampsWithoutSeekingOrEditing()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form();
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            script.AddOrReplace(new FunscriptAction(0, 0));
+            script.AddOrReplace(new FunscriptAction(60000, 100));
+            timeline.LoadScript(script);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            timeline.SetPlayhead(12);
+            var seeks = 0;
+            var changes = 0;
+            timeline.SeekRequested += _ => seeks++;
+            timeline.ScriptChanged += (_, _) => changes++;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+            void Mouse(string method, MouseButtons button, int x) =>
+                typeof(TimelineControl).GetMethod(method,
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .Invoke(timeline, [new MouseEventArgs(button, 1, x, 30, 0)]);
+
+            Mouse("OnMouseDown", MouseButtons.Middle, 150);
+            Assert.IsTrue(timeline.Capture);
+            Mouse("OnMouseMove", MouseButtons.Middle, 50);
+            Assert.AreEqual(1000, scrollbar.Value);
+            Mouse("OnMouseMove", MouseButtons.Middle, -100000);
+            Assert.IsTrue(scrollbar.Value > 1000);
+            var end = scrollbar.Value;
+            Mouse("OnMouseMove", MouseButtons.Middle, -200000);
+            Assert.AreEqual(end, scrollbar.Value);
+            Mouse("OnMouseMove", MouseButtons.Middle, 100000);
+            Assert.AreEqual(0, scrollbar.Value);
+            Mouse("OnMouseUp", MouseButtons.Middle, 100000);
+            Assert.IsFalse(timeline.Capture);
+            Mouse("OnMouseMove", MouseButtons.None, 50);
+            Assert.AreEqual(0, scrollbar.Value);
+
+            Mouse("OnMouseDown", MouseButtons.Middle, 150);
+            timeline.Capture = false;
+            Mouse("OnMouseMove", MouseButtons.None, 50);
+            Assert.AreEqual(0, scrollbar.Value);
+            Assert.AreEqual(12.0, timeline.PlayheadSeconds);
+            Assert.AreEqual(0, seeks);
+            Assert.AreEqual(0, changes);
+            Assert.IsFalse(timeline.History.CanUndo);
+            Assert.AreEqual(2, script.Actions.Count);
+            form.Close();
+        });
+    }
+
     private static void RunSta(Action action)
     {
         Exception? failure = null;

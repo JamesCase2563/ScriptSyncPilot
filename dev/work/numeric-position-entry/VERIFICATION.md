@@ -35,6 +35,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-
 - [ ] Existing file shortcuts, Undo/Redo, Delete, and playback controls continue to work.
 - [ ] Accepted keys are consumed once, without duplicate routing, unwanted beeps, or triggering another control.
 - [ ] Holding a position key inserts once; release/repress inserts again. Changing modifiers while it remains held does not create another command.
+- [ ] Holding Left/Right continues repeated frame stepping; holding Shift/Ctrl+Left/Right continues repeated seeking. Position-entry repeat suppression does not alter existing navigation behavior.
 - [ ] Focus loss and New/Open do not leave held-key tracking stuck or admit held-key repeat messages as fresh commands.
 - [ ] Manual trial on the user's normal keyboard confirms all eleven physical positions and modifier handling. Norwegian/US layout-switch smoke testing is optional where readily available, not a completion gate.
 

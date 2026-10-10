@@ -40,7 +40,9 @@ Numeric authoring shortcuts are active only when the timeline has focus. Text bo
 
 Handle each accepted press at one ownership boundary, preferably TimelineControl, and suppress the consumed key so it cannot activate another command or beep. Do not route the same press through both MainForm.KeyPreview and the timeline. Numeric authoring must not depend on MainForm's playback handler, which returns when no mpv session is attached.
 
-One command per physical press: ignore operating-system repeat messages until release. Use the keyboard message's previous-key-state information and, if needed, physical pressed-key tracking; changing modifiers while a position key remains held must not count as another press. Clear any tracking on focus loss/document switch so missed releases cannot disable input, and still reject repeat messages received after focus returns. Release/repress permits another command.
+For mapped position-entry keys only, allow one command per physical press: ignore operating-system repeat messages until release. Use the keyboard message's previous-key-state information and, if needed, physical pressed-key tracking; changing modifiers while a position key remains held must not count as another press. Clear any tracking on focus loss/document switch so missed releases cannot disable input, and still reject position-key repeat messages received after focus returns. Release/repress permits another command.
+
+Existing navigation keys retain hold-repeat behavior: Left/Right frame stepping and Shift/Ctrl+Left/Right seeking must continue repeating while held. Apply repeat filtering only after identifying a mapped position key; unrelated keyboard messages continue through the existing handling unchanged. Do not introduce a general keyboard-repeat filter.
 
 ## Model and History
 

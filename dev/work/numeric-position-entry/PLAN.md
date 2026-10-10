@@ -20,7 +20,7 @@ Author individual movement points at the current playhead by pressing position k
 - Replace the value of an existing action at the captured timestamp; otherwise insert in timestamp order.
 - Reuse timeline commit/history, dirty-state, selection, and refresh behavior. Identical timestamp/value input is a no-op.
 - Activate point entry only while the timeline has focus. Shift/Ctrl/Alt/AltGr combinations do not insert points; native text/numeric editing remains untouched.
-- Ignore held-key repeats until release; each new physical press can insert one point.
+- Ignore held-key repeats only for mapped position-entry keys until release; each new physical press can insert one point. Existing arrow navigation, including Shift/Ctrl seeking, retains hold-repeat functionality.
 
 Live pattern generation, physical Q-P-row cycle presets, Shift+position-key min/max controls, playback-speed controls, markers/snapping, numpad insertion, hardware rebinding UI, and multitrack editing are outside this change. Numeric entry records individual points; it does not infer a frequency or generate intervening cycles. Future recording must reuse the same physical-key-to-position map: unmodified keys set maximum, Shift sets minimum, and Ctrl/Alt/AltGr do neither.
 
@@ -29,7 +29,7 @@ Live pattern generation, physical Q-P-row cycle presets, Shift+position-key min/
 - [x] Use the same physical position map in point-entry and future recording modes, independent of language layout.
 - [x] Use top-row keys only in this version; do not add numpad bindings.
 - [x] Activate only while the timeline has focus; broader form/dialog routing is outside scope.
-- [x] Ignore held-key repeats; release/repress permits another command.
+- [x] Ignore held-key repeats for position entry only; release/repress permits another command. Preserve existing navigation hold-repeat.
 - [x] Point entry accepts unmodified keys only. Shift is reserved for recording minimums; Ctrl/Alt/AltGr combinations are excluded in every authoring mode.
 
 Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixed physical-key map and verify it on the user's normal keyboard; no exhaustive language matrix, unusual-hardware adaptation, or rebinding work is required.
@@ -47,7 +47,7 @@ Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixe
 - [ ] Add a timeline position-insertion command using the existing mouse insertion/commit path.
 - [ ] Route accepted keyboard input once, preserving modifiers and native control behavior.
 - [ ] Implement scan-code handling for all eleven position keys, independent of language layout.
-- [ ] Suppress held-key repeats and safely reset key state on focus loss/document switch.
+- [ ] Suppress mapped position-key repeats and safely reset key state on focus loss/document switch without filtering navigation repeats.
 - [ ] Add focused automated tests using existing test infrastructure where suitable.
 
 ### 3. Verification and Completion

@@ -7,6 +7,7 @@
 - [Markers and Snapping](#markers-and-snapping)
 - [Video Playback Speed](#video-playback-speed)
 - [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
+- [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
 	- [Track Types](#track-types)
 	- [Multiple Tracks of the Same Type](#multiple-tracks-of-the-same-type)
@@ -68,6 +69,28 @@ Allow changing mpv playback speed from the editor for review and timing work. Sh
 **Priority:** To be decided. **Status:** Proposed.
 
 Allow digit shortcuts to insert or update a funscript action at the current playhead time/marker: `1` through `9` set 10% through 90%; `0` sets 0%. Choose a dedicated, unambiguous shortcut for 100% (for example, `Shift+0`, after checking keyboard-layout behavior and existing shortcut conflicts). Define behavior when an action already exists at that timestamp, keep edits undoable, and do not capture digits while a text-entry control has focus.
+
+This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
+
+## Live Pattern Recording
+
+**Priority:** To be decided. **Status:** Proposed; keyboard control groups agreed, exact bindings and cycle-time presets to be refined.
+
+While video plays, generate movement actions continuously at video timestamps using the current minimum/maximum position and full-cycle time. User keypresses change the movement range or cadence for subsequent output, allowing a script to be authored while watching instead of inserting separately timed sections. Cycle time controls script movement frequency, not mpv playback speed.
+
+### Range Keys
+
+Set minimum and maximum independently with two digit-key groups. Tentative mapping: unmodified digits set maximum, and Shift+digits set minimum; reversing the groups remains an option if trial shows it is more natural. Define the position mapping and an unambiguous way to enter both 0% and 100% for either boundary, checking keyboard-layout behavior. Maintain a valid minimum/maximum range without silently changing the other boundary.
+
+### Cycle-Time Keys
+
+Use `Q`, `W`, `E`, `R`, `T`, `Y`, `U`, `I`, `O`, `P` as direct cycle-time presets, ordered slowest to fastest from left to right on a QWERTY keyboard. Each key selects its preset immediately, rather than incrementing/decrementing speed. Define the ten full-cycle durations and display the active cycle time/cadence. Exact values and keyboard-layout handling remain design decisions. Manual rhythm entry belongs to Keyboard Numeric Position Entry; a separate tap-tempo feature is not required here.
+
+### Recording Contracts to Define
+
+Use an explicit recording mode so digit keys adjust pattern boundaries only while that mode is active; outside it, Keyboard Numeric Position Entry retains its individual-point behavior. Preserve native keyboard behavior while text/numeric inputs have focus, and do not intercept modified file shortcuts such as Ctrl+O.
+
+Define phase continuity on cycle-time changes, transitions when range changes, and start/stop/pause/seek behavior before implementation. Proposed safeguards: preserve phase when changing speed, avoid abrupt position jumps, use media time even at altered playback speed, and stop recording on seeks or document switches. Preview/review a recording take before applying the established destination conflict rules, preserve metadata and outside actions, and make each accepted take one undoable edit. Reuse Common's profile generation where suitable; do not change the existing whole-cycle section insertion contract implicitly.
 
 ## Multiple Tracks and Project Format
 

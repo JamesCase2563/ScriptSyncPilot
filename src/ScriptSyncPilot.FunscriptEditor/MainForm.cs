@@ -22,6 +22,19 @@ public sealed class MainForm : Form
     private readonly Button _attachButton = new() { Text = "Attach" };
     private readonly Button _playPauseButton = new() { Text = "Play", Enabled = false };
     private readonly Label _timeLabel = new() { AutoSize = true, Text = "0.000 / 0.000 s", MinimumSize = new Size(140, 0) };
+    private readonly NumericUpDown _speedInput = new()
+    {
+        Minimum = 0.25m,
+        Maximum = 2.00m,
+        DecimalPlaces = 2,
+        Increment = 0.05m,
+        Value = 1.00m,
+        Width = 75,
+        Enabled = false,
+        AccessibleName = "Playback speed multiplier",
+    };
+    private readonly Button _resetSpeedButton = new() { Text = "1x", AutoSize = true, Enabled = false, AccessibleName = "Reset playback speed to normal" };
+    private readonly Label _speedLabel = new() { AutoSize = true, Text = "Player rate: unknown", MinimumSize = new Size(140, 0), Margin = new Padding(6, 8, 3, 0) };
     private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, TickStyle = TickStyle.None, Value = 100 };
 
     private readonly Button _back10SButton = new() { Text = "◀◀ 10s", Enabled = false };
@@ -252,6 +265,12 @@ public sealed class MainForm : Form
         bar.Controls.Add(_pipeBox);
         bar.Controls.Add(_attachButton);
         bar.Controls.Add(_timeLabel);
+        var speedControls = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+        speedControls.Controls.Add(new Label { Text = "Speed (x)", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
+        speedControls.Controls.Add(_speedInput);
+        speedControls.Controls.Add(_resetSpeedButton);
+        speedControls.Controls.Add(_speedLabel);
+        bar.Controls.Add(speedControls);
         return bar;
     }
 

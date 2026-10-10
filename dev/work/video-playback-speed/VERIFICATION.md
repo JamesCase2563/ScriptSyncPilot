@@ -82,3 +82,9 @@ Added [MpvSessionTests](../../../tests/ScriptSyncPilot.Common.Tests/MpvSessionTe
 Initial fixture runs failed because AutoFlush was enabled before connection and command reads were not concurrent with Windows pipe writes/flushes. The corrected fixture continuously drains commands into a channel, bounds waits to ten seconds, and awaits its reader during cleanup. Cancellation assertions accept OperationCanceledException subclasses; disconnect tests expect IOException from a broken-pipe write. Production code was unchanged during these repairs.
 
 `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore --filter FullyQualifiedName~MpvSessionTests`: 9 passed, 0 failed, 0 skipped. `dotnet test ScriptSyncPilot.slnx --no-build --no-restore`: 94 passed, 0 failed, 0 skipped (88 Common, 6 editor). `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for both consumers and test projects. These tests verify IPC behavior, not actual playback speed or future editor controls.
+
+### Editor Speed Controls (2026-10-10)
+
+Added a grouped transport input with 0.25-2.00x bounds, two decimal places, 0.05x increments, a 1x reset button, and a player-rate display initially reading unknown. Input and reset remain disabled until command/observation wiring is implemented; no speed writes, observation updates, or keyboard changes added in this step.
+
+`dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` succeeded. Running-UI layout and playback behavior checks remain pending.

@@ -277,7 +277,7 @@ internal sealed class PatternInsertionDialog : Form
         }
     }
 
-    private void InvalidatePreview()
+    internal void InvalidatePreview()
     {
         GeneratedPattern = null;
         GenerationOptions = null;

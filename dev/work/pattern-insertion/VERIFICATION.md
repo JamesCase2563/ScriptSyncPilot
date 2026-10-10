@@ -1,6 +1,6 @@
 # Pattern Insertion Verification
 
-**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. The listed manual editor checks, including native arrow-key behavior and the tighter dialog layout, have passed. Quantitative large-script memory/performance measurement is intentionally deferred.
+**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks, including native arrow-key behavior and the tighter dialog layout, have passed. Document-switch preview invalidation remains pending manual verification. Quantitative large-script memory/performance measurement is intentionally deferred.
 
 See [plan](PLAN.md) and [design](DESIGN.md). Manual editor results are recorded below separately from automated checks; a successful build alone does not establish those results.
 
@@ -156,6 +156,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Verify arrow keys retain native WinForms editing/navigation behavior in the pattern dialog, including with Shift/Ctrl; they must not trigger playback seeks. Use the main editor's playback controls or shortcuts for playback.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
+- [ ] With a Continue Existing preview open, successfully New/Open a document through dialog shortcuts or main-editor commands: generated overlay/options clear immediately, Insert disables, and the summary requests a fresh preview; entered settings and the range band remain. Cancelled discard/Open and failed loads preserve the current document and preview.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Verify generated preview appears on the main timeline with a tinted range and distinct points/line.
 - [x] Verify the range band turns red for an invalid interval.
@@ -290,3 +291,7 @@ The user confirmed rise time is enabled only for Asymmetric cycle and limited to
 `Funscript.ApplyEdit` now builds the post-splice candidate separately and validates the complete list through `ReplaceActionsAtomically` before committing. Matching the removed slice alone cannot admit invalid inserted values or ordering conflicts with untouched neighbors. Invalid candidates leave the original actions unchanged; history still stores deltas, while application uses a temporary complete candidate.
 
 Verification: `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore --filter FullyQualifiedName~ActionHistoryTests` passed 13 cases, including seven new regressions for a shorter-source edit crossing the untouched suffix, boundary collisions/order violations, negative timestamps, and invalid positions. `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-build --no-restore` passed all 79 Common tests, including persistence and metadata checks. `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for Common, both consumers, and tests.
+
+### Document-Switch Preview Invalidation (2026-10-10)
+
+Successful New/Open now calls the open pattern dialog's `InvalidatePreview` after loading the replacement document. Generated actions/options and the timeline overlay clear, Insert disables, and the summary resets while dialog settings and the range band remain. Cancelled or failed switches do not invalidate the current preview. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` passed; the corresponding manual workflow check remains pending.

@@ -325,6 +325,7 @@ public sealed class MainForm : Form
         _script = new Funscript();
         _scriptPath = null;
         _timeline.LoadScript(_script);
+        _patternDialog?.InvalidatePreview();
         UpdateTitle();
     }
 
@@ -343,6 +344,7 @@ public sealed class MainForm : Form
             _script = Funscript.Load(path);
             _scriptPath = path;
             _timeline.LoadScript(_script);
+            _patternDialog?.InvalidatePreview();
             UpdateTitle();
             Log($"Loaded funscript with {_script.Actions.Count} actions from {path}.");
         }

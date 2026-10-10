@@ -10,7 +10,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-
 - [x] Decoder maps physical top-row `0` scan code to 100, not 0.
 - [ ] On the user's normal close-to-standard keyboard, all eleven positions map correctly, including left-of-`1`=0%; record the layout tested.
 - [x] Automated decoding checks cover the fixed scan-code map and reject unrelated/extended keys. No per-language mapping tables or exhaustive layout matrix are required.
-- [ ] Numpad keys, including Multiply, do not insert points. Num Lock off retains native navigation.
+- [x] Numpad keys, including Multiply, do not insert points. Num Lock off retains native navigation.
 - [x] Decoder rejects Shift/Ctrl/Alt combinations, including mixed modifiers and the Ctrl+Alt representation of AltGr. Shift is reserved for future recording minimums, not a second point-entry binding. Actual keyboard delivery remains a manual check.
 
 ## Insertion and History
@@ -20,24 +20,24 @@ See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-
 - [x] A missing timestamp inserts in sorted order and preserves all unrelated actions.
 - [x] An existing timestamp changes only its position; no duplicate timestamp is added.
 - [x] An identical timestamp/value is a no-op: no history entry, dirty change, ScriptChanged event, or redo invalidation.
-- [ ] A real insertion/replacement creates exactly one history entry and one ScriptChanged event, and selects the affected point.
-- [ ] Undo/Redo restore a sequence of keyboard and mouse edits in order, retaining metadata and saved clean/dirty state.
+- [x] A real insertion/replacement creates exactly one history entry and one ScriptChanged event, and selects the affected point.
+- [x] Undo/Redo restore a sequence of keyboard and mouse edits in order, retaining metadata and saved clean/dirty state.
 - [x] After Undo, a real numeric edit clears Redo while identical numeric input preserves it.
-- [ ] Keyboard insertion safely finalizes an existing drag using the established commit boundary.
-- [ ] Saving/reloading preserves positions, timestamps, and root JSON properties.
+- [x] Keyboard insertion safely finalizes an existing drag using the established commit boundary.
+- [x] Saving/reloading preserves positions, timestamps, and root JSON properties.
 
 ## Manual Interaction
 
-- [ ] With the timeline focused and video playing, successive presses create points at successive media timestamps.
-- [ ] While paused, repeated different positions replace the action at that same playhead timestamp.
-- [ ] Digits and OEM keys retain native behavior in text/numeric fields, combo boxes, and the modeless pattern dialog.
-- [ ] File pickers, error messages, and other modal windows do not insert points into the editor.
-- [ ] Existing file shortcuts, Undo/Redo, Delete, and playback controls continue to work.
-- [ ] Accepted keys are consumed once, without duplicate routing, unwanted beeps, or triggering another control.
-- [ ] Holding a position key inserts once; release/repress inserts again. Changing modifiers while it remains held does not create another command.
-- [ ] Holding Left/Right continues repeated frame stepping; holding Shift/Ctrl+Left/Right continues repeated seeking. Position-entry repeat suppression does not alter existing navigation behavior.
-- [ ] Focus loss and New/Open do not leave held-key tracking stuck or admit held-key repeat messages as fresh commands.
-- [ ] Manual trial on the user's normal keyboard confirms all eleven physical positions and modifier handling. Norwegian/US layout-switch smoke testing is optional where readily available, not a completion gate.
+- [x] With the timeline focused and video playing, successive presses create points at successive media timestamps.
+- [x] While paused, repeated different positions replace the action at that same playhead timestamp.
+- [x] Digits and OEM keys retain native behavior in text/numeric fields, combo boxes, and the modeless pattern dialog.
+- [x] File pickers, error messages, and other modal windows do not insert points into the editor.
+- [x] Existing file shortcuts, Undo/Redo, Delete, and playback controls continue to work.
+- [x] Accepted keys are consumed once, without duplicate routing, unwanted beeps, or triggering another control.
+- [x] Holding a position key inserts once; release/repress inserts again. Changing modifiers while it remains held does not create another command.
+- [x] Holding Left/Right continues repeated frame stepping; holding Shift/Ctrl+Left/Right continues repeated seeking. Position-entry repeat suppression does not alter existing navigation behavior.
+- [x] Focus loss and New/Open do not leave held-key tracking stuck or admit held-key repeat messages as fresh commands.
+- [x] Manual trial on the user's normal keyboard confirms all eleven physical positions and modifier handling. Norwegian/US layout-switch smoke testing is optional where readily available, not a completion gate.
 
 ## Required Gates
 

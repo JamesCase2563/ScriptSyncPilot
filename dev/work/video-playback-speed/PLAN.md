@@ -1,6 +1,6 @@
 # Video Playback Speed Plan
 
-**Status:** In progress; Common speed observation/state/events implemented. Speed commands, dedicated IPC tests, and editor integration remain.
+**Status:** In progress; Common speed observation/state/events and validated speed commands implemented. Dedicated IPC tests and editor integration remain.
 **Selected:** 2026-10-10.
 **Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI). HandySync receives no speed controls or synchronization changes.
 
@@ -40,7 +40,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 ### 2. Common IPC Support
 
 - [x] Observe mpv's speed property and expose validated speed state/change events.
-- [ ] Send set_property speed commands with finite positive input validation.
+- [x] Send set_property speed commands with finite positive input validation.
 - [ ] Add deterministic named-pipe tests for observation, commands, invalid data/input, and cancellation/disconnection behavior using existing MSTest conventions.
 
 ### 3. Editor Integration
@@ -61,4 +61,4 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 
 ## Outcome
 
-Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and accepts finite positive observations without imposing editor bounds. The solution builds and all 85 existing tests pass; dedicated speed IPC tests and editor integration remain pending. PR reference: not recorded.
+Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. The solution builds and all 85 existing tests pass; dedicated speed IPC tests and editor integration remain pending. PR reference: not recorded.

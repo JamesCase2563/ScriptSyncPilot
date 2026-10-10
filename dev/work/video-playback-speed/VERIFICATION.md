@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events implemented; solution build and all 85 existing regression tests pass. Dedicated speed IPC tests and manual checks remain pending.
+**Status:** Common speed observation/state/events and validated speed commands implemented; solution build and all 85 existing regression tests pass. Dedicated speed IPC tests and manual checks remain pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -68,3 +68,9 @@ Planning documents created on 2026-10-10. The user confirmed control bounds/incr
 MpvSession now observes speed using id 4 alongside existing observations. Nullable Speed distinguishes unknown from an observed 1x rate; SpeedChanged reports finite positive configured-rate observations. Null, wrong-type, nonpositive, nonfinite, and unrepresentable speed data do not replace valid state. No speed writes or editor controls added in this step.
 
 `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for Common, both consumers, and tests. `dotnet test ScriptSyncPilot.slnx --no-build --no-restore` passed all 85 existing tests, 0 failed, 0 skipped. These are regression checks, not dedicated speed-observation evidence; the IPC checklist remains unchecked until its tests are implemented.
+
+### Common Speed Command (2026-10-10)
+
+Added SetSpeedAsync(double speed, CancellationToken), rejecting nonfinite and nonpositive input before using the existing structured set_property speed write path. The shared API does not impose editor control bounds or change observed Speed on write completion. Existing disconnected-send and cancellation behavior is unchanged.
+
+`dotnet build ScriptSyncPilot.slnx --no-restore` succeeded; `dotnet test ScriptSyncPilot.slnx --no-build --no-restore` passed all 85 existing tests, 0 failed, 0 skipped. Dedicated command serialization/input-validation pipe tests remain the next milestone; no manual playback test was performed.

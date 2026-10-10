@@ -77,6 +77,13 @@ public sealed class MpvSession : IDisposable
     public Task SetPauseAsync(bool paused, CancellationToken ct) =>
         SendAsync(new { command = new object[] { "set_property", "pause", paused } }, ct);
 
+    public Task SetSpeedAsync(double speed, CancellationToken ct)
+    {
+        if (!double.IsFinite(speed) || speed <= 0)
+            throw new ArgumentOutOfRangeException(nameof(speed), "Speed must be finite and greater than zero.");
+        return SendAsync(new { command = new object[] { "set_property", "speed", speed } }, ct);
+    }
+
     private async Task SendAsync(object command, CancellationToken ct)
     {
         if (_pipe is not { IsConnected: true }) return;

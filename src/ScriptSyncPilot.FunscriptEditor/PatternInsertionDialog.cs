@@ -134,6 +134,7 @@ internal sealed class PatternInsertionDialog : Form
         foreach (var input in new[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseTimePercent, _maximumHours })
             input.ValueChanged += (_, _) => { InvalidatePreview(); SaveSettings(); };
         _profile.SelectedIndexChanged += (_, _) => { _riseTimePercent.Enabled = _profile.SelectedIndex == 1; SaveSettings(); };
+        _riseTimePercent.Enabled = _profile.SelectedIndex == 1;
         _startMode.SelectedIndexChanged += (_, _) => SaveSettings();
         FormClosing += (_, _) => SaveSettings();
         FormClosed += (_, _) => _timeToolTip.Dispose();

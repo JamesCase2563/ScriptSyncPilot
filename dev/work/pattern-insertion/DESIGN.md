@@ -98,7 +98,7 @@ Without a conflict, apply without a question, including insertion between two di
 
 Construct and validate the complete result before application. Do not replace the Funscript instance with an actions-only reconstruction, which would lose preserved root metadata. If Common needs a bulk edit API, keep it narrowly scoped and validate before modifying the existing list.
 
-Common provides `Funscript.ReplaceActionsAtomically(candidate.Actions)`: it copies and validates the complete ordered action list before swapping it into the same Funscript instance. It preserves root extension data and returns `false` without mutation for an identical action list. The caller owns ScriptChanged/dirty notifications, preview staleness, selection, and undo/redo. This is the commit primitive; editor UI application and history integration are not implemented yet.
+Common provides `Funscript.ReplaceActionsAtomically(candidate.Actions)`: it copies and validates the complete ordered action list before swapping it into the same Funscript instance. It preserves root extension data and returns `false` without mutation for an identical action list. The caller owns ScriptChanged/dirty notifications, preview staleness, selection, and undo/redo. The editor uses this commit primitive through `TimelineControl.ReplaceActions`, which records the applied delta as one history entry and refreshes selection and timeline state on a real change.
 
 ## Implemented Editor Integration
 

@@ -1,6 +1,6 @@
 # Numeric Position Entry Design
 
-**Status:** Agreed top-row physical-key mapping, modifier roles, timeline focus scope, and repeat policy; not implemented.
+**Status:** Implemented and verified; physical-key mapping, modifier roles, timeline focus scope, and repeat policy have automated coverage and user-confirmed manual results in [verification](VERIFICATION.md).
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
@@ -65,4 +65,4 @@ This feature inserts individual points at the user's chosen times, supporting ma
 
 ## Limitations
 
-Scan-code decoding and native interaction require focused verification on close-to-standard PC keyboards with Latin-like layouts. Universal keyboard compatibility, numpad insertion, continuous recording, sub-frame timing compensation, and input-latency measurement are outside scope. Reuse existing model/history behavior without unrelated refactoring.
+Scan-code decoding has focused automated coverage, and native interaction was manually confirmed by the user on their normal keyboard. Close-to-standard PC geometry and Latin-like layouts are assumed. Universal keyboard compatibility, numpad insertion, continuous recording, sub-frame timing compensation, and input-latency measurement are outside scope.

@@ -1,6 +1,6 @@
 # Numeric Position Entry Plan
 
-**Status:** In progress; shared timeline insertion, keyboard routing, fixed scan-code mapping, and position-key repeat suppression implemented. Focused automated tests pass; manual verification remains.
+**Status:** Implemented and verified; all 85 solution tests pass and the user confirmed all manual checks. Permanent editor documentation updated; PR review and archiving remain.
 **Selected:** 2026-10-10.
 **Affected projects:** FunscriptEditor (keyboard routing and timeline insertion); Common only if a genuinely shared model change is needed. HandySync behavior is outside scope.
 
@@ -52,12 +52,12 @@ Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixe
 
 ### 3. Verification and Completion
 
-- [ ] Run the checks in VERIFICATION.md and build affected projects.
-- [ ] Record manual results on the user's normal keyboard/layout, focus behavior, and playback authoring; optionally smoke-check Norwegian/US layout switching if readily available.
-- [ ] Update the permanent editor architecture and backlog to the implemented mapping.
+- [x] Run the checks in VERIFICATION.md and build affected projects.
+- [x] Record manual results on the user's normal keyboard/layout, focus behavior, and playback authoring; optional layout-switch testing is not a completion gate.
+- [x] Update the permanent editor architecture and backlog to the implemented mapping.
 - [ ] Record limitations and the PR reference; return deferred ideas to the backlog.
 - [ ] Archive the completed folder under `dev/archive/YYYY-MM-numeric-position-entry/` and update links.
 
 ## Outcome
 
-`TimelineControl.InsertPositionAtPlayhead` is shared with value-bar insertion. Focused timeline keyboard routing uses fixed top-row scan codes, excludes modifiers/extended keys, and suppresses position-key repeats. Five focused editor tests and the full solution build pass; manual verification remains pending. PR reference: not recorded.
+`TimelineControl.InsertPositionAtPlayhead` is shared with value-bar insertion. Focused timeline keyboard routing uses fixed top-row scan codes, excludes modifiers/extended keys, and suppresses position-key repeats while preserving arrow hold-repeat. All 85 solution tests pass (79 Common, 6 editor), and the user confirmed every manual checklist item. Permanent editor architecture and backlog are updated. PR reference: not recorded; PR review and archiving remain.

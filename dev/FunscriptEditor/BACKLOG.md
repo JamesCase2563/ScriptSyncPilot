@@ -66,9 +66,11 @@ Allow changing mpv playback speed from the editor for review and timing work. Sh
 
 ## Keyboard Numeric Position Entry
 
-**Priority:** To be decided. **Status:** In Progress.
+**Priority:** Selected. **Status:** Implemented and verified; automated tests and user-confirmed manual checks passed. PR review and archiving remain.
 
-Allow digit shortcuts to insert or update a funscript action at the current playhead time/marker: `1` through `9` set 10% through 90%; `0` sets 0%. Choose a dedicated, unambiguous shortcut for 100% (for example, `Shift+0`, after checking keyboard-layout behavior and existing shortcut conflicts). Define behavior when an action already exists at that timestamp, keep edits undoable, and do not capture digits while a text-entry control has focus.
+With the timeline focused, physical top-row `1` through `9` insert 10-90% at the current playhead; `0` inserts 100%, and the key left of `1` inserts 0%. Use fixed scan codes on close-to-standard PC keyboards with Latin-like layouts. Shift/Ctrl/Alt combinations and numpad keys do not insert points; editable controls retain native behavior. Ignore held position-key repeats while retaining arrow navigation hold-repeat. Existing timestamps are updated without duplicates, edits are undoable, and identical values preserve dirty state and redo.
+
+Working documents: [plan](../work/numeric-position-entry/PLAN.md), [design](../work/numeric-position-entry/DESIGN.md), and [verification](../work/numeric-position-entry/VERIFICATION.md).
 
 This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
 
@@ -80,7 +82,7 @@ While video plays, generate movement actions continuously at video timestamps us
 
 ### Range Keys
 
-Set minimum and maximum independently with two digit-key groups. Tentative mapping: unmodified digits set maximum, and Shift+digits set minimum; reversing the groups remains an option if trial shows it is more natural. Define the position mapping and an unambiguous way to enter both 0% and 100% for either boundary, checking keyboard-layout behavior. Maintain a valid minimum/maximum range without silently changing the other boundary.
+Reuse the numeric-entry physical position map: left-of-`1`=0%, `1` through `9`=10-90%, and `0`=100%. Unmodified position keys set maximum; Shift-only position keys set minimum. Ctrl/Alt/AltGr combinations do neither. Keep the same physical mapping across modes, and maintain a valid minimum/maximum range without silently changing the other boundary. This recording behavior remains proposed, not implemented by numeric point entry.
 
 ### Cycle-Time Keys
 

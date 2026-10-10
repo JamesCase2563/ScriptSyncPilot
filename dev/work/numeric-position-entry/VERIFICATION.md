@@ -1,6 +1,6 @@
 # Numeric Position Entry Verification
 
-**Status:** Shared timeline insertion and physical-key routing with repeat suppression implemented. Five focused editor tests and the solution build pass; manual checks remain pending. Results below distinguish automated decisions/model checks from running-UI verification.
+**Status:** Implemented and verified. All 85 solution tests pass (79 Common, 6 editor), and the user confirmed all manual checklist items. Results below distinguish automated coverage from user-performed running-UI verification.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-only focus scope, modifier exclusions, and repeat suppression are agreed requirements. Future recording behavior is a compatibility contract, not an implemented feature under test here.
 
@@ -71,4 +71,14 @@ Five tests cover all eleven scan codes, consumed repeats without insertion, all 
 
 `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --filter FullyQualifiedName~NumericPositionEntryTests` passed 5 tests, 0 failed, 0 skipped. `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded, including both consumers and both test projects. Common source was unchanged.
 
-These tests do not simulate physical keyboard delivery, show/focus the running form, inspect selection, or verify drag/metadata round-trips. The corresponding unchecked checks remain pending; decoder tests do not establish actual Windows focus, character suppression, or arrow hold-repeat behavior in mpv.
+The initial five tests do not simulate physical keyboard delivery, show/focus the running form, inspect selection, or verify drag/metadata round-trips. The later routing test and user-performed checks below supplement this coverage; decoder tests alone do not establish actual Windows focus, character suppression, or arrow hold-repeat behavior in mpv.
+
+### Final Verification (2026-10-10)
+
+Added `Routing_FocusedTimelineConsumesPhysicalKeyThroughWinFormsPreprocessing`, which shows a form, focuses its timeline, and passes a physical position-key message through `PreProcessControlMessage`. It verifies the message is consumed and inserts the expected point. This tests WinForms preprocessing, not physical hardware delivery.
+
+The user confirmed all manual checklist items passed in the running editor, including all eleven position keys, focus/modifier exclusions, position-key repeat suppression, arrow hold-repeat, selection, undo/redo, drag handling, and save/reload. The specific keyboard layout was not recorded; exhaustive layout testing is outside scope.
+
+`dotnet test ScriptSyncPilot.slnx --no-restore` passed all 79 Common tests but could not build the editor tests because the running editor locked its Common DLL. Retried without closing the app using `dotnet test ScriptSyncPilot.slnx --artifacts-path artifacts/numeric-position-verification`: 85 passed, 0 failed, 0 skipped (79 Common, 6 editor); build succeeded. No runtime fix was needed for the earlier reported missing numeric input; the routing test passed and subsequent user verification confirmed the behavior.
+
+Remaining limitations: close-to-standard PC geometry and Latin-like layouts are assumed; numpad insertion, universal keyboard compatibility, rebinding, and live recording are outside this feature. PR review and archiving are separate close-out steps.

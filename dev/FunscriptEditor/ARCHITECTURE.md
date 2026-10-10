@@ -15,6 +15,14 @@ Actions use milliseconds and 0-100 positions. Common preserves unknown root JSON
 
 The timeline spans media/script duration, with a 60-second minimum without media. Scrollbar units are milliseconds. Deleting selection clears drag state. The right value bar inserts at the playhead and draws a hover guide across the visible graph.
 
+## Keyboard Position Entry
+
+With the timeline focused, eleven physical top-row scan codes insert positions at the current playhead: the key left of `1` sets 0%, `1` through `9` set 10-90%, and `0` sets 100%. These labels describe standard keyboard positions, not layout-dependent characters. Close-to-standard PC keyboards with Latin-like layouts are assumed; numpad insertion is not supported.
+
+`TimelineControl.PreProcessMessage` uses `TryDecodePositionKey` to accept only unmodified, non-extended position-key messages before character translation. Accepted repeats are consumed without insertion using the message's previous-key-state flag; arrow navigation retains hold-repeat. Other controls, modifiers, and unrelated messages keep native processing.
+
+Keyboard and value-bar entry share `InsertPositionAtPlayhead`, which validates 0-100, captures/clamps/rounds the playhead using the existing timestamp policy, and commits through AddOrReplace and action history. An existing timestamp is updated without duplicates; identical values do not create history or invalidate redo. The affected point is selected. Automated editor tests and user-performed manual checks cover this behavior.
+
 ## Playback Lifecycle
 
 Launch/attach transitions share a gate and disable connection buttons. Attach retains its cancellation source and checks lifecycle identity before publishing. Position/pause/duration/disconnect events retain session identity, and queued UI callbacks reject obsolete sessions. Successful attachment refreshes current observed properties.

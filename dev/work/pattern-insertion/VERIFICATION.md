@@ -1,8 +1,8 @@
 # Pattern Insertion Verification
 
-**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks, including native arrow-key behavior in the pattern dialog, have passed; the tighter dialog layout at normal/high DPI remains unverified. Quantitative large-script memory/performance measurement is intentionally deferred.
+**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. The listed manual editor checks, including native arrow-key behavior and the tighter dialog layout, have passed. Quantitative large-script memory/performance measurement is intentionally deferred.
 
-See [plan](PLAN.md) and [design](DESIGN.md). The unchecked manual editor items below identify the remaining UI verification; a successful build does not establish those results.
+See [plan](PLAN.md) and [design](DESIGN.md). Manual editor results are recorded below separately from automated checks; a successful build alone does not establish those results.
 
 ## Acceptance Criteria
 
@@ -164,6 +164,9 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Try each profile and start mode; confirm range/rise settings change the preview without changing the selected cycle count, output interval, or cadence.
 - [x] Confirm the profile is labeled "Asymmetric cycle" and the setting is labeled "Rise time (%)" with percentage input values.
 - [x] Confirm previously saved fractional rise settings load and display as equivalent percentages.
+- [x] Rise time is enabled only for Asymmetric cycle and constrained to 1-99%.
+- [x] Inserting into a malformed loaded script shows an actionable validation error without modifying the document.
+- [x] Pattern insertion selects the first inserted action rather than an unchanged preserved boundary; deletion-only edits leave selection empty.
 - [x] Try each conflict choice and verify visible results match preview.
 - [x] Empty intervals show no conflict prompt.
 - [x] Existing actions at the output start/end take precedence over generated endpoint actions.
@@ -175,7 +178,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Save a script, insert a pattern, Undo/Redo and verify the title's clean/dirty state; after Undo, a new manual edit clears Redo.
 - [x] Repeated Insert operations at the same timestamp do not duplicate actions; Cancel leaves the script unchanged.
 - [x] Repeated Insert/Close operations leave selection and drag state valid.
-- [ ] Verify the tighter dialog layout fits at ordinary/resized Windows window sizes and normal/high DPI scales.
+- [x] Verify the tighter dialog layout fits at ordinary/resized Windows window sizes and normal/high DPI scales.
 - [x] An invalid output interval shows an actionable error below the preview.
 
 ## Required Gates
@@ -264,6 +267,8 @@ Stop behavior follow-up: Stop inserts generated points strictly before the earli
 
 Dialog sizing follow-up: invalid output intervals display the validation message below the preview. Reduced the dialog client height from 410 to 350 pixels while keeping the graph and summary dimensions unchanged; the editor build succeeds. Verify the tighter layout at normal and high DPI before checking the layout item above.
 
+Manual verification (2026-10-10): The user confirmed the tighter dialog layout is fine, completing the layout check above.
+
 ### Modeless Playback Keyboard Shortcuts (2026-10-09)
 
 Forwarded the editor's existing Left/Right frame-step and Shift/Ctrl seek shortcuts from the modeless pattern window when an editable pattern control does not have focus. The editor builds successfully; manual keyboard verification remains pending.
@@ -275,3 +280,7 @@ Manual verification (2026-10-10): The user confirmed native arrow-key editing/na
 ### Numeric Edge and Refinement Tests (2026-10-09)
 
 Added generator tests confirming 0.0005 seconds rounds to 1 ms before mandatory-point collision validation, 0.0004 seconds rounds to zero and is rejected, and continuation positions 50.5/51.5 round to 51/52. Adaptive cosine refinement now has an exact odd-duration midpoint fixture (126 ms and 251 ms), repeat-input determinism, and strict chronological-order assertions. Full Common suite: 72 passed, 0 failed, 0 skipped.
+
+### Review Fixes Manual Verification (2026-10-10)
+
+The user confirmed rise time is enabled only for Asymmetric cycle and limited to 1-99%; malformed loaded scripts show an actionable insertion error without mutation; preserved boundaries are not selected instead of inserted actions; and deletion-only edits clear selection. These are manual regression results, separate from the successful editor builds recorded during the fixes.

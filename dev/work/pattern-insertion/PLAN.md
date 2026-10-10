@@ -2,7 +2,7 @@
 
 **Status:** In progress; generation, planning, single-timeline editor application, and undo/redo implemented. Manual UI verification pending.
 **Selected:** 2026-10-04.
-**Affected projects:** Common (pure generation and tests), FunscriptEditor (future application/UI). HandySync behavior is outside scope.
+**Affected projects:** Common (pure generation, conflict planning, atomic edits, action history, and tests), FunscriptEditor (implemented application/UI and undo/redo integration). HandySync behavior is outside scope.
 
 Source: [editor backlog](../../FunscriptEditor/BACKLOG.md). Details: [design](DESIGN.md) and [verification](VERIFICATION.md).
 
@@ -51,9 +51,9 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 ### 1. Design and Test Cases
 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
-- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Generator tests are implemented; application/history tests remain pending.
+- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Generator, planner, atomic-edit, and model-level history tests are implemented; remaining manual UI checks are tracked in VERIFICATION.md.
 - [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
-- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Pure generator coverage is implemented; conflict/atomic-edit coverage awaits those components.
+- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Pure generator, conflict-planner, atomic-edit, and model-level history coverage is implemented; editor workflow verification combines recorded manual results with the remaining UI checks.
 
 ### 2. Generation and Application Logic
 

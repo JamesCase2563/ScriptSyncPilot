@@ -1,8 +1,8 @@
 # Pattern Insertion Verification
 
-**Status:** Generator, planner, atomic model-commit, action history, and editor workflow have passed the listed automated and manual checks. Quantitative large-script memory/performance measurement is intentionally deferred.
+**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks have passed, but the tighter dialog layout at normal/high DPI and modeless playback-keyboard behavior remain unverified. Quantitative large-script memory/performance measurement is intentionally deferred.
 
-See [plan](PLAN.md) and [design](DESIGN.md). The acceptance checks below include workflow behavior that is implemented but still requires manual UI verification.
+See [plan](PLAN.md) and [design](DESIGN.md). The unchecked manual editor items below identify the remaining UI verification; a successful build does not establish those results.
 
 ## Acceptance Criteria
 
@@ -153,7 +153,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [x] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [x] For both output times, verify "From playhead" copies the current time into its field and the adjacent arrow moves the timeline/playback playhead to the field value.
-- [x] Clicking the pattern preview or blank dialog background transfers keyboard focus for playback shortcuts without interfering with arrow-key editing in input fields.
+- [ ] Verify modeless playback shortcuts (Left/Right frame-step and Shift/Ctrl seek) from the pattern preview or blank dialog background without interfering with arrow-key editing in input fields.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
@@ -175,7 +175,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Save a script, insert a pattern, Undo/Redo and verify the title's clean/dirty state; after Undo, a new manual edit clears Redo.
 - [x] Repeated Insert operations at the same timestamp do not duplicate actions; Cancel leaves the script unchanged.
 - [x] Repeated Insert/Close operations leave selection and drag state valid.
-- [x] Controls fit at ordinary/resized Windows window sizes and supported DPI scales.
+- [ ] Verify the tighter dialog layout fits at ordinary/resized Windows window sizes and normal/high DPI scales.
 - [x] An invalid output interval shows an actionable error below the preview.
 
 ## Required Gates

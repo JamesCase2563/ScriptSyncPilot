@@ -1,6 +1,6 @@
 # Pattern Insertion Design
 
-**Status:** Agreed design; pure generation, conflict planning, single-timeline editor application, and undo/redo implemented. Manual UI verification remains pending.
+**Status:** Agreed design; pure generation, conflict planning, single-timeline editor application, and undo/redo implemented. Recorded manual UI checks have passed; the document-switch preview invalidation check remains pending in [verification](VERIFICATION.md). Quantitative large-script memory/performance measurement is deferred.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
@@ -120,7 +120,7 @@ Implementation: Common's `ActionEdit.Between(before, after)` stores only the dif
 
 Store deltas for small edits and retain affected sections for bulk changes rather than snapshotting the entire document on every edit. Do not impose a restrictive edit-count limit initially. Two integer fields occupy roughly eight bytes of raw action data: 100,000 actions are about 0.8 MB before overhead. Repeated full-document snapshots can nevertheless become large, and serialized files are larger than raw data. Measure practical history overhead during trial; implementation details must preserve the agreed undo/redo behavior.
 
-## Remaining Implementation Details and Trial
+## Implemented APIs and Deferred Measurement
 
 ### Implemented Pure API
 
@@ -132,10 +132,10 @@ Continuation validates a copied sorted/unique action snapshot. Generation errors
 
 ### Implemented Conflict Planner
 
-`PatternInsertionPlan.Create(existingActions, generatedPattern)` validates and copies both inputs. It exposes original/generated snapshots, interior conflicting actions, differing-value interior collisions, and flags for preserved start/end boundaries. `HasConflicts` indicates whether a future UI should ask Stop/Replace/Merge; `RequiresMergeChoice` indicates differing values at identical interior timestamps. Crossing lines and boundary-only actions do not set those flags.
+`PatternInsertionPlan.Create(existingActions, generatedPattern)` validates and copies both inputs. It exposes original/generated snapshots, interior conflicting actions, differing-value interior collisions, and flags for preserved start/end boundaries. `HasConflicts` indicates whether the editor should ask Stop/Replace/Merge; `RequiresMergeChoice` indicates differing values at identical interior timestamps. Crossing lines and boundary-only actions do not set those flags.
 
 `Resolve(choice, mergeChoice)` builds a read-only complete action candidate without touching the source Funscript, metadata, dirty state, or history. Stop returns the original snapshot plus generated actions strictly before the first existing interior point; if there are no conflicts, it returns the full generated result. Replace removes only interior actions; Merge combines timestamps and selects Keep Existing or Use New for collisions. Existing endpoints are retained for every policy. Identical values deduplicate; HasChanges compares the full result to the captured original so a no-op remains detectable.
 
-Inputs must contain valid, sorted, unique timestamps. Generated actions must span StartMs/EndMs and fit the generation cap. Plans remain stable when caller collections change later; the future apply layer must verify the original snapshot is still current before committing. The planner does not present dialogs, remember preferences, commit candidates, or implement undo.
+Inputs must contain valid, sorted, unique timestamps. Generated actions must span StartMs/EndMs and fit the generation cap. Plans remain stable when caller collections change later; the editor regenerates and plans against the current document on Insert. The planner does not present dialogs, remember preferences, commit candidates, or implement undo.
 
-The feature choices and deterministic numeric rules above are specified. Concrete delta-history structures and any interaction refinements can be resolved during implementation. Manually validate analytic error appearance, edge transitions, dialog behavior, and memory use in trial. These details must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.
+The feature choices, deterministic numeric rules, and delta-history structures above are implemented. Manual confirmations for analytic error appearance, edge transitions, and dialog behavior are recorded in [verification](VERIFICATION.md), which also tracks the document-switch regression check. Quantitative large-script memory/performance measurement is deferred; a qualitative undo/redo trial showed no noticeable delay. Future refinements must not reintroduce partial cycles, extra rounding options, unprompted interior overwrites, or one-off undo.

@@ -2,7 +2,7 @@
 
 ## Pattern Insertion Tool
 
-**Priority:** Selected next. **Status:** In progress; generator, conflict planner, and editor application integrated. Undo/redo and manual UI verification remain.
+**Priority:** Selected next. **Status:** Implemented; generator, conflict planner, editor application, and multilevel undo/redo integrated. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
 Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
 
@@ -30,7 +30,7 @@ Fit the directly selected whole-cycle count to the output interval; never emit p
 
 ## Undo and Redo
 
-**Priority:** Selected with pattern insertion. **Status:** Planning; implementation not started.
+**Priority:** Selected with pattern insertion. **Status:** Implemented; `TimelineControl` records delta-based edits through `ActionHistory`, with multilevel undo/redo and saved-state checkpoints. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
 Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [pattern-insertion plan](../work/pattern-insertion/PLAN.md), not a temporary one-operation rollback.
 

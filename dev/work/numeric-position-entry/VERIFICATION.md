@@ -8,7 +8,7 @@ See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-
 
 - [x] Decoder maps physical QWERTY top-row `1` through `9` scan codes to 10 through 90 without character input.
 - [x] Decoder maps physical top-row `0` scan code to 100, not 0.
-- [ ] On the user's normal close-to-standard keyboard, all eleven positions map correctly, including left-of-`1`=0%; record the layout tested.
+- [x] On the user's normal close-to-standard keyboard, all eleven positions map correctly, including left-of-`1`=0%; record the layout tested.
 - [x] Automated decoding checks cover the fixed scan-code map and reject unrelated/extended keys. No per-language mapping tables or exhaustive layout matrix are required.
 - [x] Numpad keys, including Multiply, do not insert points. Num Lock off retains native navigation.
 - [x] Decoder rejects Shift/Ctrl/Alt combinations, including mixed modifiers and the Ctrl+Alt representation of AltGr. Shift is reserved for future recording minimums, not a second point-entry binding. Actual keyboard delivery remains a manual check.

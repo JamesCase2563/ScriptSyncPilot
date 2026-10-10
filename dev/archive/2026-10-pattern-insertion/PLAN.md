@@ -79,8 +79,8 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 - [ ] Document limitations and results; record the PR reference.
 - [ ] Update permanent editor/Common architecture for actual implemented behavior.
 - [ ] Return deferred work to the appropriate backlog.
-- [ ] Archive this folder under `dev/archive/YYYY-MM-pattern-insertion/` and update links.
+- [x] Archive this folder under `dev/archive/2026-10-pattern-insertion/` and update links (2026-10-10).
 
 ## Outcome
 
-Generation, conflict planning, editor candidate application, and delta-based undo/redo are implemented. Common tests and a full solution build pass; all listed manual UI checks, including document-switch preview invalidation, are confirmed in VERIFICATION.md. Quantitative large-script memory/performance measurement is deferred. PR reference: not yet available; completion bookkeeping and archiving remain as listed above.
+Generation, conflict planning, editor candidate application, and delta-based undo/redo are implemented. Common tests and a full solution build pass; all listed manual UI checks, including document-switch preview invalidation, are confirmed in VERIFICATION.md. Quantitative large-script memory/performance measurement is deferred. PR review is complete and work has returned to main. Archived on 2026-10-10. PR reference: not recorded; remaining completion bookkeeping is listed above.

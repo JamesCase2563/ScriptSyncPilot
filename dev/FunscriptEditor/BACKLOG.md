@@ -20,7 +20,7 @@
 
 **Priority:** Selected next. **Status:** Implemented; generator, conflict planner, editor application, and multilevel undo/redo integrated. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
-Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
+Archived documents: [plan](../archive/2026-10-pattern-insertion/PLAN.md), [design](../archive/2026-10-pattern-insertion/DESIGN.md), and [verification](../archive/2026-10-pattern-insertion/VERIFICATION.md).
 
 Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, specify the target section's start/end times, and enter the full-cycle count directly. Show the output cadence implied by those inputs.
 
@@ -48,7 +48,7 @@ Fit the directly selected whole-cycle count to the output interval; never emit p
 
 **Priority:** Selected with pattern insertion. **Status:** Implemented; `TimelineControl` records delta-based edits through `ActionHistory`, with multilevel undo/redo and saved-state checkpoints. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
-Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [pattern-insertion plan](../work/pattern-insertion/PLAN.md), not a temporary one-operation rollback.
+Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [archived pattern-insertion plan](../archive/2026-10-pattern-insertion/PLAN.md), not a temporary one-operation rollback.
 
 Use deltas for small edits and affected-section history for bulk edits, not whole-document snapshots for every operation. No restrictive edit-count limit is planned initially; measure memory during trial.
 

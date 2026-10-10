@@ -128,6 +128,34 @@ public sealed class ActionHistoryTests
     }
 
     [TestMethod]
+    public void ApplyEdit_RejectsShorterSourceEditThatCrossesUntouchedSuffix()
+    {
+        var original = new[] { A(0, 0), A(1000, 100) };
+        var script = Script(original);
+        var edit = ActionEdit.Between([A(0, 0)], [A(2000, 0)])!;
+
+        Assert.ThrowsException<ArgumentException>(() => script.ApplyEdit(edit));
+        CollectionAssert.AreEqual(original, script.Actions.ToArray());
+    }
+
+    [DataTestMethod]
+    [DataRow(-1, 50)]
+    [DataRow(0, 50)]
+    [DataRow(2000, 50)]
+    [DataRow(2500, 50)]
+    [DataRow(1000, -1)]
+    [DataRow(1000, 101)]
+    public void ApplyEdit_RejectsInvalidCandidateWithoutMutation(int at, int pos)
+    {
+        var original = new[] { A(0, 0), A(1000, 50), A(2000, 100) };
+        var script = Script(original);
+        var edit = ActionEdit.Between([A(0, 0), A(1000, 50)], [A(0, 0), A(at, pos)])!;
+
+        Assert.ThrowsException<ArgumentException>(() => script.ApplyEdit(edit));
+        CollectionAssert.AreEqual(original, script.Actions.ToArray());
+    }
+
+    [TestMethod]
     public void UndoRedo_PreservesRootMetadata()
     {
         var path = Path.Combine(Path.GetTempPath(), $"ssp-history-{Guid.NewGuid():N}.funscript");

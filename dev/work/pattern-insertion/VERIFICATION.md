@@ -284,3 +284,9 @@ Added generator tests confirming 0.0005 seconds rounds to 1 ms before mandatory-
 ### Review Fixes Manual Verification (2026-10-10)
 
 The user confirmed rise time is enabled only for Asymmetric cycle and limited to 1-99%; malformed loaded scripts show an actionable insertion error without mutation; preserved boundaries are not selected instead of inserted actions; and deletion-only edits clear selection. These are manual regression results, separate from the successful editor builds recorded during the fixes.
+
+### Complete Splice Validation (2026-10-10)
+
+`Funscript.ApplyEdit` now builds the post-splice candidate separately and validates the complete list through `ReplaceActionsAtomically` before committing. Matching the removed slice alone cannot admit invalid inserted values or ordering conflicts with untouched neighbors. Invalid candidates leave the original actions unchanged; history still stores deltas, while application uses a temporary complete candidate.
+
+Verification: `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore --filter FullyQualifiedName~ActionHistoryTests` passed 13 cases, including seven new regressions for a shorter-source edit crossing the untouched suffix, boundary collisions/order violations, negative timestamps, and invalid positions. `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-build --no-restore` passed all 79 Common tests, including persistence and metadata checks. `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for Common, both consumers, and tests.

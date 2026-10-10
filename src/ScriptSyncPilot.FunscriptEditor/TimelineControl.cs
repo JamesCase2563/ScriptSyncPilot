@@ -120,18 +120,11 @@ public sealed class TimelineControl : Control
         FinishDrag();
         var before = _script.Actions.ToArray();
         if (!_script.ReplaceActionsAtomically(actions)) return false;
-        History.Record(ActionEdit.Between(before, _script.Actions));
+        var edit = ActionEdit.Between(before, _script.Actions);
+        History.Record(edit);
 
         _scrubbing = false;
-        _selectedIndex = null;
-        for (var index = 0; index < _script.Actions.Count; index++)
-        {
-            if (_script.Actions[index].At < preferredSelectionAt) continue;
-            _selectedIndex = index;
-            break;
-        }
-        if (_selectedIndex is null && _script.Actions.Count > 0)
-            _selectedIndex = _script.Actions.Count - 1;
+        _selectedIndex = edit is { Inserted.Count: > 0 } ? edit.Index : null;
 
         ScriptChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();

@@ -174,7 +174,21 @@ public sealed class MainForm : Form
 
     private bool ApplyPattern(GeneratedPattern generated)
     {
-        var plan = PatternInsertionPlan.Create(_script.Actions, generated);
+        PatternInsertionPlan plan;
+        try
+        {
+            plan = PatternInsertionPlan.Create(_script.Actions, generated);
+        }
+        catch (ArgumentException ex)
+        {
+            var guidance = ex.ParamName == "existingActions"
+                ? "Fix the loaded funscript so timestamps are non-negative and unique, and positions are between 0 and 100, then reload it and retry."
+                : "Check the pattern settings, generate a new preview, and retry.";
+            MessageBox.Show((IWin32Window?)_patternDialog ?? this,
+                $"{ex.Message}\n\n{guidance}\n\nNo changes were made.",
+                "Could not insert pattern", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
         var choice = PatternConflictChoice.Merge;
         var mergeChoice = PatternMergeChoice.KeepExisting;
         if (plan.HasConflicts)

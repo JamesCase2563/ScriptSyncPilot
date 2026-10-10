@@ -43,6 +43,7 @@ public sealed class TimelineControl : Control
     private int? _hoverBarPos;
 
     public event Action<double>? SeekRequested;
+    public event EventHandler? PlayPauseRequested;
     public event EventHandler? ScriptChanged;
     public event EventHandler? ZoomChanged;
 
@@ -522,6 +523,12 @@ public sealed class TimelineControl : Control
 
     public override bool PreProcessMessage(ref Message msg)
     {
+        if (Focused && msg.Msg == 0x0100 && msg.WParam.ToInt64() == (int)Keys.Space && ModifierKeys == Keys.None)
+        {
+            if ((msg.LParam.ToInt64() & (1L << 30)) == 0)
+                PlayPauseRequested?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
         if (TryDecodePositionKey(msg.Msg, msg.LParam.ToInt64(), Focused, ModifierKeys, out var position))
         {
             if (position is { } value) InsertPositionAtPlayhead(value);

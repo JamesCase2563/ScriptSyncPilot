@@ -69,6 +69,15 @@ public sealed class NumericPositionEntryTests
             Assert.AreEqual(PreProcessControlState.MessageProcessed, timeline.PreProcessControlMessage(ref message));
             Assert.AreEqual(1, script.Actions.Count);
             Assert.AreEqual(new FunscriptAction(0, 10), script.Actions[0]);
+            var playbackRequests = 0;
+            timeline.PlayPauseRequested += (_, _) => playbackRequests++;
+            message = Message.Create(timeline.Handle, 0x0100, (IntPtr)Keys.Space, (IntPtr)KeyData(0x39));
+            Assert.AreEqual(PreProcessControlState.MessageProcessed, timeline.PreProcessControlMessage(ref message));
+            Assert.AreEqual(1, playbackRequests);
+            message = Message.Create(timeline.Handle, 0x0100, (IntPtr)Keys.Space, (IntPtr)KeyData(0x39, repeated: true));
+            Assert.AreEqual(PreProcessControlState.MessageProcessed, timeline.PreProcessControlMessage(ref message));
+            Assert.AreEqual(1, playbackRequests);
+            Assert.AreEqual(1, script.Actions.Count);
             form.Close();
         });
     }

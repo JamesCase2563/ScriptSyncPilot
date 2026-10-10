@@ -32,6 +32,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Manual Playback Checks
 
+- [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
 - [ ] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
 - [ ] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
@@ -42,6 +43,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [ ] Absolute timeline seeking and pattern start/end values keep the same media-time meaning at all rates.
 - [ ] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
 - [ ] Focus the speed numeric field: arrows/digits edit that field normally and do not author movement points.
+- [ ] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
 - [ ] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
 - [ ] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
 - [ ] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
@@ -94,3 +96,23 @@ Added a grouped transport input with 0.25-2.00x bounds, two decimal places, 0.05
 Speed input changes and the 1x reset now call SetPlaybackSpeedAsync, capturing the active MpvSession and lifetime token before awaiting Common's SetSpeedAsync. I/O, cancellation, disposal, and validation failures are caught; logging is limited to the still-current session while the form is open. Write completion does not change observed-rate presentation or document state. Controls remain disabled until observation wiring is implemented.
 
 The first isolated build with --no-restore failed because the new artifacts directory had no assets file. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --artifacts-path artifacts/video-speed-verification` restored and built successfully. Manual command/reset behavior remains pending.
+
+### Editor Speed Observation Wiring (2026-10-10)
+
+Subscribed to SpeedChanged and refreshed cached Speed after publishing an attached session. Queued UI callbacks check session identity and closing/disposed state. A synchronization flag prevents observation-driven numeric changes from writing back. The display shows the configured observed rate; only the numeric presentation is clamped before decimal conversion. Speed/reset enable after a valid observation; shutdown/replacement disables both, resets the input under the guard, and clears the display to unknown.
+
+`dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore --artifacts-path artifacts/video-speed-verification` succeeded. Manual attach, external speed changes, reset, outside-range presentation, and replacement behavior remain unverified; editor contract checkboxes remain pending.
+
+### Native Speed-Field Keyboard Editing (2026-10-10)
+
+MainForm's playback KeyDown handler now returns without consuming keys while the speed NumericUpDown or its child text field has focus. Native numeric/caret editing remains with WinForms; timeline scan-code routing and navigation repeat handling are unchanged.
+
+The isolated editor build succeeded. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --artifacts-path artifacts/video-speed-verification --filter FullyQualifiedName~NumericPositionEntryTests` passed all 6 existing tests. These verify numeric-entry/routing regressions, not the new speed-field focus guard or actual mpv arrow hold-repeat; those manual checks remain pending.
+
+### Transport Button Focus (2026-10-10)
+
+Transport button clicks now immediately return focus to the timeline, without invoking timeline mouse handling or seeking. This allows numeric point entry after Play/Pause or stepping without a playhead-moving timeline click. Launch/Attach and 1x Reset also return focus; editable inputs are unchanged. The isolated editor build passed; the manual focus regression above remains pending.
+
+### Space Play/Pause (2026-10-10)
+
+Unmodified Space on the focused timeline raises PlayPauseRequested, wired to the editor's existing playback toggle. Held repeats are consumed without another toggle; other controls and modified Space retain existing processing. The isolated editor build and focused Routing_FocusedTimeline test passed, verifying one request per press and no action insertion. Actual mpv playback and native input behavior remain manual checks.

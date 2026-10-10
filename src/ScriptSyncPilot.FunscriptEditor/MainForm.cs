@@ -55,6 +55,7 @@ public sealed class MainForm : Form
     private bool _isClosing;
     private string? _activePipe;
     private bool _syncingZoom;
+    private bool _syncingSpeed;
     private TimelineWheelFilter? _wheelFilter;
     private PatternInsertionDialog? _patternDialog;
 
@@ -79,6 +80,7 @@ public sealed class MainForm : Form
         KeyDown += OnFormKeyDown;
 
         _timeline.SeekRequested += OnSeekRequested;
+        _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
@@ -92,7 +94,10 @@ public sealed class MainForm : Form
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
         _attachButton.Click += async (_, _) => await AttachExistingAsync();
         _playPauseButton.Click += async (_, _) => await TogglePlayPauseAsync();
-        _speedInput.ValueChanged += async (_, _) => await SetPlaybackSpeedAsync((double)_speedInput.Value);
+        _speedInput.ValueChanged += async (_, _) =>
+        {
+            if (!_syncingSpeed) await SetPlaybackSpeedAsync((double)_speedInput.Value);
+        };
         _resetSpeedButton.Click += async (_, _) => await SetPlaybackSpeedAsync(1.0);
         _back10SButton.Click += async (_, _) => await StepAsync(-10);
         _back1SButton.Click += async (_, _) => await StepAsync(-1);
@@ -100,6 +105,13 @@ public sealed class MainForm : Form
         _forwardFrameButton.Click += async (_, _) => await StepFrameAsync(forward: true);
         _forward1SButton.Click += async (_, _) => await StepAsync(1);
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
+
+        foreach (var button in new[] { _launchButton, _attachButton, _playPauseButton, _resetSpeedButton,
+            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton })
+            button.Click += (_, _) =>
+            {
+                if (!_isClosing && _timeline.CanFocus) _timeline.Focus();
+            };
 
         _timeline.LoadScript(_script);
         if (_settings.LastScriptPath.Length > 0 && File.Exists(_settings.LastScriptPath))
@@ -477,6 +489,7 @@ public sealed class MainForm : Form
         mpv.PositionChanged += seconds => OnMpvPositionChanged(mpv, seconds);
         mpv.PauseChanged += paused => OnMpvPauseChanged(mpv, paused);
         mpv.DurationChanged += seconds => OnMpvDurationChanged(mpv, seconds);
+        mpv.SpeedChanged += speed => OnMpvSpeedChanged(mpv, speed);
         mpv.Disconnected += () => OnMpvDisconnected(mpv);
 
         try
@@ -502,6 +515,7 @@ public sealed class MainForm : Form
         OnMpvPauseChanged(mpv, mpv.IsPaused);
         OnMpvDurationChanged(mpv, mpv.DurationSeconds);
         SetPlaybackControlsEnabled(true);
+        if (mpv.Speed is { } speed) OnMpvSpeedChanged(mpv, speed);
         Log($"Attached to mpv IPC pipe '{pipe}'.");
     }
 
@@ -514,6 +528,15 @@ public sealed class MainForm : Form
         _forwardFrameButton.Enabled = enabled;
         _forward1SButton.Enabled = enabled;
         _forward10SButton.Enabled = enabled;
+        if (!enabled)
+        {
+            _speedInput.Enabled = false;
+            _resetSpeedButton.Enabled = false;
+            _speedLabel.Text = "Player rate: unknown";
+            _syncingSpeed = true;
+            try { _speedInput.Value = 1.00m; }
+            finally { _syncingSpeed = false; }
+        }
     }
 
     private void OnMpvPositionChanged(MpvSession session, double seconds)
@@ -546,6 +569,31 @@ public sealed class MainForm : Form
             _timeline.UpdateDuration(seconds);
             _timeLabel.Text = $"{session.PositionSeconds:0.000} / {seconds:0.000} s";
         });
+    }
+
+    private void OnMpvSpeedChanged(MpvSession session, double speed)
+    {
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (_isClosing || IsDisposed || !ReferenceEquals(_mpv, session)) return;
+                _syncingSpeed = true;
+                try
+                {
+                    _speedInput.Value = (decimal)Math.Clamp(speed,
+                        (double)_speedInput.Minimum, (double)_speedInput.Maximum);
+                    _speedLabel.Text = $"Player rate: {speed:G}x";
+                    _speedInput.Enabled = true;
+                    _resetSpeedButton.Enabled = true;
+                }
+                finally { _syncingSpeed = false; }
+            });
+        }
+        catch (InvalidOperationException) when (_isClosing || IsDisposed || !IsHandleCreated)
+        {
+        }
     }
 
     private void OnMpvDisconnected(MpvSession disconnectedSession)
@@ -589,7 +637,7 @@ public sealed class MainForm : Form
 
     private void OnFormKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_mpv is null) return;
+        if (_speedInput.ContainsFocus || _mpv is null) return;
         switch (e.KeyCode)
         {
             case Keys.Left when e.Control:

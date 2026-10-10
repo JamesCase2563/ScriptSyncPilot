@@ -143,10 +143,7 @@ internal sealed class PatternInsertionDialog : Form
         KeyDown += (_, e) =>
         {
             var fileShortcut = e.Control && !e.Alt && !e.Shift && e.KeyCode is Keys.N or Keys.O or Keys.S;
-            if (!fileShortcut && new Control[] { _outputStart, _outputEnd, _cycleCount, _minimumPosition, _maximumPosition, _riseTimePercent, _maximumHours, _profile, _startMode }
-                .Any(control => control.ContainsFocus))
-                return;
-            _playbackKeyDown(e);
+            if (fileShortcut) _playbackKeyDown(e);
         };
         SaveSettings();
         UpdateTimelineRangePreview();

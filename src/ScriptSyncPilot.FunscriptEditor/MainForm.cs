@@ -609,7 +609,6 @@ public sealed class MainForm : Form
                     SaveScript(false);
                     break;
                 default:
-                    OnFormKeyDown(this, e);
                     return;
             }
 
@@ -617,8 +616,6 @@ public sealed class MainForm : Form
             e.SuppressKeyPress = true;
             return;
         }
-
-        OnFormKeyDown(this, e);
     }
 
     private async Task TogglePlayPauseAsync()

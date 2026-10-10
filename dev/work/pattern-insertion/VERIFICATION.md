@@ -1,6 +1,6 @@
 # Pattern Insertion Verification
 
-**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks have passed, but the tighter dialog layout at normal/high DPI and modeless playback-keyboard behavior remain unverified. Quantitative large-script memory/performance measurement is intentionally deferred.
+**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks, including native arrow-key behavior in the pattern dialog, have passed; the tighter dialog layout at normal/high DPI remains unverified. Quantitative large-script memory/performance measurement is intentionally deferred.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The unchecked manual editor items below identify the remaining UI verification; a successful build does not establish those results.
 
@@ -153,7 +153,7 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Generate into a new document and a loaded script, with and without mpv attached.
 - [x] Operate video while the tool window is open; moving the playhead never changes entered times, and "From playhead" fills the current position.
 - [x] For both output times, verify "From playhead" copies the current time into its field and the adjacent arrow moves the timeline/playback playhead to the field value.
-- [ ] Verify modeless playback shortcuts (Left/Right frame-step and Shift/Ctrl seek) from the pattern preview or blank dialog background without interfering with arrow-key editing in input fields.
+- [x] Verify arrow keys retain native WinForms editing/navigation behavior in the pattern dialog, including with Shift/Ctrl; they must not trigger playback seeks. Use the main editor's playback controls or shortcuts for playback.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
@@ -267,6 +267,10 @@ Dialog sizing follow-up: invalid output intervals display the validation message
 ### Modeless Playback Keyboard Shortcuts (2026-10-09)
 
 Forwarded the editor's existing Left/Right frame-step and Shift/Ctrl seek shortcuts from the modeless pattern window when an editable pattern control does not have focus. The editor builds successfully; manual keyboard verification remains pending.
+
+Follow-up (2026-10-10): Removed dialog playback-arrow forwarding to preserve native WinForms editing/navigation behavior regardless of focus. Ctrl+N/O/S remain available in the dialog; playback controls and main-editor shortcuts are unchanged. The editor build passed; manual native-keyboard verification remains pending.
+
+Manual verification (2026-10-10): The user confirmed native arrow-key editing/navigation in the pattern dialog, including Shift/Ctrl, works correctly without triggering playback seeks.
 
 ### Numeric Edge and Refinement Tests (2026-10-09)
 

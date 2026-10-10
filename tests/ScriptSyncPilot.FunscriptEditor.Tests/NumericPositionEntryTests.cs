@@ -52,6 +52,28 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
+    public void Routing_FocusedTimelineConsumesPhysicalKeyThroughWinFormsPreprocessing()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form();
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            timeline.LoadScript(script);
+            form.Show();
+            form.Activate();
+            Assert.IsTrue(timeline.Focus());
+            Assert.IsTrue(timeline.Focused);
+            var message = Message.Create(timeline.Handle, 0x0100, (IntPtr)Keys.D1, (IntPtr)KeyData(0x02));
+            Assert.AreEqual(PreProcessControlState.MessageProcessed, timeline.PreProcessControlMessage(ref message));
+            Assert.AreEqual(1, script.Actions.Count);
+            Assert.AreEqual(new FunscriptAction(0, 10), script.Actions[0]);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
     public void Insertion_ReplacesWithoutDuplicatesAndPreservesNoOpRedo()
     {
         RunSta(() =>

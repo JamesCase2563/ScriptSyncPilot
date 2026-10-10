@@ -1,20 +1,20 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events and validated speed commands implemented; solution build and all 85 existing regression tests pass. Dedicated speed IPC tests and manual checks remain pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 94 solution tests pass and the solution builds. Editor integration and manual playback checks remain pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
 ## Automated IPC Checks
 
 - [ ] Reusable speed state, observation/events, validation, and commands live in Common without dependencies on WinForms or editor settings; the editor does not duplicate IPC speed logic.
-- [ ] Attachment sends observe_property for speed with an id distinct from time-pos, pause, and duration.
-- [ ] Valid speed observations update stored state and raise SpeedChanged with the observed value.
-- [ ] Initial state distinguishes unknown from an observed 1x rate.
-- [ ] Null, wrong-type, nonpositive, or unrepresentable speed data is ignored safely; a following valid event is still processed.
-- [ ] SetSpeedAsync writes the expected structured set_property speed command and numeric value.
-- [ ] Invalid command values (zero, negative, NaN, infinity) fail before any write.
-- [ ] Cancellation/disconnection follows existing session behavior without hanging the test or leaving background failures unobserved.
-- [ ] Existing position, pause, duration, seek, and frame-step commands retain their behavior.
+- [x] Attachment sends observe_property for speed with an id distinct from time-pos, pause, and duration.
+- [x] Valid speed observations update stored state and raise SpeedChanged with the observed value.
+- [x] Initial state distinguishes unknown from an observed 1x rate.
+- [x] Null, wrong-type, nonpositive, or unrepresentable speed data is ignored safely; a following valid event is still processed.
+- [x] SetSpeedAsync writes the expected structured set_property speed command and numeric value.
+- [x] Invalid command values (zero, negative, NaN, infinity) fail before any write.
+- [x] Cancellation/disconnection follows existing session behavior without hanging the test or leaving fixture reader failures unobserved; broken-pipe writes report IOException.
+- [x] Existing position, pause, duration, seek, and frame-step commands retain their behavior.
 
 Use a controlled local named-pipe server with bounded cancellation and cleanup; no live mpv or physical device is needed for these tests. Reading a command verifies serialization, not player acceptance.
 
@@ -61,7 +61,7 @@ If a running application locks build outputs, use an isolated artifacts path rat
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. No implementation, automated tests, or manual playback checks performed for this work item. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
+Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented; editor integration and manual playback checks remain pending. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
 
 ### Common Speed Observation (2026-10-10)
 
@@ -74,3 +74,11 @@ MpvSession now observes speed using id 4 alongside existing observations. Nullab
 Added SetSpeedAsync(double speed, CancellationToken), rejecting nonfinite and nonpositive input before using the existing structured set_property speed write path. The shared API does not impose editor control bounds or change observed Speed on write completion. Existing disconnected-send and cancellation behavior is unchanged.
 
 `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded; `dotnet test ScriptSyncPilot.slnx --no-build --no-restore` passed all 85 existing tests, 0 failed, 0 skipped. Dedicated command serialization/input-validation pipe tests remain the next milestone; no manual playback test was performed.
+
+### Deterministic IPC Tests (2026-10-10)
+
+Added [MpvSessionTests](../../../tests/ScriptSyncPilot.Common.Tests/MpvSessionTests.cs) with nine MSTest cases and a local NamedPipeServerStream fixture. No external mpv process, video, or device is launched. Tests cover distinct observation ids, unknown/valid/outside-editor-range speed values, invalid observations followed by valid events, structured commands, invalid command input, cancelled writes/attachment/lifetime, disconnect notification and broken-pipe write failure, and existing property/seek/frame-step semantics.
+
+Initial fixture runs failed because AutoFlush was enabled before connection and command reads were not concurrent with Windows pipe writes/flushes. The corrected fixture continuously drains commands into a channel, bounds waits to ten seconds, and awaits its reader during cleanup. Cancellation assertions accept OperationCanceledException subclasses; disconnect tests expect IOException from a broken-pipe write. Production code was unchanged during these repairs.
+
+`dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore --filter FullyQualifiedName~MpvSessionTests`: 9 passed, 0 failed, 0 skipped. `dotnet test ScriptSyncPilot.slnx --no-build --no-restore`: 94 passed, 0 failed, 0 skipped (88 Common, 6 editor). `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for both consumers and test projects. These tests verify IPC behavior, not actual playback speed or future editor controls.

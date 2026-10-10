@@ -1,5 +1,18 @@
 # HandySync Backlog
 
+## Table of Contents
+
+- [Reconnect and HSSP Recovery](#reconnect-and-hssp-recovery)
+- [Request Timeouts and Retries](#request-timeouts-and-retries)
+- [Desired State and Command Coalescing](#desired-state-and-command-coalescing)
+- [Connection Events](#connection-events)
+- [Firmware and Capabilities](#firmware-and-capabilities)
+- [Timing and Diagnostics](#timing-and-diagnostics)
+- [Offset Feedback](#offset-feedback)
+- [Main-Form Device Controls](#main-form-device-controls)
+- [Local Buttplug/Intiface Output](#local-buttplugintiface-output)
+- [Verification and Order](#verification-and-order)
+
 All entries below are proposed future work. Implemented command serialization, version-aware setup, session checks, and awaited teardown are described in [architecture](ARCHITECTURE.md), not listed as wholly unfinished features.
 
 Intermittent Handy disconnects have also been observed with other services. Wi-Fi instability is a working hypothesis, not a confirmed cause. Diagnostics should distinguish network, service, firmware, credential, and local lifecycle failures.
@@ -59,7 +72,19 @@ Before device setup, check `/connected`, `/info`, firmware status, and `/capabil
 
 **Priority:** Medium. **Status:** Proposed; debounce implemented.
 
-Show syncing/applied/unavailable state, retain the selected offset during recovery, apply it when recovery completes, and offer reset-to-zero. Evaluate 10 ms steps and an advanced range beyond +/- 1000 ms if needed.
+Show syncing/applied/unavailable state for the API-backed offset, retain the selected value during recovery, reapply it when the device is ready, and offer reset-to-zero. Evaluate 10 ms steps and an advanced range beyond +/- 1000 ms if needed.
+
+## Main-Form Device Controls
+
+**Priority:** Medium. **Status:** Proposed.
+
+Keep user-adjustable sync offset and minimum/maximum stroke controls on the main form; do not add a settings dialog. Use Handy REST API v3 only, consistent with the existing client; do not add an API v2 fallback.
+
+- Replace the current local `OffsetMs` adjustment to the mpv timestamp with the API's device-side HSTP offset. Keep client/server clock-offset estimation separate; it is still required to calculate server time for synchronized playback.
+- Read and set the device's slider stroke range through the v3 slider settings/stroke endpoints. Reflect the values accepted by the device in the controls.
+- Read the current device values on connection and preserve the user's chosen values across app restarts/reconnects where needed. Debounce rapid slider changes and serialize API writes through the existing device-command gate.
+- Depend on the Firmware and Capabilities check: require firmware compatible with API v3 (firmware 4 or newer), and show a clear unsupported-firmware state instead of attempting these controls on older devices. Do not silently fall back to v2.
+- Verify offset sign/units and slider-range units against the current v3 API contract; test reconnect, rejected/normalized ranges, and API failures without losing the selected UI values.
 
 ## Local Buttplug/Intiface Output
 

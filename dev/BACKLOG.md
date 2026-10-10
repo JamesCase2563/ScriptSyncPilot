@@ -1,5 +1,11 @@
 # Shared Backlog
 
+## Table of Contents
+
+- [Automated Tests and CI](#automated-tests-and-ci)
+- [UI and Session Logic Boundaries](#ui-and-session-logic-boundaries)
+- [Privacy and Operational Guidance](#privacy-and-operational-guidance)
+
 Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md) or [editor backlog](FunscriptEditor/BACKLOG.md).
 
 ## Automated Tests and CI

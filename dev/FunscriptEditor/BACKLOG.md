@@ -66,7 +66,7 @@ Allow changing mpv playback speed from the editor for review and timing work. Sh
 
 ## Keyboard Numeric Position Entry
 
-**Priority:** To be decided. **Status:** Proposed.
+**Priority:** To be decided. **Status:** In Progress.
 
 Allow digit shortcuts to insert or update a funscript action at the current playhead time/marker: `1` through `9` set 10% through 90%; `0` sets 0%. Choose a dedicated, unambiguous shortcut for 100% (for example, `Shift+0`, after checking keyboard-layout behavior and existing shortcut conflicts). Define behavior when an action already exists at that timestamp, keep edits undoable, and do not capture digits while a text-entry control has focus.
 

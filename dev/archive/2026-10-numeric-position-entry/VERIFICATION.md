@@ -81,4 +81,4 @@ The user confirmed all manual checklist items passed in the running editor, incl
 
 `dotnet test ScriptSyncPilot.slnx --no-restore` passed all 79 Common tests but could not build the editor tests because the running editor locked its Common DLL. Retried without closing the app using `dotnet test ScriptSyncPilot.slnx --artifacts-path artifacts/numeric-position-verification`: 85 passed, 0 failed, 0 skipped (79 Common, 6 editor); build succeeded. No runtime fix was needed for the earlier reported missing numeric input; the routing test passed and subsequent user verification confirmed the behavior.
 
-Remaining limitations: close-to-standard PC geometry and Latin-like layouts are assumed; numpad insertion, universal keyboard compatibility, rebinding, and live recording are outside this feature. PR review and archiving are separate close-out steps.
+Remaining limitations: close-to-standard PC geometry and Latin-like layouts are assumed; numpad insertion, universal keyboard compatibility, rebinding, and live recording are outside this feature. Archived on 2026-10-10; PR review status and reference are not recorded.

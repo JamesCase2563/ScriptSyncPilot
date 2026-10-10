@@ -1,6 +1,6 @@
 # Numeric Position Entry Plan
 
-**Status:** Implemented and verified; all 85 solution tests pass and the user confirmed all manual checks. Permanent editor documentation updated; PR review and archiving remain.
+**Status:** Implemented and verified; all 85 solution tests pass and the user confirmed all manual checks. Permanent editor documentation updated; archived on 2026-10-10. PR review status and reference are not recorded.
 **Selected:** 2026-10-10.
 **Affected projects:** FunscriptEditor (keyboard routing and timeline insertion); Common only if a genuinely shared model change is needed. HandySync behavior is outside scope.
 
@@ -56,8 +56,8 @@ Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixe
 - [x] Record manual results on the user's normal keyboard/layout, focus behavior, and playback authoring; optional layout-switch testing is not a completion gate.
 - [x] Update the permanent editor architecture and backlog to the implemented mapping.
 - [ ] Record limitations and the PR reference; return deferred ideas to the backlog.
-- [ ] Archive the completed folder under `dev/archive/YYYY-MM-numeric-position-entry/` and update links.
+- [x] Archive the completed folder under `dev/archive/2026-10-numeric-position-entry/` and update links (2026-10-10).
 
 ## Outcome
 
-`TimelineControl.InsertPositionAtPlayhead` is shared with value-bar insertion. Focused timeline keyboard routing uses fixed top-row scan codes, excludes modifiers/extended keys, and suppresses position-key repeats while preserving arrow hold-repeat. All 85 solution tests pass (79 Common, 6 editor), and the user confirmed every manual checklist item. Permanent editor architecture and backlog are updated. PR reference: not recorded; PR review and archiving remain.
+`TimelineControl.InsertPositionAtPlayhead` is shared with value-bar insertion. Focused timeline keyboard routing uses fixed top-row scan codes, excludes modifiers/extended keys, and suppresses position-key repeats while preserving arrow hold-repeat. All 85 solution tests pass (79 Common, 6 editor), and the user confirmed every manual checklist item. Permanent editor architecture and backlog are updated. Archived on 2026-10-10. PR review status and reference: not recorded.

@@ -66,11 +66,11 @@ Allow changing mpv playback speed from the editor for review and timing work. Sh
 
 ## Keyboard Numeric Position Entry
 
-**Priority:** Selected. **Status:** Implemented and verified; automated tests and user-confirmed manual checks passed. PR review and archiving remain.
+**Priority:** Selected. **Status:** Implemented and verified; automated tests and user-confirmed manual checks passed. Working documents archived; PR review status is not recorded.
 
 With the timeline focused, physical top-row `1` through `9` insert 10-90% at the current playhead; `0` inserts 100%, and the key left of `1` inserts 0%. Use fixed scan codes on close-to-standard PC keyboards with Latin-like layouts. Shift/Ctrl/Alt combinations and numpad keys do not insert points; editable controls retain native behavior. Ignore held position-key repeats while retaining arrow navigation hold-repeat. Existing timestamps are updated without duplicates, edits are undoable, and identical values preserve dirty state and redo.
 
-Working documents: [plan](../work/numeric-position-entry/PLAN.md), [design](../work/numeric-position-entry/DESIGN.md), and [verification](../work/numeric-position-entry/VERIFICATION.md).
+Archived documents: [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [design](../archive/2026-10-numeric-position-entry/DESIGN.md), and [verification](../archive/2026-10-numeric-position-entry/VERIFICATION.md).
 
 This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
 

@@ -1,6 +1,6 @@
 # Numeric Position Entry Plan
 
-**Status:** Agreed keyboard mapping and interaction scope; implementation not started.
+**Status:** In progress; shared timeline insertion, keyboard routing, fixed scan-code mapping, and position-key repeat suppression implemented. Automated behavior tests and manual verification remain.
 **Selected:** 2026-10-10.
 **Affected projects:** FunscriptEditor (keyboard routing and timeline insertion); Common only if a genuinely shared model change is needed. HandySync behavior is outside scope.
 
@@ -44,10 +44,10 @@ Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixe
 
 ### 2. Implementation
 
-- [ ] Add a timeline position-insertion command using the existing mouse insertion/commit path.
-- [ ] Route accepted keyboard input once, preserving modifiers and native control behavior.
-- [ ] Implement scan-code handling for all eleven position keys, independent of language layout.
-- [ ] Suppress mapped position-key repeats and safely reset key state on focus loss/document switch without filtering navigation repeats.
+- [x] Add a timeline position-insertion command using the existing mouse insertion/commit path.
+- [x] Route accepted keyboard input once, preserving modifiers and native control behavior.
+- [x] Implement scan-code handling for all eleven position keys, independent of language layout.
+- [x] Suppress mapped position-key repeats without filtering navigation repeats. Use the message's previous-key-state flag, with no local held-key state to reset on focus loss/document switch.
 - [ ] Add focused automated tests using existing test infrastructure where suitable.
 
 ### 3. Verification and Completion
@@ -60,4 +60,4 @@ Assume Latin-like layouts and close-to-standard PC keyboard geometry. Use a fixe
 
 ## Outcome
 
-Planning documents created. No implementation or verification results yet. PR reference: not recorded.
+`TimelineControl.InsertPositionAtPlayhead` is shared with value-bar insertion. Focused timeline keyboard routing now uses fixed top-row scan codes, excludes modifiers/extended keys, and suppresses position-key repeats. The editor build passes; automated behavior tests and manual verification remain pending. PR reference: not recorded.

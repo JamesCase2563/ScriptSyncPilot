@@ -520,6 +520,27 @@ public sealed class TimelineControl : Control
         }
     }
 
+    public override bool PreProcessMessage(ref Message msg)
+    {
+        if (Focused && msg.Msg == 0x0100 && ModifierKeys == Keys.None)
+        {
+            var keyData = msg.LParam.ToInt64();
+            var scanCode = (int)((keyData >> 16) & 0xff);
+            var extended = (keyData & (1L << 24)) != 0;
+            var position = scanCode == 0x29 ? 0
+                : scanCode is >= 0x02 and <= 0x0b ? (scanCode - 1) * 10
+                : -1;
+            if (!extended && position >= 0)
+            {
+                var repeated = (keyData & (1L << 30)) != 0;
+                if (!repeated) InsertPositionAtPlayhead(position);
+                return true;
+            }
+        }
+
+        return base.PreProcessMessage(ref msg);
+    }
+
     protected override bool IsInputKey(Keys keyData)
     {
         var keyCode = keyData & Keys.KeyCode;
@@ -534,11 +555,14 @@ public sealed class TimelineControl : Control
         Invalidate();
     }
 
-    private void InsertAtPlayhead(int y)
+    private void InsertAtPlayhead(int y) => InsertPositionAtPlayhead(YToPos(y));
+
+    public void InsertPositionAtPlayhead(int position)
     {
-        var pos = YToPos(y);
+        if (position is < 0 or > 100)
+            throw new ArgumentOutOfRangeException(nameof(position), "Position must be between 0 and 100.");
         var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
-        Commit(() => _script.AddOrReplace(new FunscriptAction(at, pos)));
+        Commit(() => _script.AddOrReplace(new FunscriptAction(at, position)));
         var actions = _script.Actions;
         for (var i = 0; i < actions.Count; i++)
         {

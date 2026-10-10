@@ -1,6 +1,6 @@
 # Numeric Position Entry Verification
 
-**Status:** Planned checks only; implementation and verification have not started. No checkbox is evidence of a passing check until results are recorded below.
+**Status:** Shared timeline insertion and physical-key routing with repeat suppression implemented; editor build passed. Automated behavior tests and manual checks remain pending. No checkbox is evidence of a passing check until results are recorded below.
 
 See [plan](PLAN.md) and [design](DESIGN.md). The top-row physical map, timeline-only focus scope, modifier exclusions, and repeat suppression are agreed requirements. Future recording behavior is a compatibility contract, not an implemented feature under test here.
 
@@ -49,4 +49,16 @@ Complete the applicable manual checks above and record rejected/deferred options
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10 and updated to the agreed fixed top-row physical map, timeline-only focus scope, modifier exclusions, and held-key repeat suppression. Assume Latin-like layouts with close-to-standard PC keyboard geometry; universal language/hardware support and rebinding are not required. No code changes, automated test runs, or manual feature checks performed for this work item. Numpad insertion is outside scope; implementation and focused verification remain to be completed.
+Planning documents created on 2026-10-10 and updated to the agreed fixed top-row physical map, timeline-only focus scope, modifier exclusions, and held-key repeat suppression. Assume Latin-like layouts with close-to-standard PC keyboard geometry; universal language/hardware support and rebinding are not required. Numpad insertion is outside scope.
+
+### Shared Insertion Command (2026-10-10)
+
+Added `TimelineControl.InsertPositionAtPlayhead(int position)`, rejecting values outside 0-100 before mutation. Existing value-bar insertion delegates to this command, retaining its timestamp clamp/rounding, Commit/AddOrReplace history behavior, selection, and repaint. Keyboard routing and navigation handling are unchanged.
+
+`dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` succeeded. No automated behavior tests or manual feature checks were performed for this step; the checks above remain pending.
+
+### Timeline Keyboard Routing (2026-10-10)
+
+`TimelineControl.PreProcessMessage` consumes unmodified, non-extended top-row key-down messages while the timeline is focused, before character translation. Scan code 0x29 maps to 0%; 0x02 through 0x0B map to 10% through 100%. Accepted presses call the shared insertion command. Bit 30 (previous key state) suppresses held-key repeats without local tracking; navigation, modified keys, and unrelated messages retain the existing processing path.
+
+`dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` succeeded. No automated behavior tests or manual keyboard checks performed yet; focus, mapping, repeats, and navigation remain to be verified in the running editor.

@@ -23,6 +23,7 @@ public sealed class MpvSession : IDisposable
     public event Action<double>? PositionChanged;
     public event Action<bool>? PauseChanged;
     public event Action<double>? DurationChanged;
+    public event Action<double>? SpeedChanged;
     public event Action? Disconnected;
 
     private NamedPipeClientStream? _pipe;
@@ -32,6 +33,7 @@ public sealed class MpvSession : IDisposable
     public bool IsPaused { get; private set; } = true;
     public double PositionSeconds { get; private set; }
     public double DurationSeconds { get; private set; }
+    public double? Speed { get; private set; }
 
     public async Task AttachAsync(string pipePath, CancellationToken ct)
     {
@@ -58,6 +60,7 @@ public sealed class MpvSession : IDisposable
         await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
         await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
         await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
+        await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
     }
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
@@ -137,6 +140,11 @@ public sealed class MpvSession : IDisposable
             case "duration" when data.ValueKind == JsonValueKind.Number:
                 DurationSeconds = data.GetDouble();
                 DurationChanged?.Invoke(DurationSeconds);
+                break;
+            case "speed" when data.ValueKind == JsonValueKind.Number
+                && data.TryGetDouble(out var speed) && double.IsFinite(speed) && speed > 0:
+                Speed = speed;
+                SpeedChanged?.Invoke(speed);
                 break;
         }
     }

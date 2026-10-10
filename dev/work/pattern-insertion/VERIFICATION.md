@@ -1,6 +1,6 @@
 # Pattern Insertion Verification
 
-**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. Recorded manual editor checks, including native arrow-key behavior and the tighter dialog layout, have passed. Document-switch preview invalidation remains pending manual verification. Quantitative large-script memory/performance measurement is intentionally deferred.
+**Status:** Automated generator, planner, atomic model-commit, and action-history checks have passed, and the solution builds. All listed manual editor checks, including native arrow-key behavior, the tighter dialog layout, and document-switch preview invalidation, have passed. Quantitative large-script memory/performance measurement is intentionally deferred.
 
 See [plan](PLAN.md) and [design](DESIGN.md). Manual editor results are recorded below separately from automated checks; a successful build alone does not establish those results.
 
@@ -156,7 +156,16 @@ History fixtures should observe action contents and notifications, not depend on
 - [x] Verify arrow keys retain native WinForms editing/navigation behavior in the pattern dialog, including with Shift/Ctrl; they must not trigger playback seeks. Use the main editor's playback controls or shortcuts for playback.
 - [x] Closing the pattern dialog returns keyboard focus to the timeline; clicking the main-form background focuses the timeline without requiring a click in the log.
 - [x] Verify Ctrl+N, Ctrl+O, and Ctrl+S work from the main form and the modeless pattern window.
-- [ ] With a Continue Existing preview open, successfully New/Open a document through dialog shortcuts or main-editor commands: generated overlay/options clear immediately, Insert disables, and the summary requests a fresh preview; entered settings and the range band remain. Cancelled discard/Open and failed loads preserve the current document and preview.
+- [x] Document switches invalidate the old pattern preview only when the switch succeeds:
+	- Setup: Open a script with movement points, open Insert Pattern, select Continue Existing, and click Preview. Keep the pattern dialog open for each check below; regenerate the preview before testing another switch.
+	- [x] Press Ctrl+N from the pattern dialog and accept discarding changes if prompted. The main editor shows a new empty document; the old generated points/line disappear immediately, Insert is disabled, and the summary asks for a fresh preview.
+	- [x] Press Ctrl+O from the pattern dialog and successfully open a different valid script. The editor shows the new script, and the old generated preview clears with Insert disabled and the summary reset.
+	- [x] Repeat successful New and Open using the main editor's menu/buttons. The preview resets in the same way.
+	- [x] After each successful switch, the pattern dialog stays open with its entered times, cycle count, profile, start mode, and other settings unchanged. The tinted output-range band remains; only the generated preview clears.
+	- [x] Click Preview after a successful switch. Continue Existing now uses the new document, or visibly falls back to Pattern Start if that document has no usable movement at the output start.
+	- [x] With unsaved script changes, invoke New/Open and answer No to "Discard unsaved changes?". The document, generated preview, Insert enabled state, and summary stay unchanged.
+	- [x] Invoke Open and cancel the file picker. The document and preview stay unchanged.
+	- [x] Invoke Open and select invalid JSON or an unreadable file. An error is shown; the current document and preview stay unchanged.
 - [x] Preview a pattern, edit the script while the tool is open, then Insert; regenerated pattern/conflict results use the current script.
 - [x] Verify generated preview appears on the main timeline with a tinted range and distinct points/line.
 - [x] Verify the range band turns red for an invalid interval.
@@ -294,4 +303,6 @@ Verification: `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Co
 
 ### Document-Switch Preview Invalidation (2026-10-10)
 
-Successful New/Open now calls the open pattern dialog's `InvalidatePreview` after loading the replacement document. Generated actions/options and the timeline overlay clear, Insert disables, and the summary resets while dialog settings and the range band remain. Cancelled or failed switches do not invalidate the current preview. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` passed; the corresponding manual workflow check remains pending.
+Successful New/Open now calls the open pattern dialog's `InvalidatePreview` after loading the replacement document. Generated actions/options and the timeline overlay clear, Insert disables, and the summary resets while dialog settings and the range band remain. Cancelled or failed switches do not invalidate the current preview. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore` passed.
+
+Manual verification (2026-10-10): The user confirmed all document-switch subchecks passed: New/Open through dialog shortcuts and main-editor commands, retained settings/range band, fresh continuation against the replacement document, cancelled discard/Open, and failed loads.

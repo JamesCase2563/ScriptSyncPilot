@@ -1,6 +1,6 @@
 # Pattern Insertion Plan
 
-**Status:** In progress; generation, planning, single-timeline editor application, and undo/redo implemented. Manual UI verification pending.
+**Status:** Implemented; generation, planning, single-timeline editor application, and undo/redo complete. Automated checks and all listed manual UI checks have passed; results are recorded in [verification](VERIFICATION.md). Quantitative large-script memory/performance measurement is deferred; completion bookkeeping remains below.
 **Selected:** 2026-10-04.
 **Affected projects:** Common (pure generation, conflict planning, atomic edits, action history, and tests), FunscriptEditor (implemented application/UI and undo/redo integration). HandySync behavior is outside scope.
 
@@ -51,9 +51,9 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 ### 1. Design and Test Cases
 
 - [x] Record accepted feature decisions in DESIGN.md from the user's answer note.
-- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Generator, planner, atomic-edit, and model-level history tests are implemented; remaining manual UI checks are tracked in VERIFICATION.md.
+- [x] Specify deterministic rounding/tie-breaking and quantized sampling rules for tests in DESIGN.md, with concrete cases in VERIFICATION.md. Generator, planner, atomic-edit, and model-level history tests are implemented; manual UI confirmations and the new document-switch regression check are tracked in VERIFICATION.md.
 - [x] Establish MSTest/VSTest tooling with `tests/ScriptSyncPilot.Common.Tests` and passing Funscript regression tests. Add a separate editor test project if feature logic is editor-owned; general CI remains separate work.
-- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Pure generator, conflict-planner, atomic-edit, and model-level history coverage is implemented; editor workflow verification combines recorded manual results with the remaining UI checks.
+- [x] Establish generation, rounding, conflict, and atomic-edit test cases: G01-G13, C01-C10, and A01-A11 in VERIFICATION.md. Pure generator, conflict-planner, atomic-edit, and model-level history coverage is implemented; editor workflow results include manual confirmations for layout, native keyboard behavior, and review fixes.
 
 ### 2. Generation and Application Logic
 
@@ -74,7 +74,8 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 ### 4. Verification and Completion
 
-- [ ] Complete the automated and manual checks in VERIFICATION.md.
+- [x] Complete automated checks and record the confirmed manual editor checks in VERIFICATION.md.
+- [x] Verify the document-switch preview invalidation regression in VERIFICATION.md.
 - [ ] Document limitations and results; record the PR reference.
 - [ ] Update permanent editor/Common architecture for actual implemented behavior.
 - [ ] Return deferred work to the appropriate backlog.
@@ -82,4 +83,4 @@ Midpoint rounding, direction tie-breaking, and quantized sampling are specified 
 
 ## Outcome
 
-Generation, conflict planning, editor candidate application, and delta-based undo/redo are implemented. Common tests and a full solution build pass; see VERIFICATION.md. Manual UI verification remains outstanding, so the complete feature is not yet verified. PR reference: not yet available.
+Generation, conflict planning, editor candidate application, and delta-based undo/redo are implemented. Common tests and a full solution build pass; all listed manual UI checks, including document-switch preview invalidation, are confirmed in VERIFICATION.md. Quantitative large-script memory/performance measurement is deferred. PR reference: not yet available; completion bookkeeping and archiving remain as listed above.

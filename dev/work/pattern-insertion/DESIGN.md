@@ -1,6 +1,6 @@
 # Pattern Insertion Design
 
-**Status:** Agreed design; pure generation, conflict planning, single-timeline editor application, and undo/redo implemented. Recorded manual UI checks have passed; the document-switch preview invalidation check remains pending in [verification](VERIFICATION.md). Quantitative large-script memory/performance measurement is deferred.
+**Status:** Agreed design; pure generation, conflict planning, single-timeline editor application, and undo/redo implemented. All listed manual UI checks have passed; confirmations are recorded in [verification](VERIFICATION.md). Quantitative large-script memory/performance measurement is deferred.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 

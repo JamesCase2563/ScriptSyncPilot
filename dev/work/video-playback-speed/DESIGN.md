@@ -16,7 +16,9 @@ Frame-step and frame-back-step retain mpv's existing frame-based behavior and pa
 
 Add a compact speed NumericUpDown, actual observed rate display, and explicit 1x reset in the main editor's transport area. Reuse existing WinForms styling and controls; no settings dialog, new toolbar icon library, or keyboard-binding scheme is needed.
 
-Recommended edit bounds are 0.25-2.00x with two decimal places and 0.05x increments. Keep these configurable in code initially rather than introducing preferences. Reset explicitly requests 1.00x. These are UI safeguards, not a claim about mpv's supported speed range; confirm the final values before implementation.
+Agreed edit bounds are 0.25-2.00x with two decimal places and 0.05x increments. Keep these configurable in code initially rather than introducing preferences. Reset explicitly requests 1.00x. These are UI safeguards within mpv's documented 0.01-100x range.
+
+Playback-speed support is documented in the [mpv manual](https://mpv.io/manual/stable/#playback-control), with runtime control through the speed property and JSON IPC set_property/observe_property commands. Observed speed means the player's configured rate, not measured decoding/rendering throughput; playback can fall behind under load. The planned tests verify our IPC/UI integration and media-time behavior, not the existence of mpv's speed feature.
 
 Show an unavailable/unknown actual rate until an observation arrives, rather than claiming an assumed default was read from mpv. The edit control may show 1.00 while unavailable but must be disabled. Enable speed editing/reset only for the current attached session. Numeric fields keep native arrow/digit behavior; focused speed editing must not insert funscript points. Do not extend numeric authoring shortcuts to these controls.
 

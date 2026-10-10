@@ -25,7 +25,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 
 ## Decisions to Confirm
 
-- [ ] Recommended numeric range: 0.25-2.00x, two decimal places, 0.05x steps. These are editor control limits, not asserted mpv limits.
+- [x] Agreed numeric range: 0.25-2.00x, two decimal places, 0.05x steps. These are editor control limits; mpv documents a wider 0.01-100x range.
 - [ ] Recommended persistence: do not save a preferred speed or automatically reapply it on attach/reconnect. Observe the current player rate. Editor-launched mpv starts explicitly at 1x.
 - [ ] Recommended out-of-range handling: display the actual observed rate separately without clamping or writing it back; keep the edit control within its own bounds.
 

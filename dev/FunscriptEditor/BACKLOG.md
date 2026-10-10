@@ -17,17 +17,19 @@
 
 ## Pattern Insertion Tool
 
-**Priority:** To be decided. **Status:** Future feature; details to be refined.
+**Priority:** Selected next. **Status:** Implemented; generator, conflict planner, editor application, and multilevel undo/redo integrated. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
-Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, and specify the target section's duration or cycle count.
+Working documents: [plan](../work/pattern-insertion/PLAN.md), [design](../work/pattern-insertion/DESIGN.md), and [verification](../work/pattern-insertion/VERIFICATION.md).
+
+Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, specify the target section's start/end times, and enter the full-cycle count directly. Show the output cadence implied by those inputs.
 
 ### Cadence
 
-Count full cycles while a video plays over an observation interval lasting seconds to several minutes, then enter count and elapsed time. Calculate cycles per minute as `60 * cycleCount / elapsedSeconds`. A full cycle is bottom-to-top-to-bottom, distinct from one directional stroke.
+The output interval and selected full-cycle count determine cycles per minute as `60 * cycleCount / outputDurationSeconds`. Do not require a separate observation interval or infer/round the count from measured cadence. A full cycle is bottom-to-top-to-bottom, distinct from one directional stroke.
 
 ### Profiles
 
-Distribute movement time within each cycle, squeezing/stretching the profile to match measured cadence. Candidates: triangle wave, fast-up/slow-down, and slowing near direction changes.
+Distribute movement time within each cycle to fit the selected count exactly into the output interval. Profiles: triangle wave, configurable asymmetric cycle, and slowing near direction changes.
 
 ### Conflict Handling
 
@@ -37,13 +39,17 @@ When a new section conflicts with existing destination values, ask the user to c
 - Replace: replace existing values in the destination section with the new values, preserving content outside that section.
 - Merge: combine the new section with existing values.
 
-If there is no conflict, insert the section without asking. Apply the same rule to track copying and conversion. Exact collision resolution when merging values at the same timestamp remains a design detail to define.
+If there is no conflict, insert the section without asking. Actual interior value-points count as conflicts, not interpolation between outside points. Preserve existing boundary points instead of competing generated endpoints, and preview the resulting transitions. Merge remembers the user's Keep Existing / Use New choice for identical interior timestamps. Apply the same conflict rule to track copying and conversion.
+
+Fit the directly selected whole-cycle count to the output interval; never emit partial endings. Offer Continue Existing / Pattern Start and profile settings suitable for a future pattern editor. Keep all pattern dialog values across application sessions. Initial defaults are 25% rise / 75% return, cosine easing with one-position-unit adaptive sampling, a configurable three-hour section limit, and a 100,000-action generation cap. These are editor safeguards, not verified Handy API limits. See the working design for details.
 
 ## Undo and Redo
 
-**Priority:** To be decided. **Status:** Proposed.
+**Priority:** Selected with pattern insertion. **Status:** Implemented; `TimelineControl` records delta-based edits through `ActionHistory`, with multilevel undo/redo and saved-state checkpoints. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
 
-Support reversible insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as a coherent edit.
+Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [pattern-insertion plan](../work/pattern-insertion/PLAN.md), not a temporary one-operation rollback.
+
+Use deltas for small edits and affected-section history for bulk edits, not whole-document snapshots for every operation. No restrictive edit-count limit is planned initially; measure memory during trial.
 
 ## Markers and Snapping
 

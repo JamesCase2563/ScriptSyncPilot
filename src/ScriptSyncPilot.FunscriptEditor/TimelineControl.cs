@@ -26,12 +26,17 @@ public sealed class TimelineControl : Control
     private readonly HScrollBar _scrollBar = new() { Dock = DockStyle.Bottom, Height = 17 };
 
     private Funscript _script = new();
+    private GeneratedPattern? _patternPreview;
+    private int? _patternRangeStartMs;
+    private int? _patternRangeEndMs;
+    private bool _patternRangeInvalid;
     private double _mediaDurationSeconds;
     private double _pixelsPerSecond = 100;
     private double _viewStartSeconds;
     private double _playheadSeconds;
 
     private int? _draggingIndex;
+    private FunscriptAction[]? _dragBefore;
     private int? _selectedIndex;
     private bool _scrubbing;
     private bool _suppressScrollEvent;
@@ -40,6 +45,13 @@ public sealed class TimelineControl : Control
     public event Action<double>? SeekRequested;
     public event EventHandler? ScriptChanged;
     public event EventHandler? ZoomChanged;
+
+    [System.ComponentModel.Browsable(false)]
+    public double PlayheadSeconds => _playheadSeconds;
+
+    /// <summary>Undo/redo history of the loaded script; reset by <see cref="LoadScript"/>.</summary>
+    [System.ComponentModel.Browsable(false)]
+    public ActionHistory History { get; } = new();
 
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -60,7 +72,9 @@ public sealed class TimelineControl : Control
         get
         {
             var scriptEnd = _script.Actions.Count > 0 ? _script.Actions[^1].At / 1000.0 : 0;
-            var longest = Math.Max(scriptEnd, _mediaDurationSeconds);
+            var previewEnd = _patternPreview?.EndMs / 1000.0 ?? 0;
+            var rangeEnd = Math.Max(_patternRangeStartMs ?? 0, _patternRangeEndMs ?? 0) / 1000.0;
+            var longest = Math.Max(Math.Max(Math.Max(scriptEnd, _mediaDurationSeconds), previewEnd), rangeEnd);
             var minimumDuration = _mediaDurationSeconds > 0 ? 0 : FallbackDurationSeconds;
             return Math.Max(longest, minimumDuration);
         }
@@ -95,13 +109,90 @@ public sealed class TimelineControl : Control
         _script = script;
         _selectedIndex = null;
         _draggingIndex = null;
+        _dragBefore = null;
+        History.Reset();
         ReclampZoom();
+    }
+
+    /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>
+    public bool ReplaceActions(IEnumerable<FunscriptAction> actions, int preferredSelectionAt)
+    {
+        FinishDrag();
+        var before = _script.Actions.ToArray();
+        if (!_script.ReplaceActionsAtomically(actions)) return false;
+        var edit = ActionEdit.Between(before, _script.Actions);
+        History.Record(edit);
+
+        _scrubbing = false;
+        _selectedIndex = edit is { Inserted.Count: > 0 } ? edit.Index : null;
+
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+        return true;
+    }
+
+    public bool Undo() => ApplyHistory(History.Undo);
+
+    public bool Redo() => ApplyHistory(History.Redo);
+
+    private bool ApplyHistory(Func<Funscript, ActionEdit?> step)
+    {
+        FinishDrag();
+        if (step(_script) is not { } applied) return false;
+        _scrubbing = false;
+        _selectedIndex = applied.Inserted.Count > 0 ? applied.Index : null;
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+        return true;
+    }
+
+    /// <summary>Applies a small edit and records the resulting delta; raises ScriptChanged only on a real change.</summary>
+    private bool Commit(Action mutate)
+    {
+        FinishDrag();
+        var before = _script.Actions.ToArray();
+        mutate();
+        if (!History.Record(ActionEdit.Between(before, _script.Actions))) return false;
+        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    /// <summary>Records an in-progress drag as one history entry.</summary>
+    private void FinishDrag()
+    {
+        _draggingIndex = null;
+        if (_dragBefore is not { } before) return;
+        _dragBefore = null;
+        if (History.Record(ActionEdit.Between(before, _script.Actions)))
+            ScriptChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void SetPlayhead(double seconds)
     {
         _playheadSeconds = seconds;
         Invalidate();
+    }
+
+    public void SetPatternPreview(GeneratedPattern? pattern)
+    {
+        var durationBefore = DurationSeconds;
+        _patternPreview = pattern;
+        if (DurationSeconds != durationBefore)
+            ReclampZoom();
+        else
+            Invalidate();
+    }
+
+    public void SetPatternPreviewRange(int? startMs, int? endMs, bool invalid)
+    {
+        var durationBefore = DurationSeconds;
+        _patternRangeStartMs = startMs;
+        _patternRangeEndMs = endMs;
+        _patternRangeInvalid = invalid;
+        if (DurationSeconds != durationBefore)
+            ReclampZoom();
+        else
+            Invalidate();
     }
 
     public void UpdateDuration(double mediaDurationSeconds)
@@ -189,6 +280,8 @@ public sealed class TimelineControl : Control
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
+        PaintPatternRange(g);
+
         using (var gridPen = new Pen(Color.FromArgb(55, 55, 55)))
         {
             for (var p = 0; p <= 100; p += 25)
@@ -227,6 +320,8 @@ public sealed class TimelineControl : Control
             }
         }
 
+        PaintPatternActions(g);
+
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
             var x = (float)TimeToX(_playheadSeconds);
@@ -237,6 +332,56 @@ public sealed class TimelineControl : Control
         PaintValueBar(g);
 
         base.OnPaint(e);
+    }
+
+    private void PaintPatternRange(Graphics graphics)
+    {
+        if (_patternRangeStartMs is not { } startMs || _patternRangeEndMs is not { } endMs) return;
+        var startX = TimeToX(startMs / 1000.0);
+        var endX = TimeToX(endMs / 1000.0);
+        var left = Math.Clamp(Math.Min(startX, endX), 0, BarLeft);
+        var right = Math.Clamp(Math.Max(startX, endX), 0, BarLeft);
+        var color = _patternRangeInvalid ? Color.FromArgb(54, 225, 70, 70) : Color.FromArgb(42, 255, 190, 60);
+        using var rangeBrush = new SolidBrush(color);
+        if (_patternRangeInvalid && right - left < 4 && startX >= 0 && startX <= BarLeft)
+        {
+            graphics.FillRectangle(rangeBrush, (float)(startX - 2), TrackTop, 4, TrackHeight);
+            return;
+        }
+        if (right > left)
+            graphics.FillRectangle(rangeBrush, (float)left, TrackTop, (float)(right - left), TrackHeight);
+    }
+
+    private void PaintPatternActions(Graphics graphics)
+    {
+        if (_patternPreview is not { } pattern || pattern.Actions.Count == 0) return;
+
+        using var linePen = new Pen(Color.FromArgb(80, 235, 130), 2.5f);
+        using var pointBrush = new SolidBrush(Color.FromArgb(110, 255, 155));
+        using var pointOutline = new Pen(Color.FromArgb(25, 25, 25), 1.5f);
+        var clipLeft = -50f;
+        var clipRight = BarLeft + 50f;
+        FunscriptAction? previous = null;
+        foreach (var action in pattern.Actions)
+        {
+            if (previous is { } before)
+            {
+                var from = new PointF((float)TimeToX(before.At / 1000.0), (float)PosToY(before.Pos));
+                var to = new PointF((float)TimeToX(action.At / 1000.0), (float)PosToY(action.Pos));
+                if (Math.Max(from.X, to.X) >= clipLeft && Math.Min(from.X, to.X) <= clipRight)
+                    graphics.DrawLine(linePen, ClipX(from, to, clipLeft, clipRight), ClipX(to, from, clipLeft, clipRight));
+            }
+
+            var x = TimeToX(action.At / 1000.0);
+            if (x >= -PointRadius && x <= BarLeft + PointRadius)
+            {
+                var y = PosToY(action.Pos);
+                graphics.FillEllipse(pointBrush, (float)(x - PointRadius), (float)(y - PointRadius), PointRadius * 2, PointRadius * 2);
+                graphics.DrawEllipse(pointOutline, (float)(x - PointRadius), (float)(y - PointRadius), PointRadius * 2, PointRadius * 2);
+            }
+
+            previous = action;
+        }
     }
 
     // GDI+ degrades on extreme coordinates, which a far-off neighbour produces at high zoom, so trim to the visible span.
@@ -293,8 +438,10 @@ public sealed class TimelineControl : Control
         var hit = HitTest(e.Location);
         if (hit is { } index)
         {
+            FinishDrag();
             _selectedIndex = index;
             _draggingIndex = index;
+            _dragBefore = _script.Actions.ToArray();
         }
         else
         {
@@ -313,8 +460,7 @@ public sealed class TimelineControl : Control
 
         var at = (int)Math.Round(Math.Clamp(XToTime(e.X), 0, DurationSeconds) * 1000);
         var pos = YToPos(e.Y);
-        _script.AddOrReplace(new FunscriptAction(at, pos));
-        ScriptChanged?.Invoke(this, EventArgs.Empty);
+        Commit(() => _script.AddOrReplace(new FunscriptAction(at, pos)));
         Invalidate();
     }
 
@@ -359,8 +505,7 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (_draggingIndex is not null) ScriptChanged?.Invoke(this, EventArgs.Empty);
-        _draggingIndex = null;
+        FinishDrag();
         _scrubbing = false;
     }
 
@@ -368,10 +513,8 @@ public sealed class TimelineControl : Control
     {
         if (e.KeyCode == Keys.Delete && _selectedIndex is { } index)
         {
-            _script.RemoveAt(index);
+            Commit(() => _script.RemoveAt(index));
             _selectedIndex = null;
-            _draggingIndex = null;
-            ScriptChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
             e.Handled = true;
         }
@@ -395,7 +538,7 @@ public sealed class TimelineControl : Control
     {
         var pos = YToPos(y);
         var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
-        _script.AddOrReplace(new FunscriptAction(at, pos));
+        Commit(() => _script.AddOrReplace(new FunscriptAction(at, pos)));
         var actions = _script.Actions;
         for (var i = 0; i < actions.Count; i++)
         {
@@ -403,7 +546,6 @@ public sealed class TimelineControl : Control
             _selectedIndex = i;
             break;
         }
-        ScriptChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 

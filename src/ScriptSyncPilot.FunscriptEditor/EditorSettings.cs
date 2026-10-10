@@ -9,6 +9,17 @@ public sealed class EditorSettings
     public string LastScriptPath { get; set; } = "";
     public string MpvPath { get; set; } = "mpv";
     public string MpvIpcPipe { get; set; } = @"\\.\pipe\vrheadtrack";
+    public decimal? PatternOutputStartSeconds { get; set; }
+    public decimal? PatternOutputEndSeconds { get; set; }
+    public int? PatternCycleCount { get; set; }
+    public int? PatternProfile { get; set; }
+    public int? PatternStartMode { get; set; }
+    public int? PatternMinimumPosition { get; set; }
+    public int? PatternMaximumPosition { get; set; }
+    public decimal? PatternRiseFraction { get; set; }
+    public int? PatternMaximumHours { get; set; }
+    public int? LastPatternConflictChoice { get; set; }
+    public int? LastPatternMergeChoice { get; set; }
 
     private static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

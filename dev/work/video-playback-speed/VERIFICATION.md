@@ -2,7 +2,7 @@
 
 **Status:** Planned checks only; implementation and verification not started. No tests or manual checks are claimed as passed.
 
-See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments are agreed. Launch/persistence policy remains to be confirmed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
+See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
 ## Automated IPC Checks
 
@@ -61,4 +61,4 @@ If a running application locks build outputs, use an isolated artifacts path rat
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10. No implementation, automated tests, or manual playback checks performed for this work item. Control bounds and increments are agreed; launch/persistence policy awaits confirmation. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
+Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. No implementation, automated tests, or manual playback checks performed for this work item. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.

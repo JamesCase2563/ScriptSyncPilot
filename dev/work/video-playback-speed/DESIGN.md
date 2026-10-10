@@ -1,6 +1,6 @@
 # Video Playback Speed Design
 
-**Status:** Draft; proposed control defaults and session policy, not implemented.
+**Status:** Agreed design; control bounds, persistence, and external-rate handling confirmed. Not implemented.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 
@@ -36,7 +36,7 @@ The existing SendAsync completes a pipe write, not an mpv acknowledgment. Displa
 
 Subscribe during attachment alongside position/pause/duration. Marshal speed events to the UI thread and check current session identity inside the queued callback, as the existing transport callbacks do. Ignore callbacks from disconnected/replaced sessions or after close.
 
-Use a local synchronization flag while updating the numeric control from observations so a property event does not emit another set_property command. If the observed rate is within control bounds, show it in the edit control and actual-rate display. Recommended policy for outside-bound rates: show the exact observed value in the actual-rate display, clamp only the edit control's presentation, and suppress writes during that update. Never silently force an externally attached player into the editor's range.
+Use a local synchronization flag while updating the numeric control from observations so a property event does not emit another set_property command. If the observed rate is within control bounds, show it in the edit control and actual-rate display. For outside-bound rates, show the observed configured value in the rate display, clamp only the edit control's presentation, and suppress writes during that update. Never silently force an externally attached player into the editor's range.
 
 User input sends to a captured current session with that session's lifetime cancellation token. On completion/failure, do not update controls belonging to a replacement session. Keep interactions minimal; serialized/debounced writes may be added locally only if the existing transport path needs them to avoid overlapping speed writes. A broad command-coalescing redesign is outside scope.
 
@@ -44,9 +44,9 @@ Shutdown clears the observed-rate display and disables speed controls. Attach/re
 
 ## Launch and Persistence
 
-Recommended policy: no speed preference is persisted in EditorSettings. Attaching to an existing player reads its current speed without writing it. Launching editor-owned mpv explicitly requests --speed=1, retaining the existing paused launch behavior. Replacing videos in an external player follows whatever speed mpv reports, not a locally inferred reset.
+No speed preference is persisted in EditorSettings. Attaching to an existing player reads its current speed without writing it. Launching editor-owned mpv explicitly requests --speed=1, retaining the existing paused launch behavior. Replacing videos in an external player follows whatever speed mpv reports, not a locally inferred reset.
 
-The 1x command is always an explicit user action. Changing script documents does not change video rate. This policy avoids unexpectedly overriding a user's external player configuration; confirm it before implementation.
+The 1x command is always an explicit user action. Changing script documents does not change video rate. This agreed policy avoids unexpectedly overriding a user's external player configuration.
 
 ## Shared Consumer Boundary
 
@@ -58,4 +58,4 @@ HandySync also uses MpvSession. Adding observation/event support must not change
 
 Use deterministic NamedPipeServerStream tests for speed JSON commands and property observations, without requiring live mpv or hardware. Follow existing MSTest/VSTest packages and reuse helpers if one exists; keep any new pipe helper bounded to these tests. Extend the editor test project for local observation/UI logic where practical without building a broad UI automation framework.
 
-Actual playback speed, external-player changes, focus behavior, frame stepping, and wall-time/media-time relationship require a running mpv manual trial. Rate limits/defaults and persistence policy remain proposed until confirmed. No universal player/firmware behavior, hardware-output compensation, or exact timing/latency accuracy is promised.
+Actual playback speed, external-player changes, focus behavior, frame stepping, and wall-time/media-time relationship require a running mpv manual trial. Control bounds, increments, persistence, and outside-range presentation are agreed; verification remains pending. No universal player/firmware behavior, hardware-output compensation, or exact timing/latency accuracy is promised.

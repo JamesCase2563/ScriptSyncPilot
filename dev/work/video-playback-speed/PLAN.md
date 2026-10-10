@@ -1,6 +1,6 @@
 # Video Playback Speed Plan
 
-**Status:** Draft; implementation not started. Control range and persistence policy are recommendations to confirm.
+**Status:** Agreed design and scope; implementation not started. Control bounds, persistence, and external-rate handling are confirmed.
 **Selected:** 2026-10-10.
 **Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI). HandySync receives no speed controls or synchronization changes.
 
@@ -23,11 +23,11 @@ Change video playback speed from the editor to make review and point authoring e
 
 Live pattern recording, frequency controls, speed keyboard shortcuts, new settings dialogs, HandySync device scheduling, reconnect redesign, and a general mpv request/response framework are outside scope.
 
-## Decisions to Confirm
+## Agreed Decisions
 
 - [x] Agreed numeric range: 0.25-2.00x, two decimal places, 0.05x steps. These are editor control limits; mpv documents a wider 0.01-100x range.
-- [ ] Recommended persistence: do not save a preferred speed or automatically reapply it on attach/reconnect. Observe the current player rate. Editor-launched mpv starts explicitly at 1x.
-- [ ] Recommended out-of-range handling: display the actual observed rate separately without clamping or writing it back; keep the edit control within its own bounds.
+- [x] Do not save a preferred speed or automatically reapply it on attach/reconnect. Observe the current player rate. Editor-launched mpv starts explicitly at 1x.
+- [x] Display an outside-UI-range observed rate separately without clamping or writing it back; keep the edit control within its own bounds.
 
 ## Milestones
 
@@ -35,7 +35,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 
 - [x] Record media-time, ownership, observation, and no-document-mutation contracts.
 - [x] Specify automated IPC and manual interaction checks.
-- [ ] Confirm control range, increments, and session/persistence policy.
+- [x] Confirm control range, increments, and session/persistence policy.
 
 ### 2. Common IPC Support
 

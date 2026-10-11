@@ -10,6 +10,7 @@
 - [Timing and Diagnostics](#timing-and-diagnostics)
 - [Offset Feedback](#offset-feedback)
 - [Main-Form Device Controls](#main-form-device-controls)
+- [Playback Speed Sync](#playback-speed-sync)
 - [Local Buttplug/Intiface Output](#local-buttplugintiface-output)
 - [Verification and Order](#verification-and-order)
 
@@ -21,7 +22,11 @@ Intermittent Handy disconnects have also been observed with other services. Wi-F
 
 **Priority:** High. **Status:** Proposed.
 
-Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, and failed synctime. Keep observing mpv throughout recovery.
+Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
+
+Online players can switch the device mode or replace the HSSP script while HandySync is connected; HandySync currently sets mode and script only on connect and does not notice. Record `mode_session_id` from the `PUT /mode2` response, then check `GET /mode` periodically (cheaply combined with the offset/stroke polling from [main-form device controls](../work/main-form-device-controls/PLAN.md)). A different mode or `mode_session_id` means another client took over: log it and enter recovery to restore HSSP mode and the script. A script replaced within HSSP mode may not change `mode_session_id`; verify whether `GET /hssp/state` (for example `stream_id`) exposes it. Decide whether takeover recovers automatically or waits for the user, to avoid fighting an online player that is still open.
+
+Device reboots and server reconnects can also silently reset device state. Record `boot_session_id` and `socket_session_id` from `GET /sids` after setup and check them in the same periodic poll. A changed `boot_session_id` means the device rebooted; a changed `socket_session_id` within the same boot means it reconnected to the server. Either way, treat mode, HSSP setup, and the device-to-server clock as lost: enter recovery, re-estimate the client/server clock offset, re-read offset and stroke (applying the main-form connect policy), and log which ID changed. Verify whether HSTP offset and stroke survive a reboot or reconnect.
 
 1. Suspend normal device synchronization.
 2. Retry connectivity with exponential backoff, for example 1, 2, 4, 8, 15, and 30 seconds.
@@ -67,6 +72,8 @@ Before device setup, check `/connected`, `/info`, firmware status, and `/capabil
 - Track reconnect count and disconnected time; report firmware/transport only where exposed by the API.
 - Add structured transition/recovery logging, with debug verbosity for successful periodic requests. Never log application or connection keys.
 - Apply updated estimates to subsequent sync/recovery without restarting playback solely because clock offset changed.
+- Log the drift observed at each synctime correction. If it stays noisy on unstable networks, evaluate other `hssp/synctime` `filter` values (currently fixed at 0.5) and expose it only as an advanced/diagnostic setting. Tune after [Playback Speed Sync](#playback-speed-sync) has verified synctime behavior at non-1x rates.
+- Read and log the device-to-server round-trip delay (`rtd` from `GET /hstp/info`) on connect and after recovery, alongside HandySync's own client/server round-trip times, so device Wi-Fi problems can be told apart from PC network problems. If it is high, suggest running device clock sync in handyverse.com. Do not trigger `/hstp/clocksync` from HandySync; device clock sync is device-wide and handled by the device or other apps, while HandySync's own client/server offset estimation stays as is.
 
 ## Offset Feedback
 
@@ -85,6 +92,20 @@ Keep user-adjustable sync offset and minimum/maximum stroke controls on the main
 - Read the current device values on connection and preserve the user's chosen values across app restarts/reconnects where needed. Debounce rapid slider changes and serialize API writes through the existing device-command gate.
 - Depend on the Firmware and Capabilities check: require firmware compatible with API v3 (firmware 4 or newer), and show a clear unsupported-firmware state instead of attempting these controls on older devices. Do not silently fall back to v2.
 - Verify offset sign/units and slider-range units against the current v3 API contract; test reconnect, rejected/normalized ranges, and API failures without losing the selected UI values.
+
+## Playback Speed Sync
+
+**Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../work/video-playback-speed/PLAN.md) work.
+
+HandySync always sends `playback_rate` 1.0 in `hssp/play`. When mpv runs at another speed (set in the editor, mpv, or another client), the device plays at normal speed and periodic synctime keeps pulling it back, producing jerky, drifting motion. Follow mpv's rate instead; HandySync observes speed only and gains no speed controls.
+
+- Reuse Common's `MpvSession` speed observation and change events from the editor work; do not duplicate IPC logic or write speed to mpv.
+- Pass the observed rate as `playback_rate` in `hssp/play`. On a speed change while playing, re-issue play at the current media position with the new rate through the device-command gate, debounced and latest-wins. While paused, only record the rate for the next play.
+- Verify how `hssp/synctime` `current_time` behaves at non-1x rates and whether HSSP accepts rate changes without a new play (v3 lists `playbackrate` for HSP, not HSSP).
+- Make the seek-detection heuristic rate-aware: expected position advances by elapsed time multiplied by the rate, or speeds other than 1x cause false seek resyncs.
+- Device time stays in media time; the device-side HSTP offset is unaffected by rate.
+- Fast rates can exceed the slider's speed limits (`/settings/slider` `x_max_speed`); decide whether to warn above a threshold or only log. Ignore invalid or nonpositive observations.
+- Test rate changes while playing/paused, seeks at non-1x rates, drift over several minutes at 0.5x and 1.5x, reconnect with a non-1x rate already set, and that 1x behavior is unchanged.
 
 ## Local Buttplug/Intiface Output
 

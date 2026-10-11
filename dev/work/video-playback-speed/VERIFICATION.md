@@ -32,6 +32,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Manual Playback Checks
 
+- [ ] Connection button shows Attach when disconnected and Detach after successful attach; Detach clears speed/transport state. If mpv was launched by the editor, Detach leaves it running and reattaching to its generated pipe reconnects without killing it; normal editor shutdown still terminates owned mpv.
 - [ ] During playback at zoomed-in scale, reaching the visible right edge recenters the viewport on the playhead without seeking or changing zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
 - [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
 - [x] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
@@ -149,3 +150,7 @@ Added captured horizontal panning with existing viewport clamp/scrollbar helpers
 ### Playback Edge Following (2026-10-10)
 
 Active mpv position updates now request viewport following: when the playhead reaches the visible right edge, the timeline recenters on it within existing bounds. Zoom and video position are unchanged; active pan/point-drag/scrub gestures suppress following, and paused/manual updates retain their viewport. The isolated editor build and PlaybackFollow/MiddleDrag tests passed (2 tests); actual playback interaction remains pending manual verification.
+
+### Attach/Detach Button State (2026-10-11)
+
+The connection button now reads Attach while disconnected and Detach after successful connection. Detach closes the editor IPC session and clears playback/speed state. If the editor launched mpv, explicit detach leaves that process alive; reattaching to its generated pipe preserves the owned process, while normal shutdown/replacement still terminates it. `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore --artifacts-path artifacts/video-speed-verification` succeeded; all 8 editor tests passed using the isolated artifacts path. The manual interaction above remains pending.

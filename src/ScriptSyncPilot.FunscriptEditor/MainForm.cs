@@ -50,6 +50,7 @@ public sealed class MainForm : Form
 
     private MpvSession? _mpv;
     private Process? _ownedMpvProcess;
+    private string? _ownedMpvPipe;
     private CancellationTokenSource _lifetimeCts = new();
     private readonly SemaphoreSlim _playbackTransitionGate = new(1, 1);
     private bool _isClosing;
@@ -92,7 +93,13 @@ public sealed class MainForm : Form
         Application.AddMessageFilter(_wheelFilter);
 
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
-        _attachButton.Click += async (_, _) => await AttachExistingAsync();
+        _attachButton.Click += async (_, _) =>
+        {
+            if (_mpv is not null)
+                ShutdownPlayback(terminateOwnedMpv: false);
+            else
+                await AttachExistingAsync();
+        };
         _playPauseButton.Click += async (_, _) => await TogglePlayPauseAsync();
         _speedInput.ValueChanged += async (_, _) =>
         {
@@ -451,6 +458,7 @@ public sealed class MainForm : Form
             }
 
             _pipeBox.Text = pipe;
+            _ownedMpvPipe = pipe;
             await AttachAsync(pipe);
         }
         finally
@@ -470,8 +478,11 @@ public sealed class MainForm : Form
         {
             await _playbackTransitionGate.WaitAsync();
             transitionAcquired = true;
-            ShutdownPlayback();
-            await AttachAsync(_pipeBox.Text);
+            var pipe = _pipeBox.Text;
+            var preserveOwnedPlayer = _ownedMpvProcess is { HasExited: false }
+                && string.Equals(pipe, _ownedMpvPipe, StringComparison.OrdinalIgnoreCase);
+            ShutdownPlayback(terminateOwnedMpv: !preserveOwnedPlayer);
+            await AttachAsync(pipe);
         }
         finally
         {
@@ -511,6 +522,7 @@ public sealed class MainForm : Form
 
         _mpv = mpv;
         _activePipe = pipe;
+        _attachButton.Text = "Detach";
         OnMpvPositionChanged(mpv, mpv.PositionSeconds);
         OnMpvPauseChanged(mpv, mpv.IsPaused);
         OnMpvDurationChanged(mpv, mpv.DurationSeconds);
@@ -742,19 +754,25 @@ public sealed class MainForm : Form
         }
     }
 
-    private void ShutdownPlayback()
+    private void ShutdownPlayback(bool terminateOwnedMpv = true)
     {
         _lifetimeCts.Cancel();
         _mpv?.Dispose();
         _mpv = null;
+        _activePipe = null;
+        _attachButton.Text = "Attach";
         _timeline.UpdateDuration(0);
         SetPlaybackControlsEnabled(false);
 
-        if (_ownedMpvProcess is { HasExited: false })
+        if (terminateOwnedMpv && _ownedMpvProcess is { HasExited: false })
         {
             try { _ownedMpvProcess.Kill(); }
             catch (InvalidOperationException) { }
         }
-        _ownedMpvProcess = null;
+        if (terminateOwnedMpv)
+        {
+            _ownedMpvProcess = null;
+            _ownedMpvPipe = null;
+        }
     }
 }

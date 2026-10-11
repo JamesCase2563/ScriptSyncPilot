@@ -73,6 +73,7 @@ Before device setup, check `/connected`, `/info`, firmware status, and `/capabil
 - Add structured transition/recovery logging, with debug verbosity for successful periodic requests. Never log application or connection keys.
 - Apply updated estimates to subsequent sync/recovery without restarting playback solely because clock offset changed.
 - Log the drift observed at each synctime correction. If it stays noisy on unstable networks, evaluate other `hssp/synctime` `filter` values (currently fixed at 0.5) and expose it only as an advanced/diagnostic setting. Tune after [Playback Speed Sync](#playback-speed-sync) has verified synctime behavior at non-1x rates.
+- Read and log the device-to-server round-trip delay (`rtd` from `GET /hstp/info`) on connect and after recovery, alongside HandySync's own client/server round-trip times, so device Wi-Fi problems can be told apart from PC network problems. If it is high, suggest running device clock sync in handyverse.com. Do not trigger `/hstp/clocksync` from HandySync; device clock sync is device-wide and handled by the device or other apps, while HandySync's own client/server offset estimation stays as is.
 
 ## Offset Feedback
 

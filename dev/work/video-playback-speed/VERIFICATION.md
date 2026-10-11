@@ -27,7 +27,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [ ] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate.
 - [x] Actual-rate display is observation-driven rather than optimistic write completion.
 - [x] Outside-UI-range player observations remain visible and do not trigger clamped writebacks.
-- [ ] Speed changes do not mutate funscript actions, metadata, selection, history, or dirty/saved state.
+- [x] Speed changes do not mutate funscript actions, metadata, selection, history, or dirty/saved state.
 - [x] Speed controls fit the existing transport layout without clipping at the verified window size and display scaling.
 - [ ] Verify the speed controls at other supported window sizes and Windows display scaling levels.
 
@@ -153,6 +153,8 @@ Manual verification (2026-10-11): The user confirmed editor-owned mpv launches p
 Manual verification (2026-10-11): The user confirmed closing while a speed command is pending completes without a late UI exception or stuck operation.
 
 Manual verification (2026-10-11): The user confirmed the speed controls fit the transport layout without clipping at the verified window size and display scaling. Other size/scaling combinations remain unverified.
+
+Manual verification (2026-10-11): The user confirmed changing and resetting playback speed leaves funscript actions, metadata, selection, history, and dirty/saved state unchanged.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

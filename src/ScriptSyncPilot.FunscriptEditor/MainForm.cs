@@ -590,17 +590,19 @@ public sealed class MainForm : Form
         {
             BeginInvoke(() =>
             {
-                if (_isClosing || IsDisposed || !ReferenceEquals(_mpv, session)) return;
-                _syncingSpeed = true;
-                try
+                ApplySpeedUpdateIfCurrentSession(_mpv, session, _isClosing || IsDisposed, () =>
                 {
-                    _speedInput.Value = (decimal)Math.Clamp(speed,
-                        (double)_speedInput.Minimum, (double)_speedInput.Maximum);
-                    _speedLabel.Text = $"Player rate: {speed:G}x";
-                    _speedInput.Enabled = true;
-                    _resetSpeedButton.Enabled = true;
-                }
-                finally { _syncingSpeed = false; }
+                    _syncingSpeed = true;
+                    try
+                    {
+                        _speedInput.Value = (decimal)Math.Clamp(speed,
+                            (double)_speedInput.Minimum, (double)_speedInput.Maximum);
+                        _speedLabel.Text = $"Player rate: {speed:G}x";
+                        _speedInput.Enabled = true;
+                        _resetSpeedButton.Enabled = true;
+                    }
+                    finally { _syncingSpeed = false; }
+                });
             });
         }
         catch (InvalidOperationException) when (_isClosing || IsDisposed || !IsHandleCreated)
@@ -720,26 +722,38 @@ public sealed class MainForm : Form
         if (session is null || _isClosing) return;
         var token = _lifetimeCts.Token;
         await SendPlaybackSpeedAsync(
-            cancellationToken => session.SetSpeedAsync(speed, cancellationToken),
+            session,
+            (capturedSession, cancellationToken) => capturedSession.SetSpeedAsync(speed, cancellationToken),
             token,
-            () => !_isClosing && ReferenceEquals(_mpv, session),
+            capturedSession => !_isClosing && ReferenceEquals(_mpv, capturedSession),
             Log);
     }
 
-    internal static async Task SendPlaybackSpeedAsync(
-        Func<CancellationToken, Task> sendSpeed,
+    internal static async Task SendPlaybackSpeedAsync<TSession>(
+        TSession session,
+        Func<TSession, CancellationToken, Task> sendSpeed,
         CancellationToken cancellationToken,
-        Func<bool> canReportFailure,
+        Func<TSession, bool> canReportFailure,
         Action<string> reportFailure)
     {
         try
         {
-            await sendSpeed(cancellationToken);
+            await sendSpeed(session, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or ArgumentException)
         {
-            if (canReportFailure()) reportFailure($"Speed change failed: {ex.Message}");
+            if (canReportFailure(session)) reportFailure($"Speed change failed: {ex.Message}");
         }
+    }
+
+    internal static void ApplySpeedUpdateIfCurrentSession(
+        object? activeSession,
+        object updateSession,
+        bool isClosing,
+        Action applyUpdate)
+    {
+        if (!isClosing && ReferenceEquals(activeSession, updateSession))
+            applyUpdate();
     }
 
     private void OnSeekRequested(double seconds)

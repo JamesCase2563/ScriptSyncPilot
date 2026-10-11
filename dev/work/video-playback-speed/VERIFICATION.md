@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, viewport following and panning, owned-player launch, pending-command shutdown, document-state preservation, external speed observation, outside-range handling, and responsive transport layout are manually confirmed. Remaining work is editor session-race/error-path contract verification and final verification inventory.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests passed before the latest editor-only tests; the editor suite now passes 12 tests. Attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, viewport following and panning, owned-player launch, pending-command shutdown, document-state preservation, external speed observation, outside-range handling, and responsive transport layout are confirmed. Remaining work is final verification inventory.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -23,7 +23,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Speed controls are disabled while disconnected/attaching; actual-rate display shows unknown rather than a falsely confirmed 1x.
 - [x] Current-session speed observations update the display on the UI thread without feedback writes.
 - [x] Queued speed updates from old sessions are ignored after attach replacement/disconnect/close.
-- [ ] Automated contract (not a manual timing check): user edits/reset target the captured active session; late completion/failure does not overwrite a replacement session's UI.
+- [x] Automated contract: speed writes target the captured session; late failures are suppressed after replacement, and queued old-session observations do not update the replacement session's UI.
 - [x] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate (automated test).
 - [x] Actual-rate display is observation-driven rather than optimistic write completion.
 - [x] Outside-UI-range player observations remain visible and do not trigger clamped writebacks.
@@ -70,7 +70,7 @@ If a running application locks build outputs, use an isolated artifacts path rat
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented, and the manual playback and layout checks are confirmed. Remaining editor contract checks concern stale-session observations, late command completion, and failed-write feedback. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
+Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented, and the manual playback and layout checks are confirmed. Session replacement and write-failure behaviors have deterministic editor tests; final verification inventory remains. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
 
 ### Common Speed Observation (2026-10-10)
 
@@ -156,13 +156,13 @@ Manual verification (2026-10-11): The user confirmed the speed controls fit the 
 
 Manual verification (2026-10-11): The user confirmed changing and resetting playback speed leaves funscript actions, metadata, selection, history, and dirty/saved state unchanged.
 
-Automated verification (2026-10-11): `PlaybackSpeedCommandTests` injects a failed pipe write and verifies an actionable "Speed change failed" message without a propagated exception; it also verifies failures from a replaced session are suppressed. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --artifacts-path artifacts/video-speed-verification --no-restore --filter FullyQualifiedName~PlaybackSpeedCommandTests`: 2 passed, 0 failed, 0 skipped. Late successful completion after session replacement remains an automated-only contract without deterministic coverage.
+Automated verification (2026-10-11): `PlaybackSpeedCommandTests` injects failed pipe writes and verifies an actionable "Speed change failed" message without a propagated exception, verifies a deferred failure from a replaced session is suppressed, confirms the deferred write uses the originally captured session, and confirms a queued old-session observation cannot replace the displayed rate. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --artifacts-path artifacts/video-speed-verification --no-restore --filter FullyQualifiedName~PlaybackSpeedCommandTests`: 4 passed, 0 failed, 0 skipped.
 
 Manual verification (2026-10-11): The user confirmed the speed controls flow well while resizing the window; no layout issues were observed.
 
 Manual verification (2026-10-11): The user confirmed replacing or detaching the player after a speed change does not leave stale speed updates in the UI.
 
-Verification note (2026-10-11): A manual late-completion race is not reliably reproducible at interactive speed. Treat captured-session writes and late completion/failure behavior as an automated contract; leave it unchecked until covered deterministically.
+Verification note (2026-10-11): Session replacement and queued-update behavior are covered by deterministic tests using controlled task completion; no timing-sensitive manual race is required.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

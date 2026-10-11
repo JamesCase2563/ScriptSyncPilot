@@ -38,7 +38,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history, including when dragging outside the control; left-button editing/scrubbing remains unchanged.
 - [x] Middle-button panning respects both boundaries, and releasing the button ends the gesture.
 - [x] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
-- [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
+- [x] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
 - [x] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
 - [x] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
 - [x] At 0.5x, media time advances approximately half as fast as wall time; timeline/action timestamps still use media time.
@@ -146,6 +146,8 @@ Manual verification (2026-10-11): The user confirmed middle-button panning conti
 Manual verification (2026-10-11): The user confirmed zoomed-in edge-following works without seeking or changing zoom, respects end bounds, stays still while paused, and does not interrupt active mouse gestures.
 
 Manual verification (2026-10-11): The user confirmed middle-button panning at both boundaries and release behavior work as expected.
+
+Manual verification (2026-10-11): The user confirmed editor-owned mpv launches paused at 1x.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

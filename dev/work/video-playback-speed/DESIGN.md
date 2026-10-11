@@ -1,6 +1,6 @@
 # Video Playback Speed Design
 
-**Status:** Agreed design; control bounds, persistence, and external-rate handling confirmed. Not implemented.
+**Status:** Implemented and verified (2026-10-11); PR pending.
 
 See [plan](PLAN.md) and [verification](VERIFICATION.md).
 

@@ -64,7 +64,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Run all FunscriptEditor tests, including numeric entry/focus/repeat regressions.
 - [x] Build the solution, including both desktop consumers and test projects.
 - [x] Confirm HandySync remains unchanged: it gains no UI speed controls, automatic speed writes, or scheduling changes.
-- [ ] Record manual checks actually performed and any unverified limitations.
+- [x] Record manual checks actually performed and any unverified limitations.
 
 If a running application locks build outputs, use an isolated artifacts path rather than terminating a user's unsaved session. Record exact commands, test counts, failures, and successful reruns. A build or fake-pipe test alone does not verify actual video rate or hardware synchronization.
 

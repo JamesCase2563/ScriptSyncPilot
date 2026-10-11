@@ -23,8 +23,8 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Speed controls are disabled while disconnected/attaching; actual-rate display shows unknown rather than a falsely confirmed 1x.
 - [x] Current-session speed observations update the display on the UI thread without feedback writes.
 - [x] Queued speed updates from old sessions are ignored after attach replacement/disconnect/close.
-- [ ] User edits/reset target the captured active session; late completion/failure does not overwrite a replacement session's UI.
-- [ ] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate.
+- [ ] Automated contract (not a manual timing check): user edits/reset target the captured active session; late completion/failure does not overwrite a replacement session's UI.
+- [x] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate (automated test).
 - [x] Actual-rate display is observation-driven rather than optimistic write completion.
 - [x] Outside-UI-range player observations remain visible and do not trigger clamped writebacks.
 - [x] Speed changes do not mutate funscript actions, metadata, selection, history, or dirty/saved state.
@@ -156,9 +156,13 @@ Manual verification (2026-10-11): The user confirmed the speed controls fit the 
 
 Manual verification (2026-10-11): The user confirmed changing and resetting playback speed leaves funscript actions, metadata, selection, history, and dirty/saved state unchanged.
 
+Automated verification (2026-10-11): `PlaybackSpeedCommandTests` injects a failed pipe write and verifies an actionable "Speed change failed" message without a propagated exception; it also verifies failures from a replaced session are suppressed. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --artifacts-path artifacts/video-speed-verification --no-restore --filter FullyQualifiedName~PlaybackSpeedCommandTests`: 2 passed, 0 failed, 0 skipped. Late successful completion after session replacement remains an automated-only contract without deterministic coverage.
+
 Manual verification (2026-10-11): The user confirmed the speed controls flow well while resizing the window; no layout issues were observed.
 
 Manual verification (2026-10-11): The user confirmed replacing or detaching the player after a speed change does not leave stale speed updates in the UI.
+
+Verification note (2026-10-11): A manual late-completion race is not reliably reproducible at interactive speed. Treat captured-session writes and late completion/failure behavior as an automated contract; leave it unchecked until covered deterministically.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

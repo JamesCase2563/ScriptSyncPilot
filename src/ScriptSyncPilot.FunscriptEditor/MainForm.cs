@@ -719,14 +719,26 @@ public sealed class MainForm : Form
         var session = _mpv;
         if (session is null || _isClosing) return;
         var token = _lifetimeCts.Token;
+        await SendPlaybackSpeedAsync(
+            cancellationToken => session.SetSpeedAsync(speed, cancellationToken),
+            token,
+            () => !_isClosing && ReferenceEquals(_mpv, session),
+            Log);
+    }
+
+    internal static async Task SendPlaybackSpeedAsync(
+        Func<CancellationToken, Task> sendSpeed,
+        CancellationToken cancellationToken,
+        Func<bool> canReportFailure,
+        Action<string> reportFailure)
+    {
         try
         {
-            await session.SetSpeedAsync(speed, token);
+            await sendSpeed(cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or ArgumentException)
         {
-            if (!_isClosing && ReferenceEquals(_mpv, session))
-                Log($"Speed change failed: {ex.Message}");
+            if (canReportFailure()) reportFailure($"Speed change failed: {ex.Message}");
         }
     }
 

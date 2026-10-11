@@ -52,7 +52,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
 - [x] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
 - [ ] Close while a speed command is pending; no late UI exception or stuck operation occurs.
-- [ ] Restart the editor and attach again: no saved preferred speed is imposed under the agreed no-persistence policy.
+- [x] Restart the editor and attach again: no saved preferred speed is imposed under the agreed no-persistence policy.
 - [x] New/Open a script leaves video speed unchanged and preserves normal history-reset behavior.
 
 ## Shared Regressions and Required Gates
@@ -124,6 +124,8 @@ Manual verification (2026-10-11): The user confirmed an externally configured 3x
 Manual verification (2026-10-11): The user confirmed Detach disables controls, reattach restores them, and closing/restarting mpv disables them again. Attaching after restarting the player also works.
 
 Manual verification (2026-10-11): The user confirmed New/Open switches the script while leaving the attached player's playback speed unchanged.
+
+Manual verification (2026-10-11): The user confirmed restarting the editor and reattaching preserves the external player's current non-1x speed; the editor does not apply a saved preference.
 
 Manual verification (2026-10-11): The user confirmed changing speed while paused leaves playback paused and the playhead steady; at 0.5x, media-time progression, relative seeks, absolute seeks, and script timestamps behave as expected in media time.
 

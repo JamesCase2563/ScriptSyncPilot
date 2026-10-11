@@ -40,6 +40,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
 - [ ] At 0.5x, media time advances approximately half as fast as wall time; timeline/action timestamps still use media time.
 - [ ] Change speed while paused: playback remains paused and the playhead does not move because of the speed command.
+- [x] Changing speed or resetting to 1x does not jump the playhead or mark the script unsaved.
 - [ ] Left/Right frame steps still operate on video frames and retain their pause behavior.
 - [ ] Shift/Ctrl relative seeks still move 1/10 media seconds at slowed and faster rates; arrow hold-repeat remains functional.
 - [ ] Absolute timeline seeking and pattern start/end values keep the same media-time meaning at all rates.
@@ -112,6 +113,8 @@ Subscribed to SpeedChanged and refreshed cached Speed after publishing an attach
 Manual verification (2026-10-11): The user confirmed all three initial checks passed: disconnected startup shows unknown with controls disabled; attaching to an external player at non-1x displays its rate; and attachment leaves the player's speed unchanged.
 
 Manual verification (2026-10-11): The user confirmed the slower-speed, faster-speed, and 1x reset checks passed on the attached player, with the displayed rate matching playback.
+
+Manual verification (2026-10-11): The user also confirmed changing/resetting speed causes no playhead jump and does not mark the script unsaved. Other action/history/metadata invariants remain covered by the separate editor-contract check.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

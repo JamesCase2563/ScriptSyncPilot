@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls, media-time behavior, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls, media-time behavior, frame stepping, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -41,7 +41,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] At 0.5x, media time advances approximately half as fast as wall time; timeline/action timestamps still use media time.
 - [x] Change speed while paused: playback remains paused and the playhead does not move because of the speed command.
 - [x] Changing speed or resetting to 1x does not jump the playhead or mark the script unsaved.
-- [ ] Left/Right frame steps still operate on video frames and retain their pause behavior.
+- [x] Left/Right frame steps still operate on video frames and retain their pause behavior.
 - [x] Shift/Ctrl relative seeks still move 1/10 media seconds at slowed and faster rates; arrow hold-repeat remains functional.
 - [x] Absolute timeline seeking and pattern start/end values keep the same media-time meaning at all rates.
 - [ ] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
@@ -121,6 +121,8 @@ Manual verification (2026-10-11): The user changed speed externally in mpv and c
 Manual verification (2026-10-11): The user confirmed an externally configured 3x rate remains unchanged and is displayed accurately despite exceeding the editor input range; the explicit 1x reset also works.
 
 Manual verification (2026-10-11): The user confirmed changing speed while paused leaves playback paused and the playhead steady; at 0.5x, media-time progression, relative seeks, absolute seeks, and script timestamps behave as expected in media time.
+
+Manual verification (2026-10-11): The user confirmed forward/back frame stepping at non-1x speed moves one frame and leaves playback paused.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

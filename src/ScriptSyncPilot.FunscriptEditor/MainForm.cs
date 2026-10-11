@@ -447,7 +447,7 @@ public sealed class MainForm : Form
                 _ownedMpvProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = _settings.MpvPath,
-                    ArgumentList = { $"--input-ipc-server={pipe}", "--pause", _videoPathBox.Text },
+                    ArgumentList = { $"--input-ipc-server={pipe}", "--pause", "--speed=1", _videoPathBox.Text },
                     UseShellExecute = false,
                 });
             }

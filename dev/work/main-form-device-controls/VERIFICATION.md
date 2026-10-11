@@ -55,7 +55,7 @@ Record firmware version, device model, and date for each result.
 - [ ] Polling does not noticeably delay play/pause/seek response or drift correction; request rate stays within the API rate limit (check `X-RateLimit-Remaining` in a debug log if available).
 - [ ] Disconnect and close during a pending write complete promptly without errors or late writes.
 - [ ] Values persist across app restart; an existing legacy `OffsetMs` is discarded with one log entry and does not shift playback.
-- [ ] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect.
+- [ ] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect. Record whether the provisional 10 °C warm band and 75 °C fallback felt right during trial, and any adjusted values.
 - [ ] Unsupported-firmware state is shown if a pre-v4 or update-required device is available; otherwise record as not tested (and covered by automated gate tests).
 - [ ] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, start/stop session, disconnect/reconnect.
 

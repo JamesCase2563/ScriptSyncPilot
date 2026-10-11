@@ -109,7 +109,7 @@ A compact status area beside the controls shows device information that HandySyn
   | Warm | `trigger - 10 °C` up to `trigger` | amber text |
   | Hot | at or above `trigger` | red background with "High" text |
 
-  Bands clear downwards only after the temperature falls `temp_hysteresis` below the band's lower edge, so the color does not flicker. Text accompanies color ("Warm", "High") so the state does not rely on color alone. Without slider settings, use a conservative default trigger (for example 75 °C) and note it in the tooltip. Log band transitions, not every reading. HandySync only shows and logs; it never stops playback because of temperature.
+  Bands clear downwards only after the temperature falls `temp_hysteresis` below the band's lower edge, so the color does not flicker. Text accompanies color ("Warm", "High") so the state does not rely on color alone. Without slider settings, use a conservative default trigger (for example 75 °C) and note it in the tooltip. Log band transitions, not every reading. HandySync only shows and logs; it never stops playback because of temperature. The 10 °C warm-band width and 75 °C fallback trigger are provisional; adjust them after trial use.
 - **Future SSE warnings.** `temp_high`/`temp_ok`, `slider_blocked`/`slider_unblocked`, and `battery_changed` have no REST equivalent (except temperature, covered above). Keep the status area a small model with named indicators (temperature, slider blocked, battery) so Connection Events can feed them later without UI redesign. They are not shown in this work.
 
 Status is cleared on disconnect and is not persisted.

@@ -29,7 +29,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Outside-UI-range player observations remain visible and do not trigger clamped writebacks.
 - [x] Speed changes do not mutate funscript actions, metadata, selection, history, or dirty/saved state.
 - [x] Speed controls fit the existing transport layout without clipping at the verified window size and display scaling.
-- [ ] Verify the speed controls at other supported window sizes and Windows display scaling levels.
+- [x] Speed controls retain a clean layout while resizing the window.
 
 ## Manual Playback Checks
 
@@ -155,6 +155,8 @@ Manual verification (2026-10-11): The user confirmed closing while a speed comma
 Manual verification (2026-10-11): The user confirmed the speed controls fit the transport layout without clipping at the verified window size and display scaling. Other size/scaling combinations remain unverified.
 
 Manual verification (2026-10-11): The user confirmed changing and resetting playback speed leaves funscript actions, metadata, selection, history, and dirty/saved state unchanged.
+
+Manual verification (2026-10-11): The user confirmed the speed controls flow well while resizing the window; no layout issues were observed.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

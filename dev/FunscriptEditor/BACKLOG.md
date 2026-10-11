@@ -54,13 +54,13 @@ Use deltas for small edits and affected-section history for bulk edits, not whol
 
 ## Markers and Snapping
 
-**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11); PR pending.
+**Priority:** To be decided. **Status:** Proposed.
 
 Evaluate markers and configurable grid/marker snapping for alignment with video, retaining precise unsnapped editing.
 
 ## Video Playback Speed
 
-**Priority:** To be decided. **Status:** Proposed.
+**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11); PR pending.
 
 Allow changing mpv playback speed from the editor for review and timing work. Show the active rate and provide a clear way to restore normal speed (1x). Define the supported range and increments, whether the rate resets or persists when changing videos, and how speed changes interact with seeking, frame stepping, and the timeline's media-time coordinates.
 

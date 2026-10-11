@@ -32,7 +32,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Manual Playback Checks
 
-- [ ] Connection button shows Attach when disconnected and Detach after successful attach; Detach clears speed/transport state. If mpv was launched by the editor, Detach leaves it running and reattaching to its generated pipe reconnects without killing it; normal editor shutdown still terminates owned mpv.
+- [x] Connection button shows Attach when disconnected and Detach after successful attach; Detach clears speed/transport state. If mpv was launched by the editor, Detach leaves it running and reattaching to its generated pipe reconnects without killing it; normal editor shutdown still terminates owned mpv.
 - [ ] During playback at zoomed-in scale, reaching the visible right edge recenters the viewport on the playhead without seeking or changing zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
 - [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
 - [x] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
@@ -50,7 +50,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
 - [x] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
 - [x] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
-- [ ] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
+- [x] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
 - [ ] Close while a speed command is pending; no late UI exception or stuck operation occurs.
 - [ ] Restart the editor and attach again: no saved preferred speed is imposed under the agreed no-persistence policy.
 - [ ] New/Open a script leaves video speed unchanged and preserves normal history-reset behavior.
@@ -120,6 +120,8 @@ Manual verification (2026-10-11): The user also confirmed changing/resetting spe
 Manual verification (2026-10-11): The user changed speed externally in mpv and confirmed the editor reflected the new rate without feedback updates.
 
 Manual verification (2026-10-11): The user confirmed an externally configured 3x rate remains unchanged and is displayed accurately despite exceeding the editor input range; the explicit 1x reset also works.
+
+Manual verification (2026-10-11): The user confirmed Detach disables controls, reattach restores them, and closing/restarting mpv disables them again. Attaching after restarting the player also works.
 
 Manual verification (2026-10-11): The user confirmed changing speed while paused leaves playback paused and the playhead steady; at 0.5x, media-time progression, relative seeks, absolute seeks, and script timestamps behave as expected in media time.
 

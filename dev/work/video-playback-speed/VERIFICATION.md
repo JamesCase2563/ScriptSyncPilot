@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display checks are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display and slower/faster/1x control checks are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -37,7 +37,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
 - [x] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
-- [ ] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
+- [x] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
 - [ ] At 0.5x, media time advances approximately half as fast as wall time; timeline/action timestamps still use media time.
 - [ ] Change speed while paused: playback remains paused and the playhead does not move because of the speed command.
 - [ ] Left/Right frame steps still operate on video frames and retain their pause behavior.
@@ -110,6 +110,8 @@ Subscribed to SpeedChanged and refreshed cached Speed after publishing an attach
 `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore --artifacts-path artifacts/video-speed-verification` succeeded. Manual attach, external speed changes, reset, outside-range presentation, and replacement behavior remain unverified; editor contract checkboxes remain pending.
 
 Manual verification (2026-10-11): The user confirmed all three initial checks passed: disconnected startup shows unknown with controls disabled; attaching to an external player at non-1x displays its rate; and attachment leaves the player's speed unchanged.
+
+Manual verification (2026-10-11): The user confirmed the slower-speed, faster-speed, and 1x reset checks passed on the attached player, with the displayed rate matching playback.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

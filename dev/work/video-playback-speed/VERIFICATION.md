@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display and slower/faster/1x control checks are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, slower/faster/1x controls, no-jump/clean-state behavior, and external speed observation are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -47,7 +47,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [ ] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
 - [ ] Focus the speed numeric field: arrows/digits edit that field normally and do not author movement points.
 - [ ] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
-- [ ] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
+- [x] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
 - [ ] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
 - [ ] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
 - [ ] Close while a speed command is pending; no late UI exception or stuck operation occurs.
@@ -115,6 +115,8 @@ Manual verification (2026-10-11): The user confirmed all three initial checks pa
 Manual verification (2026-10-11): The user confirmed the slower-speed, faster-speed, and 1x reset checks passed on the attached player, with the displayed rate matching playback.
 
 Manual verification (2026-10-11): The user also confirmed changing/resetting speed causes no playhead jump and does not mark the script unsaved. Other action/history/metadata invariants remain covered by the separate editor-contract check.
+
+Manual verification (2026-10-11): The user changed speed externally in mpv and confirmed the editor reflected the new rate without feedback updates.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 94 solution tests pass and the solution builds. Editor integration and manual playback checks remain pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Editor integration is implemented; manual playback checks remain pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -55,10 +55,10 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Shared Regressions and Required Gates
 
-- [ ] Run all Common tests, including persistence/history and new IPC checks.
-- [ ] Run all FunscriptEditor tests, including numeric entry/focus/repeat regressions.
-- [ ] Build the solution, including both desktop consumers and test projects.
-- [ ] Confirm HandySync remains unchanged: it gains no UI speed controls, automatic speed writes, or scheduling changes.
+- [x] Run all Common tests, including persistence/history and new IPC checks.
+- [x] Run all FunscriptEditor tests, including numeric entry/focus/repeat regressions.
+- [x] Build the solution, including both desktop consumers and test projects.
+- [x] Confirm HandySync remains unchanged: it gains no UI speed controls, automatic speed writes, or scheduling changes.
 - [ ] Record manual checks actually performed and any unverified limitations.
 
 If a running application locks build outputs, use an isolated artifacts path rather than terminating a user's unsaved session. Record exact commands, test counts, failures, and successful reruns. A build or fake-pipe test alone does not verify actual video rate or hardware synchronization.
@@ -86,6 +86,10 @@ Added [MpvSessionTests](../../../tests/ScriptSyncPilot.Common.Tests/MpvSessionTe
 Initial fixture runs failed because AutoFlush was enabled before connection and command reads were not concurrent with Windows pipe writes/flushes. The corrected fixture continuously drains commands into a channel, bounds waits to ten seconds, and awaits its reader during cleanup. Cancellation assertions accept OperationCanceledException subclasses; disconnect tests expect IOException from a broken-pipe write. Production code was unchanged during these repairs.
 
 `dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore --filter FullyQualifiedName~MpvSessionTests`: 9 passed, 0 failed, 0 skipped. `dotnet test ScriptSyncPilot.slnx --no-build --no-restore`: 94 passed, 0 failed, 0 skipped (88 Common, 6 editor). `dotnet build ScriptSyncPilot.slnx --no-restore` succeeded for both consumers and test projects. These tests verify IPC behavior, not actual playback speed or future editor controls.
+
+### Automated Regression and Build Gate (2026-10-11)
+
+`dotnet test ScriptSyncPilot.slnx --artifacts-path artifacts/video-speed-verification-final` passed 96 tests, 0 failed, 0 skipped (88 Common, 8 editor). The same command built Common, FunscriptEditor, HandySync, and both test projects successfully into isolated outputs. HandySync code and behavior were not changed for this feature; its project build passed.
 
 ### Editor Speed Controls (2026-10-10)
 

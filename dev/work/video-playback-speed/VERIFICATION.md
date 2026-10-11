@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls and field focus, media-time behavior, frame stepping, keyboard focus/Space behavior, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -45,7 +45,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Left/Right frame steps still operate on video frames and retain their pause behavior.
 - [x] Shift/Ctrl relative seeks still move 1/10 media seconds at slowed and faster rates; arrow hold-repeat remains functional.
 - [x] Absolute timeline seeking and pattern start/end values keep the same media-time meaning at all rates.
-- [ ] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
+- [x] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
 - [x] Focus the speed numeric field: arrows/digits edit that field normally and do not author movement points.
 - [x] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
 - [x] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
@@ -126,6 +126,8 @@ Manual verification (2026-10-11): The user confirmed Detach disables controls, r
 Manual verification (2026-10-11): The user confirmed New/Open switches the script while leaving the attached player's playback speed unchanged.
 
 Manual verification (2026-10-11): The user confirmed restarting the editor and reattaching preserves the external player's current non-1x speed; the editor does not apply a saved preference.
+
+Manual verification (2026-10-11): The user confirmed numeric position entry during 0.5x playback inserts at the current media timestamp, not a wall-clock- or speed-scaled timestamp.
 
 Manual verification (2026-10-11): The user confirmed changing speed while paused leaves playback paused and the playhead steady; at 0.5x, media-time progression, relative seeks, absolute seeks, and script timestamps behave as expected in media time.
 

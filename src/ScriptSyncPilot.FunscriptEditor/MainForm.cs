@@ -595,8 +595,8 @@ public sealed class MainForm : Form
                     _syncingSpeed = true;
                     try
                     {
-                        _speedInput.Value = (decimal)Math.Clamp(speed,
-                            (double)_speedInput.Minimum, (double)_speedInput.Maximum);
+                        _speedInput.Value = decimal.Round((decimal)Math.Clamp(speed,
+                            (double)_speedInput.Minimum, (double)_speedInput.Maximum), _speedInput.DecimalPlaces);
                         _speedLabel.Text = $"Player rate: {speed:G}x";
                         _speedInput.Enabled = true;
                         _resetSpeedButton.Enabled = true;

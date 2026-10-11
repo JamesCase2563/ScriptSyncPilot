@@ -1,4 +1,6 @@
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ScriptSyncPilot.Common;
 using ScriptSyncPilot.FunscriptEditor;
 
 namespace ScriptSyncPilot.FunscriptEditor.Tests;
@@ -6,6 +8,34 @@ namespace ScriptSyncPilot.FunscriptEditor.Tests;
 [TestClass]
 public sealed class PlaybackSpeedCommandTests
 {
+    [STATestMethod]
+    public void SpeedObservation_RoundsStoredValueBeforeSpinnerStep()
+    {
+        using var form = new MainForm();
+        using var session = new MpvSession();
+        const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+        var sessionField = typeof(MainForm).GetField("_mpv", privateInstance)!;
+        var speedInput = (NumericUpDown)typeof(MainForm).GetField("_speedInput", privateInstance)!.GetValue(form)!;
+        var wheelFilter = (IMessageFilter)typeof(MainForm).GetField("_wheelFilter", privateInstance)!.GetValue(form)!;
+        try
+        {
+            _ = form.Handle;
+            sessionField.SetValue(form, session);
+            typeof(MainForm).GetMethod("OnMpvSpeedChanged", privateInstance)!.Invoke(form, new object[] { session, 1.234 });
+            Application.DoEvents();
+
+            Assert.AreEqual(1.23m, speedInput.Value);
+            sessionField.SetValue(form, null);
+            speedInput.UpButton();
+            Assert.AreEqual(1.28m, speedInput.Value);
+        }
+        finally
+        {
+            sessionField.SetValue(form, null);
+            Application.RemoveMessageFilter(wheelFilter);
+        }
+    }
+
     [TestMethod]
     public async Task SendPlaybackSpeedAsync_ReportsCurrentSessionFailureWithoutThrowing()
     {

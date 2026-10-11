@@ -53,7 +53,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
 - [x] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
 - [x] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
-- [ ] Close while a speed command is pending; no late UI exception or stuck operation occurs.
+- [x] Close while a speed command is pending; no late UI exception or stuck operation occurs.
 - [x] Restart the editor and attach again: no saved preferred speed is imposed under the agreed no-persistence policy.
 - [x] New/Open a script leaves video speed unchanged and preserves normal history-reset behavior.
 
@@ -148,6 +148,8 @@ Manual verification (2026-10-11): The user confirmed zoomed-in edge-following wo
 Manual verification (2026-10-11): The user confirmed middle-button panning at both boundaries and release behavior work as expected.
 
 Manual verification (2026-10-11): The user confirmed editor-owned mpv launches paused at 1x.
+
+Manual verification (2026-10-11): The user confirmed closing while a speed command is pending completes without a late UI exception or stuck operation.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

@@ -1,12 +1,12 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Editor integration is implemented; manual playback checks remain pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display checks are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
 ## Automated IPC Checks
 
-- [ ] Reusable speed state, observation/events, validation, and commands live in Common without dependencies on WinForms or editor settings; the editor does not duplicate IPC speed logic.
+- [x] Reusable speed state, observation/events, validation, and commands live in Common without dependencies on WinForms or editor settings; the editor does not duplicate IPC speed logic.
 - [x] Attachment sends observe_property for speed with an id distinct from time-pos, pause, and duration.
 - [x] Valid speed observations update stored state and raise SpeedChanged with the observed value.
 - [x] Initial state distinguishes unknown from an observed 1x rate.
@@ -20,12 +20,12 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 ## Editor Contracts
 
-- [ ] Speed controls are disabled while disconnected/attaching; actual-rate display shows unknown rather than a falsely confirmed 1x.
-- [ ] Current-session speed observations update the display on the UI thread without feedback writes.
+- [x] Speed controls are disabled while disconnected/attaching; actual-rate display shows unknown rather than a falsely confirmed 1x.
+- [x] Current-session speed observations update the display on the UI thread without feedback writes.
 - [ ] Queued speed updates from old sessions are ignored after attach replacement/disconnect/close.
 - [ ] User edits/reset target the captured active session; late completion/failure does not overwrite a replacement session's UI.
 - [ ] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate.
-- [ ] Actual-rate display is observation-driven rather than optimistic write completion.
+- [x] Actual-rate display is observation-driven rather than optimistic write completion.
 - [ ] Outside-UI-range player observations remain visible and do not trigger clamped writebacks.
 - [ ] Speed changes do not mutate funscript actions, metadata, selection, history, or dirty/saved state.
 - [ ] Speed controls fit the existing transport layout without clipping normal Windows sizes/DPI.
@@ -36,7 +36,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
 - [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
-- [ ] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
+- [x] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
 - [ ] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
 - [ ] At 0.5x, media time advances approximately half as fast as wall time; timeline/action timestamps still use media time.
 - [ ] Change speed while paused: playback remains paused and the playhead does not move because of the speed command.
@@ -108,6 +108,8 @@ The first isolated build with --no-restore failed because the new artifacts dire
 Subscribed to SpeedChanged and refreshed cached Speed after publishing an attached session. Queued UI callbacks check session identity and closing/disposed state. A synchronization flag prevents observation-driven numeric changes from writing back. The display shows the configured observed rate; only the numeric presentation is clamped before decimal conversion. Speed/reset enable after a valid observation; shutdown/replacement disables both, resets the input under the guard, and clears the display to unknown.
 
 `dotnet build src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj --no-restore --artifacts-path artifacts/video-speed-verification` succeeded. Manual attach, external speed changes, reset, outside-range presentation, and replacement behavior remain unverified; editor contract checkboxes remain pending.
+
+Manual verification (2026-10-11): The user confirmed all three initial checks passed: disconnected startup shows unknown with controls disabled; attaching to an external player at non-1x displays its rate; and attachment leaves the player's speed unchanged.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

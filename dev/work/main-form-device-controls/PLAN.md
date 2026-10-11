@@ -21,8 +21,10 @@ Let the user adjust the device-side sync offset and slider stroke range from the
 - Treat a device `error` object in an HTTP 200 response as a failed request for the new endpoints.
 - Keep selected UI values through write failures, disconnects, and reconnects.
 - Observe external changes: online players alter offset and stroke at unpredictable times, so poll the device values while connected (and immediately when the HandySync window is activated) and update the controls to reflect the device, without overriding an in-progress user edit.
+- Show read-only device information next to the controls: physical slider settings (`GET /settings/slider`, read on connect) in a stroke tooltip; capabilities (`GET /capabilities`, read on connect) to disable stroke controls when the device has no slider; and motor temperature (`GET /slider/state`, polled) with a warning at the device's own `temp_high_trigger`.
+- Prepare a device status area that can later show SSE warnings (`temp_high`, `slider_blocked`, `battery_changed`); the SSE subscription itself stays in Connection Events.
 
-Out of scope: SSE event subscription (belongs to [Connection Events](../../HandySync/BACKLOG.md#connection-events); it may later replace stroke polling, but the v3 spec lists no offset-change event, so offset polling remains needed), retry/backoff policy and recovery state machine, extended offset range or reset-to-zero (belongs to [Offset Feedback](../../HandySync/BACKLOG.md#offset-feedback)), global hotkeys while mpv has focus, HAMP stroke, full capabilities validation for setup, and the local Buttplug backend.
+Out of scope: SSE event subscription (belongs to [Connection Events](../../HandySync/BACKLOG.md#connection-events); it may later replace stroke polling, but the v3 spec lists no offset-change event, so offset polling remains needed; blocked-slider and battery-level warnings have no REST equivalent and wait for it), retry/backoff policy and recovery state machine, extended offset range or reset-to-zero (belongs to [Offset Feedback](../../HandySync/BACKLOG.md#offset-feedback)), global hotkeys while mpv has focus, HAMP stroke, full capabilities validation for setup, and the local Buttplug backend.
 
 ## Open Decisions
 
@@ -35,7 +37,8 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 - [ ] **Stroke apply timing.** Confirm that stroke writes may be issued during HSSP playback without stopping/restarting playback (expected; verify on device).
 - [x] **External changes: observe by polling.** Poll `GET /hstp/offset` and `GET /slider/stroke` while a supported device is connected, plus once on window activation. SSE is deferred: it covers stroke only, passes the API key as a URL query parameter, and needs its own reconnect lifecycle.
 - [ ] **External change policy.** Recommended: reflect the device value in the controls, mark *changed by another app*, and log old/new values; do not reapply automatically. Alternative: reassert the HandySync value automatically (risks fighting an online player that is still open). Align the connect policy with this choice.
-- [ ] **Poll interval.** Recommended: 5 s (two GETs, about 24 requests/min, alongside the existing 3 s synctime), skipped when the device-command gate is busy.
+- [ ] **Poll interval.** Recommended: 5 s for offset and stroke (two GETs, about 24 requests/min, alongside the existing 3 s synctime), skipped when the device-command gate is busy. Motor temperature every third tick (15 s), adding about 4 requests/min (agreed).
+- [x] **Temperature warning.** Show and log only; no automatic stop. Color-code the temperature display (normal, warm, hot) relative to the device's `temp_high_trigger`, with hysteresis on clearing; log transitions only. See [design](DESIGN.md#device-status-read-only).
 
 ## Milestones
 
@@ -48,7 +51,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 ### 2. Implementation
 
-- [ ] Extend `HandyApiClient`: device info, get/set HSTP offset, get/set slider stroke; parse device `error` objects for these calls.
+- [ ] Extend `HandyApiClient`: device info, get/set HSTP offset, get/set slider stroke, slider settings, capabilities, slider state; parse device `error` objects for these calls.
 - [ ] Add firmware check during connect and an unsupported-firmware UI state for the controls.
 - [ ] Remove the old local offset controller: offset term in `DeviceTimeMs`, `OnOffsetChangedAsync` synctime resync, `_offsetChangeCts`, and `AppSettings.OffsetMs`. Rewire the offset slider to the device-side write path.
 - [ ] Add a shared owner-drawn slider (one or two thumbs, horizontal/vertical orientation; mouse drag, keyboard, focus cues). Use it for Offset (one thumb, horizontal) and Stroke Range (two thumbs, vertical) with value/state labels.
@@ -57,6 +60,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 - [ ] Persist chosen values in `AppSettings`.
 - [ ] Cancel pending writes on disconnect/close without delaying teardown; never write after disconnect begins.
 - [ ] Add device-value polling and window-activation refresh; reflect external changes without overriding pending or in-flight user edits; stop polling on disconnect/close.
+- [ ] Add the device status area: stroke tooltip from slider settings, no-slider handling from capabilities, temperature display and warning from polled slider state.
 - [ ] Add focused automated tests (see VERIFICATION.md) in a Windows-targeted HandySync MSTest project following existing conventions.
 
 ### 3. Verification and Completion

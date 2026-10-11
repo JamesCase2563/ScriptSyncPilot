@@ -17,11 +17,13 @@ Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/
 | `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Sign direction: *verify*. Effect on running HSSP playback: *verify*. Bounds: not specified; *verify*. |
 | `GET /slider/stroke` | - | `min`, `max` (0.0-1.0), `min_absolute`, `max_absolute` (mm) | |
 | `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for min >= max: *verify*. |
-| `GET /capabilities` | - | `slider` count, ... | Optional: hide stroke controls when `slider` is 0. |
+| `GET /capabilities` | - | `slider` count, `battery`, ... | Disable stroke controls when `slider` is 0. |
+| `GET /settings/slider` | - | `x_stroke_min`/`x_stroke_max` (mm), `x_min_speed`/`x_max_speed` (mm/s), `temp_high_trigger`, `temp_hysteresis` (°C), ... | Read-only; changed only in the Handy onboarding app. |
+| `GET /slider/state` | - | `motor_temp` (°C), `position`, `speed_absolute`, ... | |
 
 Device errors may be returned in a 200 response as `{ "error": { code, name, message, connected } }` (for example 1001 DeviceNotConnected, 1002 DeviceTimeout). The current client checks only HTTP status. New calls must treat a present `error` object as failure and raise `HandyApiException` with code and name; the message must not include connection or application keys.
 
-`/hamp/stroke` and `/settings/slider` are not used: the former is HAMP-relative, the latter is read-only onboarding configuration.
+`/hamp/stroke` is not used: it is relative to the HAMP stroke region and does not affect HSSP. `/settings/slider` is read for display only.
 
 ## Offset: Remove Local Controller, Use Device-Side
 
@@ -70,7 +72,7 @@ After `IsConnectedAsync` succeeds:
 
 1. `GET /info`; if `fw_version` major < 4 or `fw_status` is 2, set the controls to *unsupported firmware* (with version text) and skip all offset/stroke calls. Whether the rest of the HSSP connection continues is governed by the separate Firmware and Capabilities item; this work only gates the new controls.
 2. Set HSSP mode and estimate clock offset (unchanged).
-3. Read `GET /hstp/offset` and `GET /slider/stroke`; log the device's current values.
+3. Read `GET /capabilities` and `GET /settings/slider` once; read `GET /hstp/offset` and `GET /slider/stroke`; log the device's current values. If `slider` is 0, show *no slider* and skip stroke calls.
 4. Apply the agreed connect policy (recommended: write saved HandySync values when they differ from the device values).
 5. Install the script and mark HSSP ready (unchanged).
 
@@ -93,6 +95,25 @@ Online players change offset and stroke at unpredictable times, including while 
 
 **Failures.** A failed poll is logged at most once until the next success and does not change control values, disconnect, or count as a write failure. After several consecutive failures the state shows *device values unknown*. Polling stops before disconnect teardown drains the gate and is cancelled with `_lifetimeCts` on close.
 
+## Device Status (Read-Only)
+
+A compact status area beside the controls shows device information that HandySync reads but never writes.
+
+- **Physical slider settings** (`/settings/slider`, read once per connection): the stroke slider tooltip shows the physical stroke in mm and speed limits, for example `Physical stroke 0-110 mm, speed 10-400 mm/s (set in Handy onboarding app)`. Its temperature thresholds drive the warning below. A failed read only omits the tooltip details.
+- **Capabilities** (`/capabilities`, read once per connection): with no slider, the stroke control shows *no slider* and is disabled. `battery` presence is recorded for the future battery indicator; level is not available over REST.
+- **Motor temperature** (`/slider/state`, polled every third tick inside the same gate-skipping poll): shown as `Motor 41 °C` with a color band relative to the device's `temp_high_trigger`:
+
+  | Band | Range | Indication |
+  | --- | --- | --- |
+  | Normal | below `trigger - 10 °C` | default text color (or green) |
+  | Warm | `trigger - 10 °C` up to `trigger` | amber text |
+  | Hot | at or above `trigger` | red background with "High" text |
+
+  Bands clear downwards only after the temperature falls `temp_hysteresis` below the band's lower edge, so the color does not flicker. Text accompanies color ("Warm", "High") so the state does not rely on color alone. Without slider settings, use a conservative default trigger (for example 75 °C) and note it in the tooltip. Log band transitions, not every reading. HandySync only shows and logs; it never stops playback because of temperature.
+- **Future SSE warnings.** `temp_high`/`temp_ok`, `slider_blocked`/`slider_unblocked`, and `battery_changed` have no REST equivalent (except temperature, covered above). Keep the status area a small model with named indicators (temperature, slider blocked, battery) so Connection Events can feed them later without UI redesign. They are not shown in this work.
+
+Status is cleared on disconnect and is not persisted.
+
 ## UI State
 
 Each control group shows one short state next to its value: *not connected* (editable; value saved and applied on connect), *pending*, *applied*, *not applied* (with error in the log), *changed by another app*, *device values unknown*, or *unsupported firmware*. Controls remain enabled when disconnected so values can be prepared before connecting; they are disabled only for unsupported firmware.
@@ -103,7 +124,7 @@ Each control group shows one short state next to its value: *not connected* (edi
 
 ## Testability
 
-Inject an `HttpMessageHandler` (internal constructor) into `HandyApiClient` so request bodies, paths, and response/error parsing can be tested without a device. Keep pure helpers testable: firmware version parsing, percent/relative conversion, stroke validation. The debounce/latest-wins coordinator should accept a delay and a write delegate so ordering can be tested deterministically. Keep the poll-result acceptance rule (edit versions, pending/in-flight/dragging) as a pure decision so conflict cases can be tested without timers.
+Inject an `HttpMessageHandler` (internal constructor) into `HandyApiClient` so request bodies, paths, and response/error parsing can be tested without a device. Keep pure helpers testable: firmware version parsing, percent/relative conversion, stroke validation. The debounce/latest-wins coordinator should accept a delay and a write delegate so ordering can be tested deterministically. Keep the poll-result acceptance rule (edit versions, pending/in-flight/dragging) as a pure decision so conflict cases can be tested without timers. Keep temperature band classification with hysteresis as a pure function.
 
 ## Limitations and Risks
 

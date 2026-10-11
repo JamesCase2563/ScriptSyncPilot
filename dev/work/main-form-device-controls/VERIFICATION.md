@@ -18,6 +18,7 @@ Record firmware version, device model, and date for each result.
 - [ ] `PUT /slider/stroke` with min >= max, out-of-range, or very small gaps: record rejection or normalization.
 - [ ] Stroke changes during HSSP playback take effect without stopping playback.
 - [ ] Record whether device errors arrive as HTTP 200 with an `error` object or as non-2xx.
+- [ ] Record `GET /settings/slider`, `GET /capabilities`, and `GET /slider/state` responses for the user's device; confirm temperature units and a typical idle/playing `motor_temp`.
 
 ## Automated Checks
 
@@ -33,6 +34,9 @@ Record firmware version, device model, and date for each result.
 - [ ] Poll acceptance: a result is applied when nothing changed locally; discarded when the edit version changed, a write is pending or in flight, or the control is being dragged/key-adjusted. Applying a poll result raises no write.
 - [ ] Poll skipping: a tick with the device-command gate busy issues no request; overlapping ticks do not run concurrently; no poll after disconnect starts or after close.
 - [ ] Poll failures do not change control values or disconnect; repeated failures produce one log entry and the *device values unknown* state.
+- [ ] Slider settings, capabilities, and slider state parse correctly; a missing or failed read leaves the controls usable and omits only the related details.
+- [ ] Capabilities with `slider` 0 disable the stroke control and suppress stroke reads/writes.
+- [ ] Temperature bands: normal below `trigger - 10`, warm up to `trigger`, hot at or above `trigger`; each band clears only after falling `temp_hysteresis` below its lower edge; default trigger used when slider settings are missing; one log entry per transition; no playback command is issued. Temperature is read every third poll tick only.
 
 ## Manual Interaction (running app with device)
 
@@ -51,6 +55,7 @@ Record firmware version, device model, and date for each result.
 - [ ] Polling does not noticeably delay play/pause/seek response or drift correction; request rate stays within the API rate limit (check `X-RateLimit-Remaining` in a debug log if available).
 - [ ] Disconnect and close during a pending write complete promptly without errors or late writes.
 - [ ] Values persist across app restart; an existing legacy `OffsetMs` is discarded with one log entry and does not shift playback.
+- [ ] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect.
 - [ ] Unsupported-firmware state is shown if a pre-v4 or update-required device is available; otherwise record as not tested (and covered by automated gate tests).
 - [ ] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, start/stop session, disconnect/reconnect.
 

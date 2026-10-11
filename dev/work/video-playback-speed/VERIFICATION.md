@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls and field focus, media-time behavior, frame stepping, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls and field focus, media-time behavior, frame stepping, keyboard focus/Space behavior, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -34,7 +34,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 - [ ] During playback at zoomed-in scale, reaching the visible right edge recenters the viewport on the playhead without seeking or changing zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
 - [ ] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history. Test both boundaries, dragging outside the control, and release; left-button editing/scrubbing remains unchanged.
-- [ ] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
+- [x] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
 - [ ] Launch editor-owned mpv: it starts paused at 1x under the agreed launch policy.
 - [x] Attach to an external player already at a non-1x rate: display that rate and do not change it automatically.
 - [x] Select a slower rate, a faster rate, and 1x reset; actual mpv playback and the observed display agree.
@@ -46,7 +46,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Absolute timeline seeking and pattern start/end values keep the same media-time meaning at all rates.
 - [ ] Numeric position entry during slow playback inserts at the current media timestamp, not a speed-scaled timestamp.
 - [x] Focus the speed numeric field: arrows/digits edit that field normally and do not author movement points.
-- [ ] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
+- [x] Click Play/Pause, frame/seek buttons, Attach/Launch, or 1x Reset: focus returns to the timeline without an extra seek. After clicking Play, a position key inserts immediately without needing to click the timeline; arrow hold-repeat still works. Editable pipe/speed fields retain native focus behavior.
 - [x] Change speed externally using mpv's controls; the editor reflects it without sending a loop of writes.
 - [x] Attach to a player outside the editor's edit range; show actual speed without silently changing the player.
 - [ ] Disconnect, reconnect, or replace the session: disable/reset stale state and then show the new observed rate.
@@ -125,6 +125,8 @@ Manual verification (2026-10-11): The user confirmed changing speed while paused
 Manual verification (2026-10-11): The user confirmed forward/back frame stepping at non-1x speed moves one frame and leaves playback paused.
 
 Manual verification (2026-10-11): The user confirmed the speed numeric field accepts native arrow/digit editing without triggering point entry or playback shortcuts; the 1x reset control also works.
+
+Manual verification (2026-10-11): The user confirmed that after clicking Play, a top-row position key inserts without an additional timeline click and does not seek; arrow hold-repeat is preserved. Space Play/Pause also works as expected.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

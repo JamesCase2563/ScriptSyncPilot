@@ -34,7 +34,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 - [x] Connection button shows Attach when disconnected and Detach after successful attach; Detach clears speed/transport state. If mpv was launched by the editor, Detach leaves it running and reattaching to its generated pipe reconnects without killing it; normal editor shutdown still terminates owned mpv.
 - [x] During playback, the viewport recenters on the playhead when it moves beyond the visible view.
-- [ ] Verify edge-following at zoomed-in scale does not seek or change zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
+- [x] Edge-following at zoomed-in scale does not seek or change zoom; end bounds are respected, paused updates stay still, and active mouse gestures are not interrupted.
 - [x] Middle-button drag pans the timeline horizontally without moving the playhead or changing actions/history, including when dragging outside the control; left-button editing/scrubbing remains unchanged.
 - [ ] Verify middle-button panning at both boundaries and confirm release ends the gesture.
 - [x] With the timeline focused, Space toggles Play/Pause once per press; holding it does not repeatedly toggle. Space retains native behavior in buttons/editable fields, and modified Space does not invoke the timeline shortcut.
@@ -141,7 +141,9 @@ Manual verification (2026-10-11): The user confirmed that after clicking Play, a
 
 Manual verification (2026-10-11): The user confirmed middle-button timeline panning works as expected without moving the playhead or changing actions/history. Boundary and release checks remained pending at that point.
 
-Manual verification (2026-10-11): The user confirmed middle-button panning continues outside the timeline control and left-button behavior is unchanged. The user also confirmed playback centering works when the playhead moves outside the visible view. Boundary and release checks, plus edge-follow zoom/bounds/paused/gesture checks, remain pending.
+Manual verification (2026-10-11): The user confirmed middle-button panning continues outside the timeline control and left-button behavior is unchanged. The user also confirmed playback centering works when the playhead moves outside the visible view. Pan boundary and release checks remain pending.
+
+Manual verification (2026-10-11): The user confirmed zoomed-in edge-following works without seeking or changing zoom, respects end bounds, stays still while paused, and does not interrupt active mouse gestures.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

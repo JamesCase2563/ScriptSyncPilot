@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Initial attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, no-jump/clean-state behavior, external speed observation, and outside-range handling are manually confirmed; remaining playback and UI checks are pending.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests pass and the solution builds. Attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, viewport following and panning, owned-player launch, pending-command shutdown, document-state preservation, external speed observation, outside-range handling, and responsive transport layout are manually confirmed. Remaining work is editor session-race/error-path contract verification and final verification inventory.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -22,7 +22,7 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 
 - [x] Speed controls are disabled while disconnected/attaching; actual-rate display shows unknown rather than a falsely confirmed 1x.
 - [x] Current-session speed observations update the display on the UI thread without feedback writes.
-- [ ] Queued speed updates from old sessions are ignored after attach replacement/disconnect/close.
+- [x] Queued speed updates from old sessions are ignored after attach replacement/disconnect/close.
 - [ ] User edits/reset target the captured active session; late completion/failure does not overwrite a replacement session's UI.
 - [ ] Failed writes produce actionable/logged feedback, not an unhandled UI exception or a false confirmed rate.
 - [x] Actual-rate display is observation-driven rather than optimistic write completion.
@@ -70,7 +70,7 @@ If a running application locks build outputs, use an isolated artifacts path rat
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented; editor integration and manual playback checks remain pending. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
+Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented, and the manual playback and layout checks are confirmed. Remaining editor contract checks concern stale-session observations, late command completion, and failed-write feedback. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
 
 ### Common Speed Observation (2026-10-10)
 
@@ -157,6 +157,8 @@ Manual verification (2026-10-11): The user confirmed the speed controls fit the 
 Manual verification (2026-10-11): The user confirmed changing and resetting playback speed leaves funscript actions, metadata, selection, history, and dirty/saved state unchanged.
 
 Manual verification (2026-10-11): The user confirmed the speed controls flow well while resizing the window; no layout issues were observed.
+
+Manual verification (2026-10-11): The user confirmed replacing or detaching the player after a speed change does not leave stale speed updates in the UI.
 
 ### Native Speed-Field Keyboard Editing (2026-10-10)
 

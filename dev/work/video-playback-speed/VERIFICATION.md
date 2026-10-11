@@ -1,6 +1,6 @@
 # Video Playback Speed Verification
 
-**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 96 solution tests passed before the latest editor-only tests; the editor suite now passes 12 tests. Attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, viewport following and panning, owned-player launch, pending-command shutdown, document-state preservation, external speed observation, outside-range handling, and responsive transport layout are confirmed. Remaining work is final verification inventory.
+**Status:** Common speed observation/state/events, validated commands, and nine deterministic IPC tests implemented. All 100 solution tests pass (88 Common, 12 editor), and the full solution builds. Attach/rate-display, speed controls and field focus, media-time behavior including numeric position entry, frame stepping, keyboard focus/Space behavior, viewport following and panning, owned-player launch, pending-command shutdown, document-state preservation, external speed observation, outside-range handling, and responsive transport layout are confirmed. Session-replacement and write-failure contracts have deterministic editor tests; final verification inventory is recorded below.
 
 See [plan](PLAN.md) and [design](DESIGN.md). UI bounds of 0.25-2.00x and 0.05x increments, no preferred-speed persistence, 1x editor-owned launch, and observation-only handling on attach/outside-range updates are agreed. mpv speed support is documented; these checks verify our integration, and observed speed refers to the configured rate rather than measured playback throughput.
 
@@ -70,7 +70,7 @@ If a running application locks build outputs, use an isolated artifacts path rat
 
 ## Results and Limitations
 
-Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented, and the manual playback and layout checks are confirmed. Session replacement and write-failure behaviors have deterministic editor tests; final verification inventory remains. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation. HandySync speed compensation, live recording, and exhaustive timing/latency measurement are outside scope.
+Planning documents created on 2026-10-10. The user confirmed control bounds/increments, no preferred-speed persistence, 1x editor-owned launch, and preserving external rates without clamped writebacks. Common support and its automated IPC tests are implemented, and the manual playback and layout checks are confirmed. Session replacement and write-failure behaviors have deterministic editor tests. Other display-scaling combinations and exhaustive throughput/latency or hardware-output measurements were not tested. HandySync speed compensation and live pattern recording are outside scope. The mpv stable manual documents speed control over 0.01-100x and runtime property manipulation.
 
 ### Common Speed Observation (2026-10-10)
 

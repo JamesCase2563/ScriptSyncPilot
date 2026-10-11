@@ -54,7 +54,7 @@ Use deltas for small edits and affected-section history for bulk edits, not whol
 
 ## Markers and Snapping
 
-**Priority:** To be decided. **Status:** Proposed.
+**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11); PR pending.
 
 Evaluate markers and configurable grid/marker snapping for alignment with video, retaining precise unsnapped editing.
 

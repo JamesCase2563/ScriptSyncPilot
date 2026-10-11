@@ -1,6 +1,6 @@
 # Video Playback Speed Plan
 
-**Status:** In progress; Common speed observation/state/events, validated commands, and deterministic IPC tests implemented. All 94 solution tests pass; editor integration remains.
+**Status:** Implementation and verification complete; PR pending.
 **Selected:** 2026-10-10.
 **Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI). HandySync receives no speed controls or synchronization changes.
 
@@ -49,16 +49,17 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 - [x] Wire writes through the current session and lifetime token; log failures without unhandled UI exceptions.
 - [x] Refresh observed values with session identity checks and suppress feedback writes.
 - [x] Disable unavailable controls and clear stale observed state on shutdown/replacement. Enable speed controls only after a valid current-session observation.
-- [x] Keep native numeric-field editing and existing timeline/keyboard behavior unchanged. Main-form playback shortcuts bypass the focused speed input; manual interaction verification remains pending.
+- [x] Keep native numeric-field editing and existing timeline/keyboard behavior unchanged. Main-form playback shortcuts bypass the focused speed input; manual interaction verification passed.
 
 ### 4. Verification and Completion
 
-- [x] Run automated checks and build both Common consumers; 96 solution tests pass and all projects build (2026-10-11).
-- [ ] Complete and record manual checks in VERIFICATION.md.
-- [ ] Update permanent Common/editor architecture and the editor backlog.
-- [ ] Record limitations and PR reference; return deferred work to the owning backlog.
+- [x] Run automated checks and build both Common consumers; 100 solution tests pass and all projects build (2026-10-11).
+- [x] Complete and record manual checks in VERIFICATION.md; late session-completion races use deterministic tests instead of timing-sensitive manual checks.
+- [x] Update permanent Common/editor architecture and the editor backlog.
+- [x] Record limitations and return deferred work to the owning backlog.
+- [ ] Record PR reference after PR creation.
 - [ ] After review, archive under dev/archive/YYYY-MM-video-playback-speed/ and update links.
 
 ## Outcome
 
-Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-11, all 96 solution tests passed (88 Common, 8 editor), and Common, both consumers, and both test projects built using isolated artifacts. Manual playback verification remains pending. PR reference: not recorded.
+Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-11, all 100 solution tests passed (88 Common, 12 editor), and Common, both consumers, and both test projects built using isolated artifacts. Manual playback/layout checks passed; session-race and write-failure behavior has deterministic editor test coverage. Remaining limitations are no HandySync speed compensation and no exhaustive throughput/latency or hardware-output measurement. PR reference: pending creation.

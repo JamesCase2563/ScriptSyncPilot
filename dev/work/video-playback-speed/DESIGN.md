@@ -52,7 +52,7 @@ The 1x command is always an explicit user action. Changing script documents does
 
 Reusable playback-speed behavior belongs in Common's MpvSession: speed observation/state/events, command serialization, and finite-positive validation. Keep it usable by a future player consumer without depending on WinForms or EditorSettings. The editor owns only its controls, chosen UI bounds, UI-thread/session presentation, and explicit user actions; do not duplicate IPC speed logic in MainForm. Shared behavior does not include editor-specific preferences or control layout.
 
-HandySync also uses MpvSession. Adding observation/event support must not change its current play/pause/seek synchronization or issue speed writes from that application. Playback-rate-aware hardware output is a separate design problem and is not solved or promised here. If HandySync is attached to the same player, do not claim its device scheduling automatically compensates for slowed video; record this limitation and avoid adding implicit cross-application control.
+HandySync also uses MpvSession, so editor speed writes affect its shared player. HandySync observes speed and stops device playback with a warning while the rate is unknown or differs from 1x. Seek, periodic sync, and offset commands are suppressed, including queued work that rechecks rate under the device gate. Restoring confirmed 1x resumes device playback at the current mpv position only if the player is playing. A failed stop is reported explicitly; physical stopping is not guaranteed when the device/API is unavailable. HandySync never writes player speed. Playback-rate-aware hardware output remains a separate, unsupported design problem.
 
 ## Test Strategy and Limitations
 

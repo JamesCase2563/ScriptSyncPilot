@@ -63,10 +63,16 @@ Use a controlled local named-pipe server with bounded cancellation and cleanup; 
 - [x] Run all Common tests, including persistence/history and new IPC checks.
 - [x] Run all FunscriptEditor tests, including numeric entry/focus/repeat regressions.
 - [x] Build the solution, including both desktop consumers and test projects.
-- [x] Confirm HandySync remains unchanged: it gains no UI speed controls, automatic speed writes, or scheduling changes.
+- [x] HandySync gains no speed controls or player speed writes; its safeguard suspends device synchronization at unknown/non-1x shared-player rates and resumes only at confirmed 1x.
 - [x] Record manual checks actually performed and any unverified limitations.
 
 If a running application locks build outputs, use an isolated artifacts path rather than terminating a user's unsaved session. Record exact commands, test counts, failures, and successful reruns. A build or fake-pipe test alone does not verify actual video rate or hardware synchronization.
+
+## Shared-Player Safeguard (2026-10-12)
+
+The earlier claim that HandySync behavior was unaffected was incorrect for a shared mpv player. HandySync now observes speed, stops device playback and warns at unknown/non-1x rates, suppresses seek/periodic/offset resync commands, and rechecks queued commands under its device gate. Restoring confirmed 1x resumes from current mpv media time only when playing. Failed stop requests display an explicit warning rather than claiming the device stopped. No player speed writes or non-1x hardware compensation were added to HandySync.
+
+Regression checks in PlaybackSpeedCommandTests use simulated HTTP, not a physical device: unknown rates, 0.5x/2x/3x suspension, resync suppression, 1x resume position/rate, paused behavior, stale sessions, queued seek rate changes, and stop failure reporting. The initial queued-seek test run was cancelled after an STA wait deadlock; the bounded message-pumping correction passed on rerun. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --filter FullyQualifiedName~PlaybackSpeedCommandTests --verbosity minimal` passed 7 tests. `dotnet test ScriptSyncPilot.slnx --verbosity minimal` built both consumers and passed all 103 tests, 0 failed, 0 skipped. Live shared-player/device stopping and recovery latency remain unverified.
 
 ## Results and Limitations
 

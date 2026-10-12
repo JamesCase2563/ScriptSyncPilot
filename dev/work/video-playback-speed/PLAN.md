@@ -2,7 +2,7 @@
 
 **Status:** Implementation and verification complete; PR pending.
 **Selected:** 2026-10-10.
-**Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI). HandySync receives no speed controls or synchronization changes.
+**Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI), HandySync (device synchronization safeguard for unknown/non-1x shared-player rates). HandySync receives no speed controls or player speed writes.
 
 Source: [editor backlog](../../FunscriptEditor/BACKLOG.md). Details: [design](DESIGN.md) and [verification](VERIFICATION.md).
 
@@ -20,8 +20,9 @@ Change video playback speed from the editor to make review and point authoring e
 - Keep pause, seeking, frame stepping, timeline coordinates, and numeric position entry in media time.
 - Keep speed outside document history and dirty state.
 - Reuse current session identity/cancellation and UI-thread marshaling conventions.
+- Suspend HandySync device playback with a warning at unknown/non-1x player rates; resume only at confirmed 1x, with queued-command rate checks.
 
-Live pattern recording, frequency controls, speed keyboard shortcuts, new settings dialogs, HandySync device scheduling, reconnect redesign, and a general mpv request/response framework are outside scope.
+Live pattern recording, frequency controls, speed keyboard shortcuts, new settings dialogs, HandySync non-1x rate compensation, reconnect redesign, and a general mpv request/response framework are outside scope.
 
 ## Agreed Decisions
 

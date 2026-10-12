@@ -198,7 +198,7 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
-    public void PlaybackFollow_RecentersAtRightEdgeWithoutSeekingOrChangingZoom()
+    public void PlaybackFollow_RecentersOutsideEitherEdgeWithoutSeekingOrChangingZoom()
     {
         RunSta(() =>
         {
@@ -221,8 +221,16 @@ public sealed class NumericPositionEntryTests
             Assert.AreEqual(10000, scrollbar.Value);
             timeline.SetPlayhead(59, followPlayback: true);
             Assert.AreEqual(50000, scrollbar.Value);
+            timeline.SetPlayhead(1);
+            Assert.AreEqual(50000, scrollbar.Value);
+            timeline.SetPlayhead(50, followPlayback: true);
+            Assert.AreEqual(50000, scrollbar.Value);
+            timeline.SetPlayhead(49, followPlayback: true);
+            Assert.AreEqual(44000, scrollbar.Value);
+            timeline.SetPlayhead(0, followPlayback: true);
+            Assert.AreEqual(0, scrollbar.Value);
             Assert.AreEqual(100.0, timeline.PixelsPerSecond);
-            Assert.AreEqual(59.0, timeline.PlayheadSeconds);
+            Assert.AreEqual(0.0, timeline.PlayheadSeconds);
             Assert.AreEqual(0, seeks);
             Assert.IsFalse(timeline.History.CanUndo);
             Assert.AreEqual(0, script.Actions.Count);

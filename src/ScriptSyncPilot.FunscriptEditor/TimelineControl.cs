@@ -177,7 +177,7 @@ public sealed class TimelineControl : Control
     {
         _playheadSeconds = seconds;
         if (followPlayback && _panStartX is null && _draggingIndex is null && !_scrubbing
-            && seconds >= _viewStartSeconds + ViewportSeconds())
+            && (seconds < _viewStartSeconds || seconds >= _viewStartSeconds + ViewportSeconds()))
         {
             _viewStartSeconds = seconds - ViewportSeconds() / 2;
             ClampViewStart();

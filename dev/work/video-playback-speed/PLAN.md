@@ -54,7 +54,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 
 ### 4. Verification and Completion
 
-- [x] Run automated checks and build both Common consumers; 100 solution tests pass and all projects build (2026-10-11).
+- [x] Run automated checks and build both Common consumers; 103 solution tests pass and all projects build (2026-10-12).
 - [x] Complete and record manual checks in VERIFICATION.md; late session-completion races use deterministic tests instead of timing-sensitive manual checks.
 - [x] Update permanent Common/editor architecture and the editor backlog.
 - [x] Record limitations and return deferred work to the owning backlog.
@@ -63,4 +63,4 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 
 ## Outcome
 
-Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-11, all 100 solution tests passed (88 Common, 12 editor), and Common, both consumers, and both test projects built using isolated artifacts. Manual playback/layout checks passed; session-race and write-failure behavior has deterministic editor test coverage. Remaining limitations are no HandySync speed compensation and no exhaustive throughput/latency or hardware-output measurement. PR reference: pending creation.
+Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-12, all 103 solution tests passed, and Common, both consumers, and both test projects built. Manual playback/layout checks passed; session-race and write-failure behavior has deterministic editor test coverage. HandySync suspends device synchronization for unknown/non-1x rates rather than compensating its hardware output; no exhaustive throughput/latency or hardware-output measurement was performed. PR reference: pending creation.

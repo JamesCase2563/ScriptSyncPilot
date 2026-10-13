@@ -97,15 +97,14 @@ Keep user-adjustable sync offset and minimum/maximum stroke controls on the main
 
 **Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../work/video-playback-speed/PLAN.md) work.
 
-HandySync always sends `playback_rate` 1.0 in `hssp/play`. When mpv runs at another speed (set in the editor, mpv, or another client), the device plays at normal speed and periodic synctime keeps pulling it back, producing jerky, drifting motion. Follow mpv's rate instead; HandySync observes speed only and gains no speed controls.
+Non-1x device playback is currently unsupported. HandySync observes mpv speed and, while the rate is unknown or not 1x, stops HSSP playback, suppresses seek/periodic/offset synchronization, and warns the user. Confirmed 1x playback resumes synchronization from the current media position. This avoids sending mismatched device timing, but does not drive the device at non-1x rates. HandySync does not write mpv speed or provide speed controls.
 
-- Reuse Common's `MpvSession` speed observation and change events from the editor work; do not duplicate IPC logic or write speed to mpv.
-- Pass the observed rate as `playback_rate` in `hssp/play`. On a speed change while playing, re-issue play at the current media position with the new rate through the device-command gate, debounced and latest-wins. While paused, only record the rate for the next play.
-- Verify how `hssp/synctime` `current_time` behaves at non-1x rates and whether HSSP accepts rate changes without a new play (v3 lists `playbackrate` for HSP, not HSSP).
-- Make the seek-detection heuristic rate-aware: expected position advances by elapsed time multiplied by the rate, or speeds other than 1x cause false seek resyncs.
+- Common's `MpvSession` speed observation/change events and rate-aware seek detection are implemented; keep IPC observation in Common and never write speed to mpv.
+- Verify whether HSSP supports non-1x `playback_rate` and how `hssp/synctime` `current_time` behaves at non-1x rates (v3 lists `playbackrate` for HSP, not HSSP).
+- If the API supports it, resume non-1x device playback by passing the observed rate as `playback_rate` in `hssp/play`. On a speed change while playing, re-issue play at the current media position through the device-command gate, debounced and latest-wins. While paused, retain the observed rate for the next play.
 - Device time stays in media time; the device-side HSTP offset is unaffected by rate.
 - Fast rates can exceed the slider's speed limits (`/settings/slider` `x_max_speed`); decide whether to warn above a threshold or only log. Ignore invalid or nonpositive observations.
-- Test rate changes while playing/paused, seeks at non-1x rates, drift over several minutes at 0.5x and 1.5x, reconnect with a non-1x rate already set, and that 1x behavior is unchanged.
+- Test non-1x HSSP playback only after API support is confirmed: rate changes while playing/paused, seeks, drift at 0.5x and 1.5x, reconnect with non-1x already set, and unchanged 1x behavior.
 
 ## Local Buttplug/Intiface Output
 

@@ -28,16 +28,16 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 ## Open Decisions
 
-- [ ] **Connect policy.** Recommended: on connect, read and log the device's current values, then reapply the saved HandySync values so that values left behind by online players do not affect HandySync. Alternative: adopt the device's values into the controls and write only on user change.
+- [x] **Connect policy.** On connect, read and log the device's current values, then reapply the saved HandySync values so that values left behind by online players do not affect HandySync.
 - [x] **Old local offset controller.** Remove it outright rather than keep it as a deprecated or hidden option; there is one offset, on the device. The legacy `OffsetMs` value is not migrated (its sign need not match HSTP); the property is deleted from `AppSettings`, so the stale key is ignored on load and dropped on the next save. Log once on first start if a nonzero legacy value was found.
-- [ ] **Offset display convention.** Recommended: display the raw HSTP value so it matches what online players show, with a tooltip describing the verified direction (for example, "positive = device moves later").
-- [ ] **Offset range and step.** Recommended: keep the existing -1000..+1000 ms slider with 10 ms small steps; extending it is Offset Feedback work.
+- [x] **Offset display convention.** Display the raw HSTP value so it matches what online players show, with a tooltip describing the verified direction (for example, "positive = device moves later").
+- [x] **Offset range and step.** Keep the existing -1000..+1000 ms slider with 10 ms small steps; extending it is Offset Feedback work.
 - [x] **Stroke control type.** One custom range trackbar with two thumbs (min and max) in whole percent (0-100), plus a label showing percent and accepted millimetres. A thumb stops at the other thumb; it cannot pass it or push it. WinForms has no built-in range trackbar, so this is a small owner-drawn HandySync control.
 - [x] **Slider look and orientation (GUI guidance, not a requirement).** Offset and Stroke Range share one owner-drawn slider style and both support horizontal/vertical orientation. Default: Offset horizontal, Stroke Range vertical with max at the top. See [design](DESIGN.md#layout-and-appearance-gui-guidance).
-- [ ] **Stroke apply timing.** Confirm that stroke writes may be issued during HSSP playback without stopping/restarting playback (expected; verify on device).
+- [x] **Stroke apply timing.** Stroke writes may be issued during HSSP playback without stopping/restarting playback; online players can alter settings during operation.
 - [x] **External changes: observe by polling.** Poll `GET /hstp/offset` and `GET /slider/stroke` while a supported device is connected, plus once on window activation. SSE is deferred: it covers stroke only, passes the API key as a URL query parameter, and needs its own reconnect lifecycle.
-- [ ] **External change policy.** Recommended: reflect the device value in the controls, mark *changed by another app*, and log old/new values; do not reapply automatically. Alternative: reassert the HandySync value automatically (risks fighting an online player that is still open). Align the connect policy with this choice.
-- [ ] **Poll interval.** Recommended: 5 s for offset and stroke (two GETs, about 24 requests/min, alongside the existing 3 s synctime), skipped when the device-command gate is busy. Motor temperature every third tick (15 s), adding about 4 requests/min (agreed).
+- [x] **External change policy.** Reflect the device value in the controls, mark *changed by another app*, and log old/new values; do not reapply automatically. On connect, still reapply the saved HandySync values according to the selected connect policy.
+- [x] **Poll interval.** Poll offset and stroke every 5 s (two GETs, about 24 requests/min, alongside the existing 3 s synctime), skipping when the device-command gate is busy. Poll motor temperature every third tick (15 s), adding about 4 requests/min. Adjust the interval later if it causes problems.
 - [x] **Temperature warning.** Show and log only; no automatic stop. Color-code the temperature display (normal, warm, hot) relative to the device's `temp_high_trigger`, with hysteresis on clearing; log transitions only. See [design](DESIGN.md#device-status-read-only).
 
 ## Milestones

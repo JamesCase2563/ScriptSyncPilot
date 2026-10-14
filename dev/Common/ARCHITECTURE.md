@@ -9,7 +9,7 @@ Common is the shared .NET library used by HandySync and FunscriptEditor, not a c
 - `ActionEdit` / `ActionHistory`: minimal splice deltas between action lists and multilevel undo/redo stacks of them, with a saved-state checkpoint for dirty tracking. `Funscript.ApplyEdit` splices a delta and rejects one that does not match the current actions.
 - `PatternGenerator`: pure triangle, asymmetric, and cosine movement generation returning read-only FunscriptAction candidates and preview metadata. Supports whole-cycle fitting, continuation from action snapshots, deterministic quantization, adaptive accuracy checks, and bounded output. It neither edits documents nor owns conflicts/history/UI.
 - `PatternInsertionPlan`: immutable action snapshots, interior conflict/collision analysis, and pure Stop/Replace/Merge candidate resolution. Preserves existing boundaries, detects no-ops, and never commits changes itself. Its candidate can be committed to a Funscript with `ReplaceActionsAtomically`; UI/history and dialog preference ownership remain separate.
-- `MpvSession`: named-pipe JSON IPC, playback observations, and seek/pause/frame commands. It owns pipe/read cancellation, not process launch or application session policy.
+- `MpvSession`: named-pipe JSON IPC, playback observations, and seek/pause/frame commands. It observes mpv's `speed` property as a nullable positive finite value and exposes `SpeedChanged`; `SetSpeedAsync` sends finite-positive values without optimistically changing observed state or imposing consumer-specific bounds. It owns pipe/read cancellation, not process launch or application session policy.
 - `AppLog`: shared file logging.
 
 ## Contracts

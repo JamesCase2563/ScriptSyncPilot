@@ -24,7 +24,7 @@ Intermittent Handy disconnects have also been observed with other services. Wi-F
 
 Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
 
-Online players can switch the device mode or replace the HSSP script while HandySync is connected; HandySync currently sets mode and script only on connect and does not notice. Record `mode_session_id` from the `PUT /mode2` response, then check `GET /mode` periodically (cheaply combined with the offset/stroke polling from [main-form device controls](../work/main-form-device-controls/PLAN.md)). A different mode or `mode_session_id` means another client took over: log it and enter recovery to restore HSSP mode and the script. A script replaced within HSSP mode may not change `mode_session_id`; verify whether `GET /hssp/state` (for example `stream_id`) exposes it. Decide whether takeover recovers automatically or waits for the user, to avoid fighting an online player that is still open.
+Online players can switch the device mode or replace the HSSP script while HandySync is connected; HandySync currently sets mode and script only on connect and does not notice. Record `mode_session_id` from the `PUT /mode2` response, then check `GET /mode` periodically, potentially combined with future offset/stroke polling. A different mode or `mode_session_id` means another client took over: log it and enter recovery to restore HSSP mode and the script. A script replaced within HSSP mode may not change `mode_session_id`; verify whether `GET /hssp/state` (for example `stream_id`) exposes it. Decide whether takeover recovers automatically or waits for the user, to avoid fighting an online player that is still open.
 
 Device reboots and server reconnects can also silently reset device state. Record `boot_session_id` and `socket_session_id` from `GET /sids` after setup and check them in the same periodic poll. A changed `boot_session_id` means the device rebooted; a changed `socket_session_id` within the same boot means it reconnected to the server. Either way, treat mode, HSSP setup, and the device-to-server clock as lost: enter recovery, re-estimate the client/server clock offset, re-read offset and stroke (applying the main-form connect policy), and log which ID changed. Verify whether HSTP offset and stroke survive a reboot or reconnect.
 
@@ -97,17 +97,16 @@ Keep user-adjustable sync offset and minimum/maximum stroke controls on the main
 
 ## Playback Speed Sync
 
-**Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../work/video-playback-speed/PLAN.md) work.
+**Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../archive/2026-10-video-playback-speed/PLAN.md) work.
 
-HandySync always sends `playback_rate` 1.0 in `hssp/play`. When mpv runs at another speed (set in the editor, mpv, or another client), the device plays at normal speed and periodic synctime keeps pulling it back, producing jerky, drifting motion. Follow mpv's rate instead; HandySync observes speed only and gains no speed controls.
+Non-1x device playback is currently unsupported. HandySync observes mpv speed and, while the rate is unknown or not 1x, stops HSSP playback, suppresses seek/periodic/offset synchronization, and warns the user. Confirmed 1x playback resumes synchronization from the current media position. This avoids sending mismatched device timing, but does not drive the device at non-1x rates. HandySync does not write mpv speed or provide speed controls.
 
-- Reuse Common's `MpvSession` speed observation and change events from the editor work; do not duplicate IPC logic or write speed to mpv.
-- Pass the observed rate as `playback_rate` in `hssp/play`. On a speed change while playing, re-issue play at the current media position with the new rate through the device-command gate, debounced and latest-wins. While paused, only record the rate for the next play.
-- Verify how `hssp/synctime` `current_time` behaves at non-1x rates and whether HSSP accepts rate changes without a new play (v3 lists `playbackrate` for HSP, not HSSP).
-- Make the seek-detection heuristic rate-aware: expected position advances by elapsed time multiplied by the rate, or speeds other than 1x cause false seek resyncs.
+- Common's `MpvSession` speed observation/change events and rate-aware seek detection are implemented; keep IPC observation in Common and never write speed to mpv.
+- Verify whether HSSP supports non-1x `playback_rate` and how `hssp/synctime` `current_time` behaves at non-1x rates (v3 lists `playbackrate` for HSP, not HSSP).
+- If the API supports it, resume non-1x device playback by passing the observed rate as `playback_rate` in `hssp/play`. On a speed change while playing, re-issue play at the current media position through the device-command gate, debounced and latest-wins. While paused, retain the observed rate for the next play.
 - Device time stays in media time; the device-side HSTP offset is unaffected by rate.
 - Fast rates can exceed the slider's speed limits (`/settings/slider` `x_max_speed`); decide whether to warn above a threshold or only log. Ignore invalid or nonpositive observations.
-- Test rate changes while playing/paused, seeks at non-1x rates, drift over several minutes at 0.5x and 1.5x, reconnect with a non-1x rate already set, and that 1x behavior is unchanged.
+- Test non-1x HSSP playback only after API support is confirmed: rate changes while playing/paused, seeks, drift at 0.5x and 1.5x, reconnect with non-1x already set, and unchanged 1x behavior.
 
 ## Local Buttplug/Intiface Output
 

@@ -22,6 +22,19 @@ public sealed class MainForm : Form
     private readonly Button _attachButton = new() { Text = "Attach" };
     private readonly Button _playPauseButton = new() { Text = "Play", Enabled = false };
     private readonly Label _timeLabel = new() { AutoSize = true, Text = "0.000 / 0.000 s", MinimumSize = new Size(140, 0) };
+    private readonly NumericUpDown _speedInput = new()
+    {
+        Minimum = 0.25m,
+        Maximum = 2.00m,
+        DecimalPlaces = 2,
+        Increment = 0.05m,
+        Value = 1.00m,
+        Width = 75,
+        Enabled = false,
+        AccessibleName = "Playback speed multiplier",
+    };
+    private readonly Button _resetSpeedButton = new() { Text = "1x", AutoSize = true, Enabled = false, AccessibleName = "Reset playback speed to normal" };
+    private readonly Label _speedLabel = new() { AutoSize = true, Text = "Player rate: unknown", MinimumSize = new Size(140, 0), Margin = new Padding(6, 8, 3, 0) };
     private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, TickStyle = TickStyle.None, Value = 100 };
 
     private readonly Button _back10SButton = new() { Text = "◀◀ 10s", Enabled = false };
@@ -37,11 +50,13 @@ public sealed class MainForm : Form
 
     private MpvSession? _mpv;
     private Process? _ownedMpvProcess;
+    private string? _ownedMpvPipe;
     private CancellationTokenSource _lifetimeCts = new();
     private readonly SemaphoreSlim _playbackTransitionGate = new(1, 1);
     private bool _isClosing;
     private string? _activePipe;
     private bool _syncingZoom;
+    private bool _syncingSpeed;
     private TimelineWheelFilter? _wheelFilter;
     private PatternInsertionDialog? _patternDialog;
 
@@ -66,6 +81,7 @@ public sealed class MainForm : Form
         KeyDown += OnFormKeyDown;
 
         _timeline.SeekRequested += OnSeekRequested;
+        _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
@@ -77,14 +93,32 @@ public sealed class MainForm : Form
         Application.AddMessageFilter(_wheelFilter);
 
         _launchButton.Click += async (_, _) => await LaunchMpvAsync();
-        _attachButton.Click += async (_, _) => await AttachExistingAsync();
+        _attachButton.Click += async (_, _) =>
+        {
+            if (_mpv is not null)
+                ShutdownPlayback(terminateOwnedMpv: false);
+            else
+                await AttachExistingAsync();
+        };
         _playPauseButton.Click += async (_, _) => await TogglePlayPauseAsync();
+        _speedInput.ValueChanged += async (_, _) =>
+        {
+            if (!_syncingSpeed) await SetPlaybackSpeedAsync((double)_speedInput.Value);
+        };
+        _resetSpeedButton.Click += async (_, _) => await SetPlaybackSpeedAsync(1.0);
         _back10SButton.Click += async (_, _) => await StepAsync(-10);
         _back1SButton.Click += async (_, _) => await StepAsync(-1);
         _backFrameButton.Click += async (_, _) => await StepFrameAsync(forward: false);
         _forwardFrameButton.Click += async (_, _) => await StepFrameAsync(forward: true);
         _forward1SButton.Click += async (_, _) => await StepAsync(1);
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
+
+        foreach (var button in new[] { _launchButton, _attachButton, _playPauseButton, _resetSpeedButton,
+            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton })
+            button.Click += (_, _) =>
+            {
+                if (!_isClosing && _timeline.CanFocus) _timeline.Focus();
+            };
 
         _timeline.LoadScript(_script);
         if (_settings.LastScriptPath.Length > 0 && File.Exists(_settings.LastScriptPath))
@@ -252,6 +286,12 @@ public sealed class MainForm : Form
         bar.Controls.Add(_pipeBox);
         bar.Controls.Add(_attachButton);
         bar.Controls.Add(_timeLabel);
+        var speedControls = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+        speedControls.Controls.Add(new Label { Text = "Speed (x)", AutoSize = true, Margin = new Padding(12, 8, 3, 0) });
+        speedControls.Controls.Add(_speedInput);
+        speedControls.Controls.Add(_resetSpeedButton);
+        speedControls.Controls.Add(_speedLabel);
+        bar.Controls.Add(speedControls);
         return bar;
     }
 
@@ -407,7 +447,7 @@ public sealed class MainForm : Form
                 _ownedMpvProcess = Process.Start(new ProcessStartInfo
                 {
                     FileName = _settings.MpvPath,
-                    ArgumentList = { $"--input-ipc-server={pipe}", "--pause", _videoPathBox.Text },
+                    ArgumentList = { $"--input-ipc-server={pipe}", "--pause", "--speed=1", _videoPathBox.Text },
                     UseShellExecute = false,
                 });
             }
@@ -418,6 +458,7 @@ public sealed class MainForm : Form
             }
 
             _pipeBox.Text = pipe;
+            _ownedMpvPipe = pipe;
             await AttachAsync(pipe);
         }
         finally
@@ -437,8 +478,11 @@ public sealed class MainForm : Form
         {
             await _playbackTransitionGate.WaitAsync();
             transitionAcquired = true;
-            ShutdownPlayback();
-            await AttachAsync(_pipeBox.Text);
+            var pipe = _pipeBox.Text;
+            var preserveOwnedPlayer = _ownedMpvProcess is { HasExited: false }
+                && string.Equals(pipe, _ownedMpvPipe, StringComparison.OrdinalIgnoreCase);
+            ShutdownPlayback(terminateOwnedMpv: !preserveOwnedPlayer);
+            await AttachAsync(pipe);
         }
         finally
         {
@@ -456,6 +500,7 @@ public sealed class MainForm : Form
         mpv.PositionChanged += seconds => OnMpvPositionChanged(mpv, seconds);
         mpv.PauseChanged += paused => OnMpvPauseChanged(mpv, paused);
         mpv.DurationChanged += seconds => OnMpvDurationChanged(mpv, seconds);
+        mpv.SpeedChanged += speed => OnMpvSpeedChanged(mpv, speed);
         mpv.Disconnected += () => OnMpvDisconnected(mpv);
 
         try
@@ -477,10 +522,12 @@ public sealed class MainForm : Form
 
         _mpv = mpv;
         _activePipe = pipe;
+        _attachButton.Text = "Detach";
         OnMpvPositionChanged(mpv, mpv.PositionSeconds);
         OnMpvPauseChanged(mpv, mpv.IsPaused);
         OnMpvDurationChanged(mpv, mpv.DurationSeconds);
         SetPlaybackControlsEnabled(true);
+        if (mpv.Speed is { } speed) OnMpvSpeedChanged(mpv, speed);
         Log($"Attached to mpv IPC pipe '{pipe}'.");
     }
 
@@ -493,6 +540,15 @@ public sealed class MainForm : Form
         _forwardFrameButton.Enabled = enabled;
         _forward1SButton.Enabled = enabled;
         _forward10SButton.Enabled = enabled;
+        if (!enabled)
+        {
+            _speedInput.Enabled = false;
+            _resetSpeedButton.Enabled = false;
+            _speedLabel.Text = "Player rate: unknown";
+            _syncingSpeed = true;
+            try { _speedInput.Value = 1.00m; }
+            finally { _syncingSpeed = false; }
+        }
     }
 
     private void OnMpvPositionChanged(MpvSession session, double seconds)
@@ -501,7 +557,7 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             if (!ReferenceEquals(_mpv, session)) return;
-            _timeline.SetPlayhead(seconds);
+            _timeline.SetPlayhead(seconds, followPlayback: !session.IsPaused);
             _timeLabel.Text = $"{seconds:0.000} / {session.DurationSeconds:0.000} s";
         });
     }
@@ -525,6 +581,33 @@ public sealed class MainForm : Form
             _timeline.UpdateDuration(seconds);
             _timeLabel.Text = $"{session.PositionSeconds:0.000} / {seconds:0.000} s";
         });
+    }
+
+    private void OnMpvSpeedChanged(MpvSession session, double speed)
+    {
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                ApplySpeedUpdateIfCurrentSession(_mpv, session, _isClosing || IsDisposed, () =>
+                {
+                    _syncingSpeed = true;
+                    try
+                    {
+                        _speedInput.Value = decimal.Round((decimal)Math.Clamp(speed,
+                            (double)_speedInput.Minimum, (double)_speedInput.Maximum), _speedInput.DecimalPlaces);
+                        _speedLabel.Text = $"Player rate: {speed:G}x";
+                        _speedInput.Enabled = true;
+                        _resetSpeedButton.Enabled = true;
+                    }
+                    finally { _syncingSpeed = false; }
+                });
+            });
+        }
+        catch (InvalidOperationException) when (_isClosing || IsDisposed || !IsHandleCreated)
+        {
+        }
     }
 
     private void OnMpvDisconnected(MpvSession disconnectedSession)
@@ -568,7 +651,7 @@ public sealed class MainForm : Form
 
     private void OnFormKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_mpv is null) return;
+        if (_speedInput.ContainsFocus || _mpv is null) return;
         switch (e.KeyCode)
         {
             case Keys.Left when e.Control:
@@ -633,6 +716,46 @@ public sealed class MainForm : Form
         }
     }
 
+    private async Task SetPlaybackSpeedAsync(double speed)
+    {
+        var session = _mpv;
+        if (session is null || _isClosing) return;
+        var token = _lifetimeCts.Token;
+        await SendPlaybackSpeedAsync(
+            session,
+            (capturedSession, cancellationToken) => capturedSession.SetSpeedAsync(speed, cancellationToken),
+            token,
+            capturedSession => !_isClosing && ReferenceEquals(_mpv, capturedSession),
+            Log);
+    }
+
+    internal static async Task SendPlaybackSpeedAsync<TSession>(
+        TSession session,
+        Func<TSession, CancellationToken, Task> sendSpeed,
+        CancellationToken cancellationToken,
+        Func<TSession, bool> canReportFailure,
+        Action<string> reportFailure)
+    {
+        try
+        {
+            await sendSpeed(session, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException or ArgumentException)
+        {
+            if (canReportFailure(session)) reportFailure($"Speed change failed: {ex.Message}");
+        }
+    }
+
+    internal static void ApplySpeedUpdateIfCurrentSession(
+        object? activeSession,
+        object updateSession,
+        bool isClosing,
+        Action applyUpdate)
+    {
+        if (!isClosing && ReferenceEquals(activeSession, updateSession))
+            applyUpdate();
+    }
+
     private void OnSeekRequested(double seconds)
     {
         if (_mpv is null) return;
@@ -657,19 +780,25 @@ public sealed class MainForm : Form
         }
     }
 
-    private void ShutdownPlayback()
+    private void ShutdownPlayback(bool terminateOwnedMpv = true)
     {
         _lifetimeCts.Cancel();
         _mpv?.Dispose();
         _mpv = null;
+        _activePipe = null;
+        _attachButton.Text = "Attach";
         _timeline.UpdateDuration(0);
         SetPlaybackControlsEnabled(false);
 
-        if (_ownedMpvProcess is { HasExited: false })
+        if (terminateOwnedMpv && _ownedMpvProcess is { HasExited: false })
         {
             try { _ownedMpvProcess.Kill(); }
             catch (InvalidOperationException) { }
         }
-        _ownedMpvProcess = null;
+        if (terminateOwnedMpv)
+        {
+            _ownedMpvProcess = null;
+            _ownedMpvPipe = null;
+        }
     }
 }

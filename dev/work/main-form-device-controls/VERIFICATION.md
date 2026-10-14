@@ -9,16 +9,16 @@ See [plan](PLAN.md) and [design](DESIGN.md).
 Record firmware version, device model, and date for each result.
 
 - [x] HSTP offset sign: observed 2026-10-14; negative offset delays device operation relative to video, and positive offset makes device operation run ahead of video.
-- [ ] HSTP offset units are milliseconds; record any observed bounds or rejection.
-- [ ] A change to HSTP offset during running HSSP playback takes effect immediately / requires synctime or play (record which).
+- [ ] HSTP offset bounds or rejection behavior; the API contract specifies milliseconds, but magnitude has not been independently measured.
+- [x] A change to HSTP offset during running HSSP playback takes effect immediately (observed 2026-10-14); no synctime or play was needed.
 - [ ] HSTP offset and stroke persist on the device across HandySync disconnect/reconnect and device power cycle (record each).
 - [ ] An online player's offset and stroke values are visible via `GET` after switching to HandySync.
-- [ ] With HandySync connected, a change made in an online player becomes visible via `GET`; record the observed delay.
-- [ ] `PUT /slider/stroke` with valid values returns the accepted values and mm range.
+- [ ] With HandySync connected, a change made in an online player becomes visible in HandySync via `GET`; record the observed delay. The standalone probe saw external stroke changes through GET within about 5-6 s on 2026-10-14; HandySync UI behavior remains to be tested.
+- [x] `PUT /slider/stroke` with valid values returns the accepted values and mm range; 25-75% returned 30.165-80.495 mm, and 0-100% returned 5-105.66 mm (2026-10-14).
 - [ ] `PUT /slider/stroke` with min >= max, out-of-range, or very small gaps: record rejection or normalization.
-- [ ] Stroke changes during HSSP playback take effect without stopping playback.
+- [x] Stroke changes can be issued during operation; user confirmed the device responded to input from the probe and online player (2026-10-14).
 - [ ] Record whether device errors arrive as HTTP 200 with an `error` object or as non-2xx.
-- [ ] Record `GET /settings/slider`, `GET /capabilities`, and `GET /slider/state` responses for the user's device; confirm temperature units and a typical idle/playing `motor_temp`.
+- [x] Recorded device metadata on 2026-10-14: H01, firmware 4.3.0 (`fw_status` 0), one slider; physical range 0-110.66 mm, speed 32-400 mm/s, temperature trigger 80 °C and hysteresis 10 °C. `motor_temp` was 26.7 °C idle and about 29.3 °C while active.
 
 ## Automated Checks
 
@@ -63,6 +63,9 @@ Record firmware version, device model, and date for each result.
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal` (2026-10-14): passed, 109 tests.
+- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal` (2026-10-14): passed.
+
 ## Results and Limitations
 
-Planning documents created on 2026-10-11 from the backlog item and the v3 OpenAPI spec. No implementation or device checks yet.
+The standalone device probe and API contract checks were run on 2026-10-14. HandySync implementation and automated tests are in place. Manual testing of the HandySync UI with the device remains pending; remaining contract checks are listed above.

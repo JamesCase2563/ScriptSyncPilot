@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ScriptSyncPilot.Common;
 
 namespace ScriptSyncPilot.HandySync;
 
@@ -7,7 +8,9 @@ public sealed class AppSettings
 {
     public string ConnectionKey { get; set; } = "";
     public string MpvIpcPipe { get; set; } = @"\\.\pipe\vrheadtrack";
-    public int OffsetMs { get; set; }
+    public int DeviceOffsetMs { get; set; }
+    public int StrokeMinPercent { get; set; }
+    public int StrokeMaxPercent { get; set; } = 100;
     public string LastScriptPath { get; set; } = "";
 
     private static string FilePath =>
@@ -19,13 +22,31 @@ public sealed class AppSettings
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+            {
+                var json = File.ReadAllText(FilePath);
+                LogDiscardedLegacyOffset(json);
+                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
             // fall through to defaults
         }
         return new AppSettings();
+    }
+
+    private static void LogDiscardedLegacyOffset(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.TryGetProperty("OffsetMs", out var legacyOffset)
+                && legacyOffset.TryGetInt32(out var value) && value != 0)
+                AppLog.Write("Discarded legacy local OffsetMs setting; the device-side HSTP offset is independent.");
+        }
+        catch (JsonException)
+        {
+        }
     }
 
     public void Save()

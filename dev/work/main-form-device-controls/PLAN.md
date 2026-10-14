@@ -1,6 +1,6 @@
 # Main-Form Device Controls Plan
 
-**Status:** Planning; open decisions below must be resolved before implementation.
+**Status:** Implementation complete; device verification and closeout remain.
 **Selected:** 2026-10-11.
 **Affected projects:** HandySync (API client, main form, settings). Common and FunscriptEditor are outside scope.
 
@@ -46,26 +46,26 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 - [x] Record API contract from the v3 OpenAPI spec in DESIGN.md.
 - [x] Resolve the open decisions above.
-- [ ] Verify on the device: HSTP offset sign and units, whether a running HSSP playback picks up an offset change immediately, offset persistence across device reconnect, how quickly an online player's changes become visible via GET, stroke normalization/rejection behavior, and 200-with-`error` responses.
-- [ ] Record verified results in VERIFICATION.md and adjust DESIGN.md.
+- [ ] Verify remaining device behavior: HSTP offset bounds/units and persistence, persistence across reconnect/power cycle, stroke normalization/rejection, and 200-with-`error` responses. Offset sign and immediate effect during running HSSP playback are confirmed; valid stroke writes and external stroke visibility via GET were observed on 2026-10-14. Complete remaining checks during implementation/device testing.
+- [x] Record verified results in VERIFICATION.md and adjust DESIGN.md.
 
 ### 2. Implementation
 
-- [ ] Extend `HandyApiClient`: device info, get/set HSTP offset, get/set slider stroke, slider settings, capabilities, slider state; parse device `error` objects for these calls.
-- [ ] Add firmware check during connect and an unsupported-firmware UI state for the controls.
-- [ ] Remove the old local offset controller: offset term in `DeviceTimeMs`, `OnOffsetChangedAsync` synctime resync, `_offsetChangeCts`, and `AppSettings.OffsetMs`. Rewire the offset slider to the device-side write path.
-- [ ] Add a shared owner-drawn slider (one or two thumbs, horizontal/vertical orientation; mouse drag, keyboard, focus cues). Use it for Offset (one thumb, horizontal) and Stroke Range (two thumbs, vertical) with value/state labels.
-- [ ] Implement debounced, latest-wins, gate-serialized writes with per-control applied/pending/failed/unsupported state.
-- [ ] Apply the agreed connect policy after mode/clock setup and before playback can start.
-- [ ] Persist chosen values in `AppSettings`.
-- [ ] Cancel pending writes on disconnect/close without delaying teardown; never write after disconnect begins.
-- [ ] Add device-value polling and window-activation refresh; reflect external changes without overriding pending or in-flight user edits; stop polling on disconnect/close.
-- [ ] Add the device status area: stroke tooltip from slider settings, no-slider handling from capabilities, temperature display and warning from polled slider state.
-- [ ] Add focused automated tests (see VERIFICATION.md) in a Windows-targeted HandySync MSTest project following existing conventions.
+- [x] Extend `HandyApiClient`: device info, get/set HSTP offset, get/set slider stroke, slider settings, capabilities, slider state; parse device `error` objects for these calls.
+- [x] Add firmware check during connect and an unsupported-firmware UI state for the controls.
+- [x] Remove the old local offset controller: offset term in `DeviceTimeMs`, `OnOffsetChangedAsync` synctime resync, `_offsetChangeCts`, and `AppSettings.OffsetMs`. Rewire the offset slider to the device-side write path.
+- [x] Add a shared owner-drawn slider (one or two thumbs, horizontal/vertical orientation; mouse drag, keyboard, focus cues). Use it for Offset (one thumb, horizontal) and Stroke Range (two thumbs, vertical) with value/state labels.
+- [x] Implement debounced, latest-wins, gate-serialized writes with per-control applied/pending/failed/unsupported state.
+- [x] Apply the agreed connect policy after mode/clock setup and before playback can start.
+- [x] Persist chosen values in `AppSettings`.
+- [x] Cancel pending writes on disconnect/close without delaying teardown; never write after disconnect begins.
+- [x] Add device-value polling and window-activation refresh; reflect external changes without overriding pending or in-flight user edits; stop polling on disconnect/close.
+- [x] Add the device status area: stroke tooltip from slider settings, no-slider handling from capabilities, temperature display and warning from polled slider state.
+- [x] Add focused automated tests (see VERIFICATION.md) in the existing Windows-targeted HandySync test suite following repository conventions.
 
 ### 3. Verification and Completion
 
-- [ ] Run automated checks and build the solution; record exact commands and results.
+- [x] Run automated checks and build the solution; record exact commands and results.
 - [ ] Complete manual device checks during live playback, including values left by an online player.
 - [ ] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) and the backlog (remove this item; adjust Firmware and Capabilities and Offset Feedback to what remains).
 - [ ] Record limitations and the PR reference.
@@ -73,4 +73,4 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 ## Outcome
 
-Not started.
+Implementation complete; solution tests and build pass. Manual HandySync UI/device checks, remaining contract verification, architecture/backlog updates, and archival are still pending.

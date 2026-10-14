@@ -1,6 +1,6 @@
 # Main-Form Device Controls Design
 
-**Status:** Draft; pending open decisions in the [plan](PLAN.md) and device verification in [verification](VERIFICATION.md).
+**Status:** Implementation in progress; selected decisions and verified device observations are recorded in the [plan](PLAN.md) and [verification](VERIFICATION.md).
 
 ## Motivation
 
@@ -14,35 +14,35 @@ Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/
 | --- | --- | --- | --- |
 | `GET /info` | - | `fw_status` (0 up-to-date, 1 update-available, 2 update-required), `fw_version` string, `hw_model_name`, `session_id` | v3 requires firmware 4 or newer. |
 | `GET /hstp/offset` | - | `{ offset }` integer ms | "User adjusted device time offset". |
-| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Verified 2026-10-14: positive values make device operation run ahead of video; negative values delay it. Effect on running HSSP playback: *verify*. Bounds: not specified; *verify*. |
+| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Verified 2026-10-14: positive values make device operation run ahead of video; negative values delay it. A change takes effect immediately during running HSSP playback. Bounds: not specified; *verify*. |
 | `GET /slider/stroke` | - | `min`, `max` (0.0-1.0), `min_absolute`, `max_absolute` (mm) | |
 | `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for min >= max: *verify*. |
 | `GET /capabilities` | - | `slider` count, `battery`, ... | Disable stroke controls when `slider` is 0. |
 | `GET /settings/slider` | - | `x_stroke_min`/`x_stroke_max` (mm), `x_min_speed`/`x_max_speed` (mm/s), `temp_high_trigger`, `temp_hysteresis` (°C), ... | Read-only; changed only in the Handy onboarding app. |
 | `GET /slider/state` | - | `motor_temp` (°C), `position`, `speed_absolute`, ... | |
 
-Device errors may be returned in a 200 response as `{ "error": { code, name, message, connected } }` (for example 1001 DeviceNotConnected, 1002 DeviceTimeout). The current client checks only HTTP status. New calls must treat a present `error` object as failure and raise `HandyApiException` with code and name; the message must not include connection or application keys.
+Device errors may be returned in a 200 response as `{ "error": { code, name, message, connected } }` (for example 1001 DeviceNotConnected, 1002 DeviceTimeout). `HandyApiClient` treats a present `error` object as failure and raises `HandyApiException` with code and name; the message does not include response details, connection keys, or application keys.
 
 `/hamp/stroke` is not used: it is relative to the HAMP stroke region and does not affect HSSP. `/settings/slider` is read for display only.
 
 ## Offset: Remove Local Controller, Use Device-Side
 
-Currently `DeviceTimeMs` adds `_offsetSlider.Value` to the mpv position, and offset changes trigger a debounced `hssp/synctime` (`OnOffsetChangedAsync`, `_offsetChangeCts`). This local controller is removed, not deprecated or kept behind an option; there is exactly one offset, stored on the device.
+Before this change, `DeviceTimeMs` added `_offsetSlider.Value` to the mpv position, and offset changes triggered a debounced `hssp/synctime` (`OnOffsetChangedAsync`, `_offsetChangeCts`). That local controller is removed, not deprecated or kept behind an option; there is exactly one offset, stored on the device.
 
 - `DeviceTimeMs(pos)` returns the mpv position only. `EstimatedServerTimeMs` and `_clockOffsetMs` are unchanged.
 - `OnOffsetChangedAsync` and `_offsetChangeCts` are deleted, including their cancellation in disconnect and stop. The slider control is kept but rewired to the device write path, which writes `PUT /hstp/offset`. Play/seek/synctime calls no longer depend on the slider.
-- If verification shows that running HSSP playback does not apply a new offset immediately, follow a successful offset write with one `hssp/synctime` (or `hssp/play` at the current position when playing) inside the same gate acquisition. Do not restart playback while paused.
+- A successful offset write takes effect immediately during running HSSP playback (verified 2026-10-14); no follow-up `hssp/synctime` or `hssp/play` is required.
 - The slider shows the device's raw HSTP value (per the agreed display convention) so values match those shown by online players. The tooltip states the verified direction.
 
 ## Stroke Range
 
-- One owner-drawn `RangeTrackBar` control in HandySync with two thumbs (min and max) on a single track, in whole percent 0-100, mapped to 0.00-1.00 for the API. The selected range is highlighted between the thumbs so the stroke zone is visible at a glance.
-- A dragged thumb is clamped at the other thumb (min <= max - gap); it cannot pass or push the other thumb. The gap is 1 % unless the device requires a larger minimum (*verify*).
-- Mouse: press picks the nearest thumb (when both coincide, the drag direction picks it); clicking the track moves the nearest thumb a large step towards the click. Dragging the highlighted range between thumbs is not supported in this version.
-- Keyboard: Tab focuses the control; Left/Right or Up/Down move the active thumb by 1 %, Page Up/Down by 10 %, Home/End to its limit; a key (for example Space or Tab within the control) switches the active thumb. Draw a focus cue on the active thumb.
-- The control raises one `RangeChanged(min, max)` event per user change and exposes a method to set both values without raising it, used when applying device-accepted values.
+- One owner-drawn `DeviceSliderControl` in HandySync with two thumbs (min and max) on a single track, in whole percent 0-100, mapped to 0.00-1.00 for the API. The selected range is highlighted between the thumbs so the stroke zone is visible at a glance.
+- A dragged thumb is clamped at the other thumb (min <= max); it cannot pass or push the other thumb. The thumbs may coincide; device behavior for equal or invalid ranges remains unverified.
+- Mouse: press picks the nearest thumb (the lower thumb wins an exact-distance tie); dragging moves it to the pointer value. Clicking the track moves the nearest thumb directly to the clicked value. Dragging the highlighted range between thumbs is not supported in this version.
+- Keyboard: Tab focuses the control; Left/Right or Up/Down move the active thumb by 1 %, Page Up/Down by 10 %, Home/End to its limit; Space switches the active thumb. Draw a focus cue on the active thumb.
+- The control raises one `ValuesChanged` event per user change and exposes `SetValues` to set both values without raising it, used when applying device-accepted values.
 - A label shows the accepted range, for example `20-85 % (24.1-89.6 mm)`, from the PUT/GET response. If the device normalizes the values, the thumbs are updated to the accepted values without triggering another write.
-- Keep the control's clamping and hit-testing logic in pure methods so it can be unit tested without rendering.
+- Keep clamping and hit-testing within the control; tests exercise value ordering and keyboard behavior without relying on rendered pixels.
 
 ## Layout and Appearance (GUI Guidance)
 

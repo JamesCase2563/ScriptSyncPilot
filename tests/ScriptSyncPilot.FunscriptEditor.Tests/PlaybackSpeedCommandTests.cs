@@ -27,6 +27,7 @@ public sealed class PlaybackSpeedCommandTests
         SetPrivateField(form, "_mpv", session);
         SetPrivateField(form, "_handy", client);
         SetPrivateField(form, "_hsspReady", true);
+        ((DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!).SetValues(350, 0);
         _ = form.Handle;
 
         Observe(session, "pause", "false");
@@ -41,7 +42,6 @@ public sealed class PlaybackSpeedCommandTests
             var count = handler.Paths.Count;
             InvokeHandyTask(form, "OnMpvPositionChangedAsync", session, 10.0).GetAwaiter().GetResult();
             InvokeHandyTask(form, "OnSyncTickAsync").GetAwaiter().GetResult();
-            InvokeHandyTask(form, "OnOffsetChangedAsync").GetAwaiter().GetResult();
             Assert.AreEqual(count, handler.Paths.Count);
         }
 
@@ -51,8 +51,7 @@ public sealed class PlaybackSpeedCommandTests
         Assert.AreEqual("hssp/play", handler.Paths.Last());
         using var body = JsonDocument.Parse(handler.Bodies.Last()!);
         Assert.AreEqual(1.0, body.RootElement.GetProperty("playback_rate").GetDouble());
-        Assert.AreEqual(42000L, body.RootElement.GetProperty("start_time").GetInt64()
-            - ((TrackBar)GetPrivateField(form, "_offsetSlider")!).Value);
+        Assert.AreEqual(42000L, body.RootElement.GetProperty("start_time").GetInt64());
 
         Observe(session, "pause", "true");
         InvokeHandySpeedUpdate(form, session);

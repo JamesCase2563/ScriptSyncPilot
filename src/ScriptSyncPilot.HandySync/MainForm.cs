@@ -17,8 +17,24 @@ public sealed class MainForm : Form
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
-    private readonly TrackBar _offsetSlider = new() { Minimum = -1000, Maximum = 1000, TickFrequency = 100, SmallChange = 10, LargeChange = 100 };
+    private readonly DeviceSliderControl _offsetSlider = new() { Minimum = -1000, Maximum = 1000, SmallStep = 10, LargeStep = 100 };
     private readonly Label _offsetValue = new() { AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, MinimumSize = new Size(72, 0) };
+    private readonly Label _offsetState = new() { AutoSize = true, Text = "not connected" };
+    private readonly DeviceSliderControl _strokeSlider = new()
+    {
+        Minimum = 0,
+        Maximum = 100,
+        IsRange = true,
+        Orientation = Orientation.Vertical,
+        SmallStep = 1,
+        LargeStep = 10,
+        Size = new Size(52, 120),
+        MinimumSize = new Size(44, 100)
+    };
+    private readonly Label _strokeValue = new() { AutoSize = true, Text = "0–100 %" };
+    private readonly Label _strokeState = new() { AutoSize = true, Text = "not connected" };
+    private readonly Label _temperatureValue = new() { AutoSize = true, Text = "Motor -- °C" };
+    private readonly ToolTip _deviceToolTip = new();
     private readonly Button _startButton = new() { Text = "Start Session" };
     private readonly Button _stopButton = new() { Text = "Stop Session", Enabled = false };
     private readonly Button _connectButton = new() { Text = "Connect Handy" };
@@ -27,6 +43,7 @@ public sealed class MainForm : Form
     private readonly Label _status = new() { Text = "Idle", AutoSize = true };
     private readonly ScriptWaveformControl _waveform = new() { Dock = DockStyle.Bottom, Height = 90 };
     private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 3000 };
+    private readonly System.Windows.Forms.Timer _devicePollTimer = new() { Interval = 5000 };
 
     private readonly AppSettings _settings = AppSettings.Load();
 
@@ -38,7 +55,25 @@ public sealed class MainForm : Form
     private long _installedScriptVersion = -1;
     private MpvSession? _mpv;
     private Funscript? _script;
-    private CancellationTokenSource? _offsetChangeCts;
+    private CancellationTokenSource? _offsetWriteCts;
+    private CancellationTokenSource? _strokeWriteCts;
+    private bool _deviceControlsSupported;
+    private bool _hasDeviceSlider = true;
+    private bool _devicePollBusy;
+    private int _devicePollTick;
+    private int _offsetEditVersion;
+    private int _strokeEditVersion;
+    private int _pollFailureCount;
+    private bool _pollFailureLogged;
+    private bool _offsetWriteInFlight;
+    private bool _strokeWriteInFlight;
+    private int? _lastDeviceOffset;
+    private HandyApiClient.SliderStroke? _lastDeviceStroke;
+    private double? _strokeMinAbsolute;
+    private double? _strokeMaxAbsolute;
+    private double? _temperatureHighTrigger;
+    private double? _temperatureHysteresis;
+    private string _temperatureBand = "normal";
     private long _clockOffsetMs;
     private bool _hsspReady;
     private bool _handyDisconnecting;
@@ -57,8 +92,13 @@ public sealed class MainForm : Form
         _scriptPathBox.Text = _settings.LastScriptPath;
         if (_scriptPathBox.Text.Length > 0 && File.Exists(_scriptPathBox.Text))
             LoadScript(_scriptPathBox.Text);
-        _offsetSlider.Value = Math.Clamp(_settings.OffsetMs, _offsetSlider.Minimum, _offsetSlider.Maximum);
+        _offsetSlider.SetValues(Math.Clamp(_settings.DeviceOffsetMs, _offsetSlider.Minimum, _offsetSlider.Maximum), 0);
+        var strokeMin = Math.Clamp(_settings.StrokeMinPercent, 0, 100);
+        var strokeMax = Math.Clamp(_settings.StrokeMaxPercent, 0, 100);
+        if (strokeMin >= strokeMax) (strokeMin, strokeMax) = (0, 100);
+        _strokeSlider.SetValues(strokeMin, strokeMax);
         UpdateOffsetLabel();
+        UpdateStrokeLabel();
 
         var browseScript = new Button { Text = "Browse…" };
         browseScript.Click += (_, _) =>
@@ -87,7 +127,18 @@ public sealed class MainForm : Form
         AddRow("Connection key", _connectionKeyBox);
         AddRow("mpv IPC pipe", _mpvPipeBox);
         AddRow("Funscript", _scriptPathBox, browseScript);
-        AddRow("Offset (ms)", _offsetSlider, _offsetValue);
+        var offsetInfo = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, Anchor = AnchorStyles.Left };
+        offsetInfo.Controls.Add(_offsetValue);
+        offsetInfo.Controls.Add(_offsetState);
+        AddRow("Offset (ms)", _offsetSlider, offsetInfo);
+
+        var strokeInfo = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, AutoSize = true };
+        strokeInfo.Controls.Add(_strokeSlider);
+        var strokeLabels = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Anchor = AnchorStyles.Left };
+        strokeLabels.Controls.Add(_strokeValue);
+        strokeLabels.Controls.Add(_strokeState);
+        strokeInfo.Controls.Add(strokeLabels);
+        AddRow("Stroke range", strokeInfo, _temperatureValue);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
         buttons.Controls.Add(_startButton);
@@ -106,12 +157,28 @@ public sealed class MainForm : Form
         _connectButton.Click += async (_, _) => await ConnectHandyAsync();
         _disconnectButton.Click += async (_, _) => await DisconnectHandyAsync();
         _waveform.SeekRequested += OnWaveformSeekRequested;
-        _offsetSlider.ValueChanged += async (_, _) =>
+        _offsetSlider.ValuesChanged += (_, _) =>
         {
+            _offsetEditVersion++;
             UpdateOffsetLabel();
-            await OnOffsetChangedAsync();
+            _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
+            _offsetState.Text = _handy is null ? "not connected" : "pending";
+            ScheduleOffsetWrite();
+        };
+        _strokeSlider.ValuesChanged += (_, _) =>
+        {
+            _strokeEditVersion++;
+            _strokeMinAbsolute = null;
+            _strokeMaxAbsolute = null;
+            UpdateStrokeLabel();
+            _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+            _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+            _strokeState.Text = _handy is null ? "not connected" : "pending";
+            ScheduleStrokeWrite();
         };
         _syncTimer.Tick += async (_, _) => await OnSyncTickAsync();
+        _devicePollTimer.Tick += async (_, _) => await PollDeviceValuesAsync();
+        Activated += async (_, _) => await PollDeviceValuesAsync();
 
         FormClosing += async (_, e) =>
         {
@@ -123,7 +190,9 @@ public sealed class MainForm : Form
             _settings.ConnectionKey = _connectionKeyBox.Text;
             _settings.MpvIpcPipe = _mpvPipeBox.Text;
             _settings.LastScriptPath = _scriptPathBox.Text;
-            _settings.OffsetMs = _offsetSlider.Value;
+            _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
+            _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+            _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
             _settings.Save();
 
             _lifetimeCts.Cancel();
@@ -301,6 +370,9 @@ public sealed class MainForm : Form
             SetStatus("Connecting to Handy…");
             var client = new HandyApiClient(_connectionKeyBox.Text.Trim());
             _handy = client;
+            _lastDeviceOffset = null;
+            _lastDeviceStroke = null;
+            _devicePollTick = 0;
 
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             bool isConnected;
@@ -317,12 +389,13 @@ public sealed class MainForm : Form
             if (!isConnected)
                 throw new HandyApiException("Device reports not connected. Check the connection key.");
             Log("Handy device connected.");
+            await CheckDeviceFirmwareAsync(client);
 
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
             {
                 if (!ReferenceEquals(_handy, client)) return;
-                await client.SetModeAsync(mode: 1, _lifetimeCts.Token); // HSSP
+                await client.SetModeAsync(mode: 1, _lifetimeCts.Token);
             }
             finally
             {
@@ -342,6 +415,9 @@ public sealed class MainForm : Form
                 _deviceCommandGate.Release();
             }
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
+
+            await ReadAndApplyDeviceControlsAsync(client);
+            if (!ReferenceEquals(_handy, client) || _isClosing) return;
 
             await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
             if (!ReferenceEquals(_handy, client) || _script is null) return;
@@ -365,13 +441,164 @@ public sealed class MainForm : Form
         }
     }
 
+    private async Task CheckDeviceFirmwareAsync(HandyApiClient client)
+    {
+        try
+        {
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            HandyApiClient.DeviceInfo info;
+            try
+            {
+                if (!ReferenceEquals(_handy, client)) return;
+                info = await client.GetInfoAsync(_lifetimeCts.Token);
+            }
+            finally
+            {
+                _deviceCommandGate.Release();
+            }
+
+            _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
+            _offsetSlider.Enabled = _deviceControlsSupported;
+            _strokeSlider.Enabled = _deviceControlsSupported;
+            if (!_deviceControlsSupported)
+            {
+                _offsetState.Text = "unsupported firmware";
+                _strokeState.Text = "unsupported firmware";
+                Log($"Device controls unsupported: firmware {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+            }
+            else
+            {
+                Log($"Device firmware supported: {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+            }
+        }
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+        {
+            _deviceControlsSupported = false;
+            _offsetSlider.Enabled = false;
+            _strokeSlider.Enabled = false;
+            _offsetState.Text = "unsupported firmware";
+            _strokeState.Text = "unsupported firmware";
+            Log($"Could not verify device firmware; device controls are disabled: {ex.Message}");
+        }
+    }
+
+    internal static bool IsDeviceControlsFirmwareSupported(string firmwareVersion, int? firmwareStatus)
+    {
+        var versionText = firmwareVersion.Split('+', 2)[0];
+        return Version.TryParse(versionText, out var version) && version.Major >= 4
+               && firmwareStatus is int status && status != 2;
+    }
+
+    private async Task ReadAndApplyDeviceControlsAsync(HandyApiClient client)
+    {
+        if (!_deviceControlsSupported) return;
+        var gateAcquired = false;
+        try
+        {
+            await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
+            gateAcquired = true;
+            if (!ReferenceEquals(_handy, client) || _handyDisconnecting) return;
+
+            try
+            {
+                var capabilities = await client.GetCapabilitiesAsync(_lifetimeCts.Token);
+                _hasDeviceSlider = capabilities.SliderCount > 0;
+            }
+            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+            {
+                _hasDeviceSlider = true;
+                Log($"Could not read device capabilities: {ex.Message}");
+            }
+
+            _strokeSlider.Enabled = _hasDeviceSlider;
+            if (!_hasDeviceSlider)
+            {
+                _strokeState.Text = "no slider";
+                Log("Device has no slider; stroke controls are disabled.");
+            }
+
+            try
+            {
+                var settings = await client.GetSliderSettingsAsync(_lifetimeCts.Token);
+                _temperatureHighTrigger = settings.TemperatureHighTrigger;
+                _temperatureHysteresis = settings.TemperatureHysteresis;
+                _deviceToolTip.SetToolTip(_strokeSlider,
+                    $"Physical slider {settings.PhysicalMinMm:F0}-{settings.PhysicalMaxMm:F0} mm, "
+                    + $"speed {settings.MinSpeedMmPerSecond:F0}-{settings.MaxSpeedMmPerSecond:F0} mm/s.");
+            }
+            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+            {
+                Log($"Could not read physical slider settings: {ex.Message}");
+            }
+
+            try
+            {
+                var currentOffset = await client.GetOffsetAsync(_lifetimeCts.Token);
+                _lastDeviceOffset = currentOffset;
+                Log($"Device HSTP offset on connect: {currentOffset} ms.");
+                if (currentOffset != _settings.DeviceOffsetMs)
+                {
+                    await client.SetOffsetAsync(_settings.DeviceOffsetMs, _lifetimeCts.Token);
+                    _lastDeviceOffset = _settings.DeviceOffsetMs;
+                    Log($"Reapplied saved device offset: {_settings.DeviceOffsetMs} ms.");
+                }
+                _offsetState.Text = "applied";
+            }
+            catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+            {
+                _offsetState.Text = "not applied";
+                Log($"Could not read/apply device offset: {ex.Message}");
+            }
+
+            if (_hasDeviceSlider)
+            {
+                try
+                {
+                    var currentStroke = await client.GetStrokeAsync(_lifetimeCts.Token);
+                    _lastDeviceStroke = currentStroke;
+                    Log($"Device stroke on connect: {currentStroke.Min:P0}-{currentStroke.Max:P0} "
+                        + $"({currentStroke.MinAbsolute:F1}-{currentStroke.MaxAbsolute:F1} mm).");
+                    var desiredMin = _settings.StrokeMinPercent / 100.0;
+                    var desiredMax = _settings.StrokeMaxPercent / 100.0;
+                    if (Math.Abs(currentStroke.Min - desiredMin) > 0.0001 || Math.Abs(currentStroke.Max - desiredMax) > 0.0001)
+                    {
+                        currentStroke = await client.SetStrokeAsync(desiredMin, desiredMax, _lifetimeCts.Token);
+                        _lastDeviceStroke = currentStroke;
+                        Log($"Reapplied saved stroke range: {currentStroke.Min:P0}-{currentStroke.Max:P0}.");
+                    }
+                    _strokeSlider.SetValues((int)Math.Round(currentStroke.Min * 100), (int)Math.Round(currentStroke.Max * 100));
+                    _strokeMinAbsolute = currentStroke.MinAbsolute;
+                    _strokeMaxAbsolute = currentStroke.MaxAbsolute;
+                    _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+                    _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+                    UpdateStrokeLabel();
+                    _strokeState.Text = "applied";
+                }
+                catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+                {
+                    _strokeState.Text = "not applied";
+                    Log($"Could not read/apply device stroke: {ex.Message}");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (gateAcquired) _deviceCommandGate.Release();
+        }
+
+        if (_deviceControlsSupported && !_handyDisconnecting && !_isClosing && !_lifetimeCts.IsCancellationRequested)
+            _devicePollTimer.Start();
+    }
+
     private async Task DisconnectHandyAsync()
     {
-        _offsetChangeCts?.Cancel();
-        _offsetChangeCts?.Dispose();
-        _offsetChangeCts = null;
-
         _handyDisconnecting = true;
+        _devicePollTimer.Stop();
+        CancelPendingDeviceWrites();
+
         var client = _handy;
         _handy = null;
         _hsspReady = false;
@@ -397,6 +624,12 @@ public sealed class MainForm : Form
         }
 
         _handyDisconnecting = false;
+        _offsetState.Text = "not connected";
+        if (_hasDeviceSlider) _strokeState.Text = "not connected";
+        _temperatureValue.Text = "Motor -- °C";
+        _temperatureValue.ForeColor = SystemColors.ControlText;
+        _temperatureValue.BackColor = SystemColors.Control;
+        _temperatureBand = "normal";
         if (!_isClosing) _connectButton.Enabled = true;
         SetStatus(_mpv is null ? "Idle" : "Playing (no Handy)");
     }
@@ -431,10 +664,264 @@ public sealed class MainForm : Form
 
     private long EstimatedServerTimeMs() =>
         DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + _clockOffsetMs;
-    private long DeviceTimeMs(double mpvPositionSeconds) =>
-        (long)(mpvPositionSeconds * 1000) + _offsetSlider.Value;
+    private long DeviceTimeMs(double mpvPositionSeconds) => (long)(mpvPositionSeconds * 1000);
 
-    private void UpdateOffsetLabel() => _offsetValue.Text = $"{_offsetSlider.Value:+#;-#;0} ms";
+    private void UpdateOffsetLabel() => _offsetValue.Text = $"{_offsetSlider.LowerValue:+#;-#;0} ms";
+
+    private void UpdateStrokeLabel() => _strokeValue.Text = _strokeMinAbsolute is double minMm && _strokeMaxAbsolute is double maxMm
+        ? $"{_strokeSlider.LowerValue}-{_strokeSlider.UpperValue} % ({minMm:F1}-{maxMm:F1} mm)"
+        : $"{_strokeSlider.LowerValue}-{_strokeSlider.UpperValue} %";
+
+    private void CancelPendingDeviceWrites()
+    {
+        _offsetWriteCts?.Cancel();
+        _strokeWriteCts?.Cancel();
+        _offsetWriteCts = null;
+        _strokeWriteCts = null;
+    }
+
+    private void ScheduleOffsetWrite()
+    {
+        var client = _handy;
+        if (client is null || !_deviceControlsSupported || _handyDisconnecting) return;
+        _offsetWriteCts?.Cancel();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        _offsetWriteCts = cancellation;
+        _ = WriteOffsetAfterDebounceAsync(client, _offsetSlider.LowerValue, cancellation);
+    }
+
+    private async Task WriteOffsetAfterDebounceAsync(HandyApiClient client, int offset, CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        try
+        {
+            await Task.Delay(200, token);
+            await _deviceCommandGate.WaitAsync(token);
+            try
+            {
+                if (token.IsCancellationRequested || _handyDisconnecting || !ReferenceEquals(_handy, client)
+                    || !ReferenceEquals(_offsetWriteCts, cancellation)) return;
+                _offsetWriteInFlight = true;
+                await client.SetOffsetAsync(offset, token);
+                if (token.IsCancellationRequested || !ReferenceEquals(_offsetWriteCts, cancellation)) return;
+                _lastDeviceOffset = offset;
+                _offsetState.Text = "applied";
+                Log($"Device offset applied: {offset} ms.");
+            }
+            finally
+            {
+                _offsetWriteInFlight = false;
+                _deviceCommandGate.Release();
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (ReferenceEquals(_offsetWriteCts, cancellation))
+            {
+                _offsetState.Text = "not applied";
+                Log($"Device offset write timed out: {ex.Message}");
+            }
+        }
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or ObjectDisposedException)
+        {
+            if (!token.IsCancellationRequested && ReferenceEquals(_offsetWriteCts, cancellation))
+            {
+                _offsetState.Text = "not applied";
+                Log($"Device offset write failed: {ex.Message}");
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(_offsetWriteCts, cancellation)) _offsetWriteCts = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void ScheduleStrokeWrite()
+    {
+        var client = _handy;
+        if (client is null || !_deviceControlsSupported || !_hasDeviceSlider || _handyDisconnecting) return;
+        _strokeWriteCts?.Cancel();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        _strokeWriteCts = cancellation;
+        _ = WriteStrokeAfterDebounceAsync(client, _strokeSlider.LowerValue, _strokeSlider.UpperValue, cancellation);
+    }
+
+    private async Task WriteStrokeAfterDebounceAsync(HandyApiClient client, int minimum, int maximum, CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        try
+        {
+            await Task.Delay(200, token);
+            await _deviceCommandGate.WaitAsync(token);
+            try
+            {
+                if (token.IsCancellationRequested || _handyDisconnecting || !ReferenceEquals(_handy, client)
+                    || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
+                _strokeWriteInFlight = true;
+                var accepted = await client.SetStrokeAsync(minimum / 100.0, maximum / 100.0, token);
+                if (token.IsCancellationRequested || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
+                _lastDeviceStroke = accepted;
+                _strokeMinAbsolute = accepted.MinAbsolute;
+                _strokeMaxAbsolute = accepted.MaxAbsolute;
+                _strokeSlider.SetValues((int)Math.Round(accepted.Min * 100), (int)Math.Round(accepted.Max * 100));
+                _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+                _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+                UpdateStrokeLabel();
+                _strokeState.Text = "applied";
+                Log($"Device stroke applied: {accepted.Min:P0}-{accepted.Max:P0} ({accepted.MinAbsolute:F1}-{accepted.MaxAbsolute:F1} mm).");
+            }
+            finally
+            {
+                _strokeWriteInFlight = false;
+                _deviceCommandGate.Release();
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        catch (OperationCanceledException ex)
+        {
+            if (ReferenceEquals(_strokeWriteCts, cancellation))
+            {
+                _strokeState.Text = "not applied";
+                Log($"Device stroke write timed out: {ex.Message}");
+            }
+        }
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or ObjectDisposedException)
+        {
+            if (!token.IsCancellationRequested && ReferenceEquals(_strokeWriteCts, cancellation))
+            {
+                _strokeState.Text = "not applied";
+                Log($"Device stroke write failed: {ex.Message}");
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(_strokeWriteCts, cancellation)) _strokeWriteCts = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private async Task PollDeviceValuesAsync()
+    {
+        var client = _handy;
+        if (_devicePollBusy || client is null || !_deviceControlsSupported || _handyDisconnecting || _isClosing) return;
+        _devicePollBusy = true;
+        if (!await _deviceCommandGate.WaitAsync(0))
+        {
+            _devicePollBusy = false;
+            return;
+        }
+
+        var offsetVersion = _offsetEditVersion;
+        var strokeVersion = _strokeEditVersion;
+        try
+        {
+            if (!ReferenceEquals(_handy, client) || _handyDisconnecting) return;
+            var offset = await client.GetOffsetAsync(_lifetimeCts.Token);
+            if (_lastDeviceOffset is int previousOffset && previousOffset != offset
+                && offsetVersion == _offsetEditVersion && _offsetWriteCts is null && !_offsetWriteInFlight && !_offsetSlider.IsBeingAdjusted)
+            {
+                _offsetSlider.SetValues(offset, 0);
+                UpdateOffsetLabel();
+                _settings.DeviceOffsetMs = offset;
+                _offsetState.Text = "changed by another app";
+                Log($"Device offset changed externally: {previousOffset} -> {offset} ms.");
+            }
+            else if (_lastDeviceOffset is null && offsetVersion == _offsetEditVersion && _offsetState.Text != "not applied")
+            {
+                _offsetSlider.SetValues(offset, 0);
+                UpdateOffsetLabel();
+            }
+            _lastDeviceOffset = offset;
+
+            if (_hasDeviceSlider)
+            {
+                var stroke = await client.GetStrokeAsync(_lifetimeCts.Token);
+                if (_lastDeviceStroke is { } previousStroke
+                    && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max)
+                    && strokeVersion == _strokeEditVersion && _strokeWriteCts is null && !_strokeWriteInFlight && !_strokeSlider.IsBeingAdjusted)
+                {
+                    _strokeSlider.SetValues((int)Math.Round(stroke.Min * 100), (int)Math.Round(stroke.Max * 100));
+                    _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+                    _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+                    _strokeState.Text = "changed by another app";
+                    Log($"Device stroke changed externally: {previousStroke.Min:P0}-{previousStroke.Max:P0} -> {stroke.Min:P0}-{stroke.Max:P0}.");
+                }
+                else if (_lastDeviceStroke is null && strokeVersion == _strokeEditVersion && _strokeState.Text != "not applied")
+                {
+                    _strokeSlider.SetValues((int)Math.Round(stroke.Min * 100), (int)Math.Round(stroke.Max * 100));
+                }
+                _lastDeviceStroke = stroke;
+                _strokeMinAbsolute = stroke.MinAbsolute;
+                _strokeMaxAbsolute = stroke.MaxAbsolute;
+                UpdateStrokeLabel();
+            }
+
+            _devicePollTick++;
+            if (_hasDeviceSlider && _devicePollTick % 3 == 0)
+                await UpdateTemperatureAsync(client);
+
+            _pollFailureCount = 0;
+            _pollFailureLogged = false;
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or ObjectDisposedException or OperationCanceledException)
+        {
+            _pollFailureCount++;
+            if (!_pollFailureLogged)
+            {
+                Log($"Device value polling failed: {ex.Message}");
+                _pollFailureLogged = true;
+            }
+            if (_pollFailureCount >= 3)
+            {
+                _offsetState.Text = "device values unknown";
+                if (_hasDeviceSlider) _strokeState.Text = "device values unknown";
+            }
+        }
+        finally
+        {
+            _deviceCommandGate.Release();
+            _devicePollBusy = false;
+        }
+    }
+
+    private async Task UpdateTemperatureAsync(HandyApiClient client)
+    {
+        var state = await client.GetSliderStateAsync(_lifetimeCts.Token);
+        var temperature = state.MotorTemperature;
+        var trigger = _temperatureHighTrigger ?? 75;
+        var hysteresis = _temperatureHysteresis ?? 10;
+        var previousBand = _temperatureBand;
+        _temperatureBand = _temperatureBand switch
+        {
+            "hot" when temperature >= trigger - hysteresis => "hot",
+            "hot" when temperature >= trigger - 10 - hysteresis => "warm",
+            "warm" when temperature >= trigger - 10 - hysteresis && temperature < trigger => "warm",
+            _ when temperature >= trigger => "hot",
+            _ when temperature >= trigger - 10 => "warm",
+            _ => "normal"
+        };
+
+        _temperatureValue.Text = _temperatureBand switch
+        {
+            "hot" => $"Motor {temperature:F1} °C (High)",
+            "warm" => $"Motor {temperature:F1} °C (Warm)",
+            _ => $"Motor {temperature:F1} °C"
+        };
+        _temperatureValue.ForeColor = _temperatureBand == "warm" ? Color.DarkGoldenrod : SystemColors.ControlText;
+        _temperatureValue.BackColor = _temperatureBand == "hot" ? Color.MistyRose : SystemColors.Control;
+        if (previousBand != _temperatureBand)
+            Log($"Motor temperature state: {previousBand} -> {_temperatureBand} ({temperature:F1} °C, trigger {trigger:F1} °C).");
+        await Task.CompletedTask;
+    }
 
     private double _lastKnownPos;
     private readonly Stopwatch _sincePosUpdate = Stopwatch.StartNew();
@@ -569,43 +1056,6 @@ public sealed class MainForm : Form
         }
     }
 
-    private async Task OnOffsetChangedAsync()
-    {
-        var client = _handy;
-        var session = _mpv;
-        if (!_hsspReady || client is null || session is not { IsPaused: false, Speed: 1.0 }) return;
-
-        _offsetChangeCts?.Cancel();
-        _offsetChangeCts?.Dispose();
-        _offsetChangeCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
-        var ct = _offsetChangeCts.Token;
-        var offsetMs = _offsetSlider.Value;
-
-        try
-        {
-            await Task.Delay(100, ct);
-            await _deviceCommandGate.WaitAsync(ct);
-            try
-            {
-                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session)
-                    || session.IsPaused || session.Speed != 1.0) return;
-                await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: ct);
-            }
-            finally
-            {
-                _deviceCommandGate.Release();
-            }
-            Log($"Offset changed to {offsetMs} ms.");
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
-        {
-            Log($"Offset resync failed: {ex.Message}");
-        }
-    }
-
     // Ends the mpv session only; the Handy connection outlives it so a new session can reuse the HSSP setup.
     private async Task StopAsync(bool stopDevice = true)
     {
@@ -625,10 +1075,6 @@ public sealed class MainForm : Form
     private async Task StopCoreAsync(bool stopDevice = true)
     {
         _syncTimer.Stop();
-        _offsetChangeCts?.Cancel();
-        _offsetChangeCts?.Dispose();
-        _offsetChangeCts = null;
-
         var client = _handy;
         _hsspReady = false;
         _mpv?.Dispose();

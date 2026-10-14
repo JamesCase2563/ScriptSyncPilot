@@ -1,6 +1,6 @@
 # Main-Form Device Controls Verification
 
-**Status:** Not started. Results below must distinguish automated coverage from user-performed device checks.
+**Status:** In progress. Device checks were performed on 2026-10-14; remaining results are listed below.
 
 See [plan](PLAN.md) and [design](DESIGN.md).
 
@@ -8,7 +8,7 @@ See [plan](PLAN.md) and [design](DESIGN.md).
 
 Record firmware version, device model, and date for each result.
 
-- [ ] HSTP offset sign: with a known script, a positive offset makes the device move earlier / later relative to video (record which).
+- [x] HSTP offset sign: observed 2026-10-14; negative offset delays device operation relative to video, and positive offset makes device operation run ahead of video.
 - [ ] HSTP offset units are milliseconds; record any observed bounds or rejection.
 - [ ] A change to HSTP offset during running HSSP playback takes effect immediately / requires synctime or play (record which).
 - [ ] HSTP offset and stroke persist on the device across HandySync disconnect/reconnect and device power cycle (record each).

@@ -14,7 +14,7 @@ Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/
 | --- | --- | --- | --- |
 | `GET /info` | - | `fw_status` (0 up-to-date, 1 update-available, 2 update-required), `fw_version` string, `hw_model_name`, `session_id` | v3 requires firmware 4 or newer. |
 | `GET /hstp/offset` | - | `{ offset }` integer ms | "User adjusted device time offset". |
-| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Sign direction: *verify*. Effect on running HSSP playback: *verify*. Bounds: not specified; *verify*. |
+| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Verified 2026-10-14: positive values make device operation run ahead of video; negative values delay it. Effect on running HSSP playback: *verify*. Bounds: not specified; *verify*. |
 | `GET /slider/stroke` | - | `min`, `max` (0.0-1.0), `min_absolute`, `max_absolute` (mm) | |
 | `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for min >= max: *verify*. |
 | `GET /capabilities` | - | `slider` count, `battery`, ... | Disable stroke controls when `slider` is 0. |
@@ -130,5 +130,5 @@ Inject an `HttpMessageHandler` (internal constructor) into `HandyApiClient` so r
 
 - External changes are detected within one poll interval (or on window activation), not instantly. Instant stroke notification via SSE is deferred to Connection Events.
 - If an online player is still open and keeps writing, the reflect policy will follow it; HandySync does not lock values.
-- The spec does not define HSTP offset sign or bounds; behavior depends on device verification.
+- The spec does not define HSTP offset sign or bounds. Sign direction is recorded from device verification; bounds remain unverified.
 - Rate limits (`X-RateLimit-*`) are not handled beyond debounce and the poll interval; rapid dragging must not produce more than a few writes per second.

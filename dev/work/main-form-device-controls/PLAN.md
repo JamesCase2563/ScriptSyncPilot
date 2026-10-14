@@ -30,7 +30,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 - [x] **Connect policy.** On connect, read and log the device's current values, then reapply the saved HandySync values so that values left behind by online players do not affect HandySync.
 - [x] **Old local offset controller.** Remove it outright rather than keep it as a deprecated or hidden option; there is one offset, on the device. The legacy `OffsetMs` value is not migrated (its sign need not match HSTP); the property is deleted from `AppSettings`, so the stale key is ignored on load and dropped on the next save. Log once on first start if a nonzero legacy value was found.
-- [x] **Offset display convention.** Display the raw HSTP value so it matches what online players show, with a tooltip describing the verified direction (for example, "positive = device moves later").
+- [x] **Offset display convention.** Display the raw HSTP value so it matches what online players show, with a tooltip stating that positive values make device operation run ahead of video and negative values delay it (verified 2026-10-14).
 - [x] **Offset range and step.** Keep the existing -1000..+1000 ms slider with 10 ms small steps; extending it is Offset Feedback work.
 - [x] **Stroke control type.** One custom range trackbar with two thumbs (min and max) in whole percent (0-100), plus a label showing percent and accepted millimetres. A thumb stops at the other thumb; it cannot pass it or push it. WinForms has no built-in range trackbar, so this is a small owner-drawn HandySync control.
 - [x] **Slider look and orientation (GUI guidance, not a requirement).** Offset and Stroke Range share one owner-drawn slider style and both support horizontal/vertical orientation. Default: Offset horizontal, Stroke Range vertical with max at the top. See [design](DESIGN.md#layout-and-appearance-gui-guidance).
@@ -45,7 +45,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 ### 1. Design and Contract Verification
 
 - [x] Record API contract from the v3 OpenAPI spec in DESIGN.md.
-- [ ] Resolve the open decisions above.
+- [x] Resolve the open decisions above.
 - [ ] Verify on the device: HSTP offset sign and units, whether a running HSSP playback picks up an offset change immediately, offset persistence across device reconnect, how quickly an online player's changes become visible via GET, stroke normalization/rejection behavior, and 200-with-`error` responses.
 - [ ] Record verified results in VERIFICATION.md and adjust DESIGN.md.
 

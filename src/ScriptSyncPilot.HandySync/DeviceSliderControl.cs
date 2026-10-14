@@ -85,12 +85,19 @@ public sealed class DeviceSliderControl : Control
 
         e.Graphics.DrawLine(trackPen, trackStart, trackEnd);
         e.Graphics.DrawLine(selectedPen, lowPoint, highPoint);
-        DrawThumb(e.Graphics, lowPoint, thumbBrush, thumbPen, !IsRange || _activeThumb == 0);
-        if (IsRange) DrawThumb(e.Graphics, highPoint, thumbBrush, thumbPen, _activeThumb == 1);
+        if (IsRange)
+        {
+            DrawThumb(e.Graphics, lowPoint, thumbBrush, thumbPen, _activeThumb == 0);
+            DrawThumb(e.Graphics, highPoint, thumbBrush, thumbPen, _activeThumb == 1);
+        }
+        else
+        {
+            DrawThumb(e.Graphics, highPoint, thumbBrush, thumbPen, true);
+        }
 
         if (Focused)
         {
-            var activePoint = IsRange && _activeThumb == 1 ? highPoint : lowPoint;
+            var activePoint = IsRange && _activeThumb == 0 ? lowPoint : highPoint;
             var cue = new Rectangle((int)activePoint.X - 12, (int)activePoint.Y - 12, 24, 24);
             ControlPaint.DrawFocusRectangle(e.Graphics, cue);
         }

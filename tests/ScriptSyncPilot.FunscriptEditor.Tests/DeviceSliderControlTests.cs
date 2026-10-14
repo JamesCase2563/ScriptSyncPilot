@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Diagnostics;
+using System.Drawing;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +32,20 @@ public sealed class DeviceSliderControlTests
 
         Assert.AreEqual(350, slider.LowerValue);
         Assert.AreEqual(350, slider.UpperValue);
+    }
+
+    [STATestMethod]
+    public void SingleThumbIsRenderedAtItsSelectedHorizontalValue()
+    {
+        using var slider = new DeviceSliderControl { Minimum = -1000, Maximum = 1000, Size = new Size(220, 40) };
+        slider.SetValues(500, 0);
+        var valueToPoint = typeof(DeviceSliderControl).GetMethod("ValueToPoint", PrivateInstance)!;
+        var thumb = (PointF)valueToPoint.Invoke(slider, [500])!;
+        using var bitmap = new Bitmap(slider.Width, slider.Height);
+
+        slider.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+
+        Assert.AreEqual(Color.WhiteSmoke.ToArgb(), bitmap.GetPixel((int)Math.Round(thumb.X), (int)Math.Round(thumb.Y)).ToArgb());
     }
 
     [STATestMethod]

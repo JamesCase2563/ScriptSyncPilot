@@ -12,5 +12,6 @@
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
     <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
     <ProjectReference Include="..\..\src\ScriptSyncPilot.FunscriptEditor\ScriptSyncPilot.FunscriptEditor.csproj" />
+    <ProjectReference Include="..\..\src\ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" />
   </ItemGroup>
 </Project>

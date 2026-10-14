@@ -23,7 +23,13 @@ With the timeline focused, eleven physical top-row scan codes insert positions a
 
 Keyboard and value-bar entry share `InsertPositionAtPlayhead`, which validates 0-100, captures/clamps/rounds the playhead using the existing timestamp policy, and commits through AddOrReplace and action history. An existing timestamp is updated without duplicates; identical values do not create history or invalidate redo. The affected point is selected. Automated editor tests and user-performed manual checks cover this behavior.
 
+Middle-button dragging in the timeline pans the viewport horizontally without seeking or editing actions. Panning uses mouse capture, clamps to existing viewport bounds, and updates the scrollbar; release, capture loss, or document loading ends it. Left-button point dragging and scrubbing retain their existing behavior.
+
 ## Playback Lifecycle
+
+During active playback, reaching the visible timeline's right edge recenters the viewport on the playhead without changing zoom or seeking. Existing timeline bounds limit centering near the end. Auto-follow is suppressed during panning, point dragging, or scrubbing; paused/manual playhead updates do not recenter.
+
+Playback speed is controlled independently of funscript actions/history and media-time coordinates. The transport provides a 0.25-2.00x input in 0.05x steps and a 1x reset; the displayed rate follows mpv observations, including external changes and values outside the editor input range. Attaching preserves an external player's current rate; editor-launched mpv starts paused at 1x. Speed is not persisted or applied on reconnect. Queued observations and write failures are guarded by session identity and form lifetime.
 
 Launch/attach transitions share a gate and disable connection buttons. Attach retains its cancellation source and checks lifecycle identity before publishing. Position/pause/duration/disconnect events retain session identity, and queued UI callbacks reject obsolete sessions. Successful attachment refreshes current observed properties.
 

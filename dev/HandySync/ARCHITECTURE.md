@@ -15,6 +15,8 @@ Connection checks connectivity, selects HSSP mode, samples client/server clock o
 
 Version-aware installation captures client/script snapshots, serializes setup, and rechecks selection after upload. Synchronization stays suspended until the current version is installed. mpv position is tracked even without device readiness. Play/pause/seeks issue HSSP commands, periodic synctime corrects drift, and the offset slider debounces adjustments. Clock sampling currently happens during device connection, not periodically.
 
+Device playback requires an observed mpv speed of exactly 1x. Unknown or non-1x rates stop the device and show a warning, including when another application changes the shared player's speed. Seek, periodic sync, and offset commands are suppressed and queued commands recheck the rate after acquiring the device gate. Restoring confirmed 1x resumes from the current mpv position if playing; paused video leaves the device stopped. Stop failures are shown explicitly and cannot guarantee that physical motion has ceased. HandySync never writes the player's speed. Non-1x hardware rate compensation remains unsupported.
+
 ## Ordering and Lifecycle
 
 - One device-command semaphore covers connection requests, setup, playback, clock sync, and final stops.

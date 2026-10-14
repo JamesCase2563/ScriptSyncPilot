@@ -257,6 +257,7 @@ public sealed class MainForm : Form
             session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
             session.DurationChanged += seconds => OnMpvDurationChanged(session, seconds);
+            session.SpeedChanged += _ => OnMpvSpeedChanged(session);
             session.Disconnected += () => BeginInvoke(() =>
             {
                 if (ReferenceEquals(_mpv, session)) _ = StopAsync();
@@ -448,13 +449,13 @@ public sealed class MainForm : Form
                 if (ReferenceEquals(_mpv, session)) _waveform.SetPlayhead(pos);
             });
 
-        var expected = _lastKnownPos + _sincePosUpdate.Elapsed.TotalSeconds;
+        var expected = _lastKnownPos + (session.IsPaused ? 0 : _sincePosUpdate.Elapsed.TotalSeconds * (session.Speed ?? 1.0));
         var isSeek = Math.Abs(pos - expected) > 0.75;
         _lastKnownPos = pos;
         _sincePosUpdate.Restart();
 
         var client = _handy;
-        if (!_hsspReady || client is null) return;
+        if (!_hsspReady || client is null || session.Speed != 1.0) return;
 
         if (isSeek && _mpv is { IsPaused: false })
         {
@@ -463,7 +464,8 @@ public sealed class MainForm : Form
                 await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
                 try
                 {
-                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
+                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)
+                        || session.IsPaused || session.Speed != 1.0) return;
                     await client.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
                 }
                 finally
@@ -480,6 +482,22 @@ public sealed class MainForm : Form
         }
     }
 
+    private void OnMpvSpeedChanged(MpvSession session)
+    {
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(async () =>
+            {
+                if (_isClosing || !ReferenceEquals(_mpv, session)) return;
+                await OnMpvPauseChangedAsync(session, session.IsPaused);
+            });
+        }
+        catch (InvalidOperationException) when (_isClosing || IsDisposed || !IsHandleCreated)
+        {
+        }
+    }
+
     private async Task OnMpvPauseChangedAsync(MpvSession session, bool paused)
     {
         if (!ReferenceEquals(_mpv, session)) return;
@@ -493,7 +511,14 @@ public sealed class MainForm : Form
             {
                 if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
 
-                if (paused)
+                if (session.Speed != 1.0)
+                {
+                    Log("Device synchronization suspended: mpv playback speed must be confirmed at 1x. Restore 1x to resume.");
+                    SetStatus("Device sync suspended: requires 1x playback");
+                    await client.HsspStopAsync(_lifetimeCts.Token);
+                    SetStatus("Device stopped: requires 1x playback");
+                }
+                else if (session.IsPaused)
                 {
                     await client.HsspStopAsync(_lifetimeCts.Token);
                     Log("Playback paused; device stopped.");
@@ -501,7 +526,7 @@ public sealed class MainForm : Form
                 }
                 else
                 {
-                    await client.HsspPlayAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                    await client.HsspPlayAsync(DeviceTimeMs(session.PositionSeconds), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
                     Log("Playback resumed; device started.");
                     SetStatus("Playing");
                 }
@@ -514,6 +539,8 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Play/stop failed: {ex.Message}");
+            if (ReferenceEquals(_mpv, session) && session.Speed != 1.0)
+                SetStatus("Device stop failed: pause mpv and disconnect Handy");
         }
     }
 
@@ -521,13 +548,14 @@ public sealed class MainForm : Form
     {
         var client = _handy;
         var session = _mpv;
-        if (!_hsspReady || client is null || session is not { IsPaused: false }) return;
+        if (!_hsspReady || client is null || session is not { IsPaused: false, Speed: 1.0 }) return;
         try
         {
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
             {
-                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session) || session.IsPaused) return;
+                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session)
+                    || session.IsPaused || session.Speed != 1.0) return;
                 await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
             }
             finally
@@ -545,7 +573,7 @@ public sealed class MainForm : Form
     {
         var client = _handy;
         var session = _mpv;
-        if (!_hsspReady || client is null || session is not { IsPaused: false }) return;
+        if (!_hsspReady || client is null || session is not { IsPaused: false, Speed: 1.0 }) return;
 
         _offsetChangeCts?.Cancel();
         _offsetChangeCts?.Dispose();
@@ -559,7 +587,8 @@ public sealed class MainForm : Form
             await _deviceCommandGate.WaitAsync(ct);
             try
             {
-                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session) || session.IsPaused) return;
+                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session)
+                    || session.IsPaused || session.Speed != 1.0) return;
                 await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: ct);
             }
             finally

@@ -59,7 +59,7 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 - [x] Update permanent Common/editor architecture and the editor backlog.
 - [x] Record limitations and return deferred work to the owning backlog.
 - [x] Record [PR #6](https://github.com/Frank-Yong/ScriptSyncPilot/pull/6).
-- [ ] After review, archive under dev/archive/YYYY-MM-video-playback-speed/ and update links.
+- [x] After review, archive under dev/archive/YYYY-MM-video-playback-speed/ and update links.
 
 ## Outcome
 

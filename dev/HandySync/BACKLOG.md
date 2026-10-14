@@ -95,7 +95,7 @@ Keep user-adjustable sync offset and minimum/maximum stroke controls on the main
 
 ## Playback Speed Sync
 
-**Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../work/video-playback-speed/PLAN.md) work.
+**Priority:** High. **Status:** Proposed; follow-up to the editor's [video playback speed](../archive/2026-10-video-playback-speed/PLAN.md) work.
 
 Non-1x device playback is currently unsupported. HandySync observes mpv speed and, while the rate is unknown or not 1x, stops HSSP playback, suppresses seek/periodic/offset synchronization, and warns the user. Confirmed 1x playback resumes synchronization from the current media position. This avoids sending mismatched device timing, but does not drive the device at non-1x rates. HandySync does not write mpv speed or provide speed controls.
 

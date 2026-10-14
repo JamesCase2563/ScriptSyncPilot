@@ -60,9 +60,11 @@ Evaluate markers and configurable grid/marker snapping for alignment with video,
 
 ## Video Playback Speed
 
-**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11); PR pending.
+**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11).
 
 Allow changing mpv playback speed from the editor for review and timing work. Show the active rate and provide a clear way to restore normal speed (1x). Define the supported range and increments, whether the rate resets or persists when changing videos, and how speed changes interact with seeking, frame stepping, and the timeline's media-time coordinates.
+
+Archived documents: [plan](../archive/2026-10-video-playback-speed/PLAN.md), [design](../archive/2026-10-video-playback-speed/DESIGN.md), and [verification](../archive/2026-10-video-playback-speed/VERIFICATION.md).
 
 ## Keyboard Numeric Position Entry
 

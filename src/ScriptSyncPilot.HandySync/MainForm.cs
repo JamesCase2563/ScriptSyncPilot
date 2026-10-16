@@ -878,7 +878,9 @@ public sealed class MainForm : Form
             var mayApplyOffset = DeviceControlLogic.ShouldApplyPolledValue(
                 offsetVersion, _offsetEditVersion, _offsetWriteCts is not null || _offsetWriteFailed,
                 _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
-            if (_lastDeviceOffset is int previousOffset && previousOffset != offset && mayApplyOffset)
+            var canAdoptOffset = mayApplyOffset
+                                 && (!_offsetInitialReadFailed || offsetVersion == _offsetInitialReadEditVersion);
+            if (_lastDeviceOffset is int previousOffset && previousOffset != offset && canAdoptOffset)
             {
                 _offsetSlider.SetValues(offset, 0);
                 UpdateOffsetLabel();
@@ -886,8 +888,7 @@ public sealed class MainForm : Form
                 _offsetState.Text = "changed by another app";
                 Log($"Device offset changed externally: {previousOffset} -> {offset} ms.");
             }
-            else if (_lastDeviceOffset is null && mayApplyOffset
-                     && (!_offsetInitialReadFailed || offsetVersion == _offsetInitialReadEditVersion))
+            else if (_lastDeviceOffset is null && canAdoptOffset)
             {
                 _offsetSlider.SetValues(offset, 0);
                 UpdateOffsetLabel();
@@ -895,7 +896,12 @@ public sealed class MainForm : Form
                 _offsetState.Text = "applied";
                 _offsetInitialReadFailed = false;
             }
-            if (mayApplyOffset) _lastDeviceOffset = offset;
+            else if (_lastDeviceOffset == offset && mayApplyOffset && !_offsetWriteFailed
+                     && _offsetState.Text == "device values unknown")
+            {
+                _offsetState.Text = "applied";
+            }
+            if (canAdoptOffset) _lastDeviceOffset = offset;
 
             if (_hasDeviceSlider)
             {
@@ -903,8 +909,10 @@ public sealed class MainForm : Form
                 var mayApplyStroke = DeviceControlLogic.ShouldApplyPolledValue(
                     strokeVersion, _strokeEditVersion, _strokeWriteCts is not null || _strokeWriteFailed,
                     _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
+                var canAdoptStroke = mayApplyStroke
+                                     && (!_strokeInitialReadFailed || strokeVersion == _strokeInitialReadEditVersion);
                 if (_lastDeviceStroke is { } previousStroke
-                    && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max) && mayApplyStroke)
+                    && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max) && canAdoptStroke)
                 {
                     _strokeSlider.SetValues(
                         DeviceControlLogic.FromRelativeStroke(stroke.Min), DeviceControlLogic.FromRelativeStroke(stroke.Max));
@@ -913,8 +921,7 @@ public sealed class MainForm : Form
                     _strokeState.Text = "changed by another app";
                     Log($"Device stroke changed externally: {previousStroke.Min:P0}-{previousStroke.Max:P0} -> {stroke.Min:P0}-{stroke.Max:P0}.");
                 }
-                else if (_lastDeviceStroke is null && mayApplyStroke
-                         && (!_strokeInitialReadFailed || strokeVersion == _strokeInitialReadEditVersion))
+                else if (_lastDeviceStroke is null && canAdoptStroke)
                 {
                     _strokeSlider.SetValues(
                         DeviceControlLogic.FromRelativeStroke(stroke.Min), DeviceControlLogic.FromRelativeStroke(stroke.Max));
@@ -923,7 +930,13 @@ public sealed class MainForm : Form
                     _strokeState.Text = "applied";
                     _strokeInitialReadFailed = false;
                 }
-                if (mayApplyStroke)
+                else if (_lastDeviceStroke is { } knownStroke
+                         && knownStroke.Min == stroke.Min && knownStroke.Max == stroke.Max
+                         && mayApplyStroke && !_strokeWriteFailed && _strokeState.Text == "device values unknown")
+                {
+                    _strokeState.Text = "applied";
+                }
+                if (canAdoptStroke)
                 {
                     _lastDeviceStroke = stroke;
                     _strokeMinAbsolute = stroke.MinAbsolute;
@@ -952,8 +965,8 @@ public sealed class MainForm : Form
             }
             if (_pollFailureCount >= 3)
             {
-                _offsetState.Text = "device values unknown";
-                if (_hasDeviceSlider) _strokeState.Text = "device values unknown";
+                if (!_offsetWriteFailed) _offsetState.Text = "device values unknown";
+                if (_hasDeviceSlider && !_strokeWriteFailed) _strokeState.Text = "device values unknown";
             }
         }
         finally

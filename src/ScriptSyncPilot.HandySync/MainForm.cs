@@ -550,6 +550,9 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                _temperatureHighTrigger = null;
+                _temperatureHysteresis = null;
+                _deviceToolTip.SetToolTip(_strokeSlider, string.Empty);
                 Log($"Could not read physical slider settings: {ex.Message}");
             }
 

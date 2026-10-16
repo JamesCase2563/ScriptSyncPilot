@@ -39,7 +39,7 @@ Record firmware version, device model, and date for each result.
 - [x] Polling skips a busy gate, does not overlap ticks, and does not start after disconnect or close begins.
 - [x] Poll failures preserve selected values and connection state; repeated failures log once and reach *device values unknown*.
 - [x] Core slider settings, capabilities, and slider state properties parse correctly.
-- [x] Failed optional capabilities/settings reads leave controls usable and omit the related details.
+- [x] Failed optional capabilities/settings reads leave controls usable, omit related details, and clear stale temperature thresholds/tooltips so the fallback trigger is used.
 - [x] Capabilities with `slider` 0 disable stroke controls and suppress stroke reads and writes.
 - [x] Temperature bands cover thresholds and hysteresis; the fallback trigger is used without settings; one log entry is emitted per transition; temperature is read every third poll tick; polling issues no playback command.
 - [x] Video actions are grouped under Video as `Attach`, `Detach`, `Play`, and `Pause`, separately from Handy `Connect`/`Disconnect`; transport buttons are disabled until attached and track mpv's observed pause state.
@@ -70,9 +70,9 @@ Record firmware version, device model, and date for each result.
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
-- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/adoption-lock/bin/ -p:UseAppHost=false` (2026-10-16): passed, 133 tests.
-- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/adoption-lock/bin/ -p:UseAppHost=false` (2026-10-16): passed.
-- [x] Focused tests for slider logic/capture loss/keyboard routing, connect-adoption locking, support-state write races, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, and video transport labels/state passed.
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/optional-settings/bin/ -p:UseAppHost=false` (2026-10-16): passed, 133 tests.
+- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/optional-settings/bin/ -p:UseAppHost=false` (2026-10-16): passed.
+- [x] Focused tests for slider logic/capture loss/keyboard routing, connect-adoption locking, support-state write races, optional-settings fallback, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, and video transport labels/state passed.
 
 ## Results and Limitations
 

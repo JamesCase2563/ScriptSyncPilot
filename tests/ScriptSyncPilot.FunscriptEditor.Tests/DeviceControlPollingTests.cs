@@ -260,10 +260,16 @@ public sealed class DeviceControlPollingTests
             "/api/settings/slider" => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
             "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":125}}"),
             "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.2,\"max\":0.8,\"min_absolute\":25,\"max_absolute\":85}}"),
+            "/api/slider/state" => JsonResponse("{\"result\":{\"motor_temp\":77}}"),
             _ => throw new InvalidOperationException("Unexpected request.")
         }));
         using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
         InitializePollingForm(form, client);
+        SetPrivateField(form, "_temperatureHighTrigger", 80d);
+        SetPrivateField(form, "_temperatureHysteresis", 10d);
+        var tooltip = (ToolTip)GetPrivateField(form, "_deviceToolTip")!;
+        var strokeSliderForTooltip = (Control)GetPrivateField(form, "_strokeSlider")!;
+        tooltip.SetToolTip(strokeSliderForTooltip, "Previous device physical slider settings.");
 
         InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
         ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
@@ -271,7 +277,11 @@ public sealed class DeviceControlPollingTests
         Assert.IsTrue(((DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!).Enabled);
         Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
         Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
-        Assert.AreEqual(string.Empty, ((ToolTip)GetPrivateField(form, "_deviceToolTip")!).GetToolTip((Control)GetPrivateField(form, "_strokeSlider")!));
+        Assert.IsNull(GetPrivateField(form, "_temperatureHighTrigger"));
+        Assert.IsNull(GetPrivateField(form, "_temperatureHysteresis"));
+        Assert.AreEqual(string.Empty, tooltip.GetToolTip(strokeSliderForTooltip));
+        InvokePrivateTask(form, "UpdateTemperatureAsync", client).GetAwaiter().GetResult();
+        Assert.AreEqual("Motor 77.0 °C (High)", ((Label)GetPrivateField(form, "_temperatureValue")!).Text);
 
         using var noSliderForm = new ScriptSyncPilot.HandySync.MainForm();
         using var noSliderHandler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch

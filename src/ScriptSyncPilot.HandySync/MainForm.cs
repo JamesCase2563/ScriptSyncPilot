@@ -65,6 +65,12 @@ public sealed class MainForm : Form
     private int _devicePollTick;
     private int _offsetEditVersion;
     private int _strokeEditVersion;
+    private int _offsetInitialReadEditVersion;
+    private int _strokeInitialReadEditVersion;
+    private bool _offsetInitialReadFailed;
+    private bool _strokeInitialReadFailed;
+    private bool _offsetWriteFailed;
+    private bool _strokeWriteFailed;
     private int _pollFailureCount;
     private bool _pollFailureLogged;
     private bool _offsetWriteInFlight;
@@ -171,6 +177,7 @@ public sealed class MainForm : Form
         _offsetSlider.ValuesChanged += (_, _) =>
         {
             _offsetEditVersion++;
+            _offsetWriteFailed = false;
             UpdateOffsetLabel();
             _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
             _offsetState.Text = _handy is null ? "not connected" : "pending";
@@ -179,6 +186,7 @@ public sealed class MainForm : Form
         _strokeSlider.ValuesChanged += (_, _) =>
         {
             _strokeEditVersion++;
+            _strokeWriteFailed = false;
             _strokeMinAbsolute = null;
             _strokeMaxAbsolute = null;
             UpdateStrokeLabel();
@@ -397,6 +405,10 @@ public sealed class MainForm : Form
             _handy = client;
             _lastDeviceOffset = null;
             _lastDeviceStroke = null;
+            _offsetInitialReadFailed = false;
+            _strokeInitialReadFailed = false;
+            _offsetWriteFailed = false;
+            _strokeWriteFailed = false;
             _devicePollTick = 0;
 
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
@@ -559,6 +571,8 @@ public sealed class MainForm : Form
             try
             {
                 var currentOffset = await client.GetOffsetAsync(_lifetimeCts.Token);
+                _offsetInitialReadFailed = false;
+                _offsetWriteFailed = false;
                 _lastDeviceOffset = currentOffset;
                 Log($"Device HSTP offset on connect: {currentOffset} ms.");
                 _offsetSlider.SetValues(currentOffset, 0);
@@ -568,6 +582,9 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                _offsetInitialReadFailed = true;
+                _offsetInitialReadEditVersion = _offsetEditVersion;
+                _offsetWriteFailed = false;
                 _offsetState.Text = "not applied";
                 Log($"Could not read device offset: {ex.Message}");
             }
@@ -577,6 +594,8 @@ public sealed class MainForm : Form
                 try
                 {
                     var currentStroke = await client.GetStrokeAsync(_lifetimeCts.Token);
+                    _strokeInitialReadFailed = false;
+                    _strokeWriteFailed = false;
                     _lastDeviceStroke = currentStroke;
                     Log($"Device stroke on connect: {currentStroke.Min:P0}-{currentStroke.Max:P0} "
                         + $"({currentStroke.MinAbsolute:F1}-{currentStroke.MaxAbsolute:F1} mm).");
@@ -590,6 +609,9 @@ public sealed class MainForm : Form
                 }
                 catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
                 {
+                    _strokeInitialReadFailed = true;
+                    _strokeInitialReadEditVersion = _strokeEditVersion;
+                    _strokeWriteFailed = false;
                     _strokeState.Text = "not applied";
                     Log($"Could not read device stroke: {ex.Message}");
                 }
@@ -724,6 +746,8 @@ public sealed class MainForm : Form
                 _offsetWriteInFlight = true;
                 await client.SetOffsetAsync(offset, token);
                 if (token.IsCancellationRequested || !ReferenceEquals(_offsetWriteCts, cancellation)) return;
+                _offsetWriteFailed = false;
+                _offsetInitialReadFailed = false;
                 _lastDeviceOffset = offset;
                 _offsetState.Text = "applied";
                 Log($"Device offset applied: {offset} ms.");
@@ -741,6 +765,7 @@ public sealed class MainForm : Form
         {
             if (ReferenceEquals(_offsetWriteCts, cancellation))
             {
+                _offsetWriteFailed = true;
                 _offsetState.Text = "not applied";
                 Log($"Device offset write timed out: {ex.Message}");
             }
@@ -749,6 +774,7 @@ public sealed class MainForm : Form
         {
             if (!token.IsCancellationRequested && ReferenceEquals(_offsetWriteCts, cancellation))
             {
+                _offsetWriteFailed = true;
                 _offsetState.Text = "not applied";
                 Log($"Device offset write failed: {ex.Message}");
             }
@@ -785,6 +811,8 @@ public sealed class MainForm : Form
                 var accepted = await client.SetStrokeAsync(
                     DeviceControlLogic.ToRelativeStroke(minimum), DeviceControlLogic.ToRelativeStroke(maximum), token);
                 if (token.IsCancellationRequested || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
+                _strokeWriteFailed = false;
+                _strokeInitialReadFailed = false;
                 _lastDeviceStroke = accepted;
                 _strokeMinAbsolute = accepted.MinAbsolute;
                 _strokeMaxAbsolute = accepted.MaxAbsolute;
@@ -809,6 +837,7 @@ public sealed class MainForm : Form
         {
             if (ReferenceEquals(_strokeWriteCts, cancellation))
             {
+                _strokeWriteFailed = true;
                 _strokeState.Text = "not applied";
                 Log($"Device stroke write timed out: {ex.Message}");
             }
@@ -817,6 +846,7 @@ public sealed class MainForm : Form
         {
             if (!token.IsCancellationRequested && ReferenceEquals(_strokeWriteCts, cancellation))
             {
+                _strokeWriteFailed = true;
                 _strokeState.Text = "not applied";
                 Log($"Device stroke write failed: {ex.Message}");
             }
@@ -846,7 +876,8 @@ public sealed class MainForm : Form
             if (!ReferenceEquals(_handy, client) || _handyDisconnecting) return;
             var offset = await client.GetOffsetAsync(_lifetimeCts.Token);
             var mayApplyOffset = DeviceControlLogic.ShouldApplyPolledValue(
-                offsetVersion, _offsetEditVersion, _offsetWriteCts is not null, _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
+                offsetVersion, _offsetEditVersion, _offsetWriteCts is not null || _offsetWriteFailed,
+                _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
             if (_lastDeviceOffset is int previousOffset && previousOffset != offset && mayApplyOffset)
             {
                 _offsetSlider.SetValues(offset, 0);
@@ -855,18 +886,23 @@ public sealed class MainForm : Form
                 _offsetState.Text = "changed by another app";
                 Log($"Device offset changed externally: {previousOffset} -> {offset} ms.");
             }
-            else if (_lastDeviceOffset is null && mayApplyOffset && _offsetState.Text != "not applied")
+            else if (_lastDeviceOffset is null && mayApplyOffset
+                     && (!_offsetInitialReadFailed || offsetVersion == _offsetInitialReadEditVersion))
             {
                 _offsetSlider.SetValues(offset, 0);
                 UpdateOffsetLabel();
+                _settings.DeviceOffsetMs = offset;
+                _offsetState.Text = "applied";
+                _offsetInitialReadFailed = false;
             }
-            _lastDeviceOffset = offset;
+            if (mayApplyOffset) _lastDeviceOffset = offset;
 
             if (_hasDeviceSlider)
             {
                 var stroke = await client.GetStrokeAsync(_lifetimeCts.Token);
                 var mayApplyStroke = DeviceControlLogic.ShouldApplyPolledValue(
-                    strokeVersion, _strokeEditVersion, _strokeWriteCts is not null, _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
+                    strokeVersion, _strokeEditVersion, _strokeWriteCts is not null || _strokeWriteFailed,
+                    _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
                 if (_lastDeviceStroke is { } previousStroke
                     && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max) && mayApplyStroke)
                 {
@@ -877,12 +913,17 @@ public sealed class MainForm : Form
                     _strokeState.Text = "changed by another app";
                     Log($"Device stroke changed externally: {previousStroke.Min:P0}-{previousStroke.Max:P0} -> {stroke.Min:P0}-{stroke.Max:P0}.");
                 }
-                else if (_lastDeviceStroke is null && mayApplyStroke && _strokeState.Text != "not applied")
+                else if (_lastDeviceStroke is null && mayApplyStroke
+                         && (!_strokeInitialReadFailed || strokeVersion == _strokeInitialReadEditVersion))
                 {
                     _strokeSlider.SetValues(
                         DeviceControlLogic.FromRelativeStroke(stroke.Min), DeviceControlLogic.FromRelativeStroke(stroke.Max));
+                    _settings.StrokeMinPercent = _strokeSlider.LowerValue;
+                    _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+                    _strokeState.Text = "applied";
+                    _strokeInitialReadFailed = false;
                 }
-                _lastDeviceStroke = stroke;
+                if (mayApplyStroke) _lastDeviceStroke = stroke;
                 _strokeMinAbsolute = stroke.MinAbsolute;
                 _strokeMaxAbsolute = stroke.MaxAbsolute;
                 UpdateStrokeLabel();

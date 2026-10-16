@@ -179,6 +179,85 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void SuccessfulPollRecoversFailedInitialReadsWhenNoLocalEditOccurred()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var offsetReadCount = 0;
+        var strokeReadCount = 0;
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/capabilities" => JsonResponse("{\"result\":{\"slider\":1}}"),
+            "/api/settings/slider" => JsonResponse("{\"result\":{\"x_limit_start\":0,\"x_limit_stop\":110,\"x_min_speed\":30,\"x_max_speed\":400}}"),
+            "/api/hstp/offset" => offsetReadCount++ == 0
+                ? JsonResponse("{\"error\":{\"code\":1002,\"name\":\"DeviceTimeout\"}}")
+                : JsonResponse("{\"result\":{\"offset\":425}}"),
+            "/api/slider/stroke" => strokeReadCount++ == 0
+                ? JsonResponse("{\"error\":{\"code\":1002,\"name\":\"DeviceTimeout\"}}")
+                : JsonResponse("{\"result\":{\"min\":0.3,\"max\":0.8,\"min_absolute\":35,\"max_absolute\":90}}"),
+            _ => throw new InvalidOperationException("Unexpected request.")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        SetPrivateField(form, "_lastDeviceOffset", null);
+        SetPrivateField(form, "_lastDeviceStroke", null);
+
+        InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
+        ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
+        Assert.AreEqual("not applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
+        Assert.AreEqual("not applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        var settings = (AppSettings)GetPrivateField(form, "_settings")!;
+        Assert.AreEqual(425, offset.LowerValue);
+        Assert.AreEqual(30, stroke.LowerValue);
+        Assert.AreEqual(80, stroke.UpperValue);
+        Assert.AreEqual(425, settings.DeviceOffsetMs);
+        Assert.AreEqual(30, settings.StrokeMinPercent);
+        Assert.AreEqual(80, settings.StrokeMaxPercent);
+        Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
+        Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.IsFalse((bool)GetPrivateField(form, "_offsetInitialReadFailed")!);
+        Assert.IsFalse((bool)GetPrivateField(form, "_strokeInitialReadFailed")!);
+    }
+
+    [STATestMethod]
+    public void PollDoesNotReplaceAUserValueAfterItsWriteFailed()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":300}}"),
+            "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.3,\"max\":0.7,\"min_absolute\":35,\"max_absolute\":80}}"),
+            _ => throw new InvalidOperationException("Unexpected request.")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        offset.SetValues(200, 0);
+        stroke.SetValues(20, 80);
+        SetPrivateField(form, "_offsetWriteFailed", true);
+        SetPrivateField(form, "_strokeWriteFailed", true);
+        ((Label)GetPrivateField(form, "_offsetState")!).Text = "not applied";
+        ((Label)GetPrivateField(form, "_strokeState")!).Text = "not applied";
+
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual(200, offset.LowerValue);
+        Assert.AreEqual(20, stroke.LowerValue);
+        Assert.AreEqual(80, stroke.UpperValue);
+        Assert.AreEqual("not applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
+        Assert.AreEqual("not applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.AreEqual(125, GetPrivateField(form, "_lastDeviceOffset"));
+        var lastStroke = (HandyApiClient.SliderStroke)GetPrivateField(form, "_lastDeviceStroke")!;
+        Assert.AreEqual(0.25, lastStroke.Min);
+        Assert.AreEqual(0.75, lastStroke.Max);
+    }
+
+    [STATestMethod]
     public void PollDoesNotStartAfterDisconnectOrCloseBegins()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

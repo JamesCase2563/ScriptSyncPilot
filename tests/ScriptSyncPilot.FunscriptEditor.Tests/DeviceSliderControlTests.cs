@@ -250,6 +250,13 @@ public sealed class DeviceSliderControlTests
         using var serialized = JsonDocument.Parse(settings.Serialize());
         Assert.IsFalse(serialized.RootElement.TryGetProperty("OffsetMs", out _));
         Assert.IsTrue(serialized.RootElement.TryGetProperty("DeviceOffsetMs", out _));
+
+        foreach (var invalidLegacyValue in new[] { "null", "{\"OffsetMs\":\"725\"}" })
+        {
+            var ignored = AppSettings.Deserialize(invalidLegacyValue, messages.Add);
+            Assert.AreEqual(0, ignored.DeviceOffsetMs);
+        }
+        Assert.AreEqual(1, messages.Count);
     }
 
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;

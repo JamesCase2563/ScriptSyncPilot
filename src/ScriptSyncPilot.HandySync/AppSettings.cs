@@ -47,7 +47,9 @@ public sealed class AppSettings
         try
         {
             using var document = JsonDocument.Parse(json);
-            if (document.RootElement.TryGetProperty("OffsetMs", out var legacyOffset)
+            if (document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("OffsetMs", out var legacyOffset)
+                && legacyOffset.ValueKind == JsonValueKind.Number
                 && legacyOffset.TryGetInt32(out var value) && value != 0)
                 log("Discarded legacy local OffsetMs setting; the device-side HSTP offset is independent.");
         }

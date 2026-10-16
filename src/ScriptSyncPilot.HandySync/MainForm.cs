@@ -867,7 +867,7 @@ public sealed class MainForm : Form
     private async Task PollDeviceValuesAsync()
     {
         var client = _handy;
-        if (_devicePollBusy || client is null || !_deviceControlsSupported || _handyDisconnecting || _isClosing) return;
+        if (_devicePollBusy || client is null || !_deviceControlsSupported || !IsCurrentPollClient(client)) return;
         _devicePollBusy = true;
         if (!await _deviceCommandGate.WaitAsync(0))
         {
@@ -879,8 +879,8 @@ public sealed class MainForm : Form
         var strokeVersion = _strokeEditVersion;
         try
         {
-            if (!ReferenceEquals(_handy, client) || _handyDisconnecting) return;
             var offset = await client.GetOffsetAsync(_lifetimeCts.Token);
+            if (!IsCurrentPollClient(client)) return;
             var mayApplyOffset = DeviceControlLogic.ShouldApplyPolledValue(
                 offsetVersion, _offsetEditVersion, _offsetWriteCts is not null || _offsetWriteFailed,
                 _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
@@ -911,7 +911,9 @@ public sealed class MainForm : Form
 
             if (_hasDeviceSlider)
             {
+                if (!IsCurrentPollClient(client)) return;
                 var stroke = await client.GetStrokeAsync(_lifetimeCts.Token);
+                if (!IsCurrentPollClient(client)) return;
                 var mayApplyStroke = DeviceControlLogic.ShouldApplyPolledValue(
                     strokeVersion, _strokeEditVersion, _strokeWriteCts is not null || _strokeWriteFailed,
                     _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
@@ -953,7 +955,12 @@ public sealed class MainForm : Form
 
             _devicePollTick++;
             if (_hasDeviceSlider && _devicePollTick % 3 == 0)
+            {
+                if (!IsCurrentPollClient(client)) return;
                 await UpdateTemperatureAsync(client);
+            }
+
+            if (!IsCurrentPollClient(client)) return;
 
             _pollFailureCount = 0;
             _pollFailureLogged = false;
@@ -982,9 +989,14 @@ public sealed class MainForm : Form
         }
     }
 
+    private bool IsCurrentPollClient(HandyApiClient client) =>
+        ReferenceEquals(_handy, client) && !_handyDisconnecting && !_isClosing && !_lifetimeCts.IsCancellationRequested;
+
     private async Task UpdateTemperatureAsync(HandyApiClient client)
     {
+        if (!IsCurrentPollClient(client)) return;
         var state = await client.GetSliderStateAsync(_lifetimeCts.Token);
+        if (!IsCurrentPollClient(client)) return;
         var temperature = state.MotorTemperature;
         var trigger = _temperatureHighTrigger ?? 75;
         var hysteresis = _temperatureHysteresis ?? 10;

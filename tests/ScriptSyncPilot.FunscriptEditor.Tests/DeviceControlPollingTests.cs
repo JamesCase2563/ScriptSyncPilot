@@ -112,6 +112,56 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void PollStopsUsingClientWhenDisconnectBeginsDuringOffsetGet()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var offsetReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseOffsetRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/hstp/offset")
+            {
+                offsetReadStarted.TrySetResult();
+                await releaseOffsetRead.Task.WaitAsync(cancellationToken);
+                return JsonResponse("{\"result\":{\"offset\":250}}");
+            }
+            if (request.RequestUri.AbsolutePath == "/api/slider/stroke")
+                return JsonResponse("{\"result\":{\"min\":0.3,\"max\":0.7,\"min_absolute\":35,\"max_absolute\":80}}");
+            if (request.RequestUri.AbsolutePath == "/api/slider/state")
+                return JsonResponse("{\"result\":{\"motor_temp\":30}}");
+            throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        offset.SetValues(100, 0);
+        stroke.SetValues(20, 80);
+        SetPrivateField(form, "_lastDeviceOffset", 100);
+        SetPrivateField(form, "_lastDeviceStroke", new HandyApiClient.SliderStroke
+        {
+            Min = 0.2,
+            Max = 0.8,
+            MinAbsolute = 25,
+            MaxAbsolute = 85
+        });
+
+        var poll = InvokePrivateTask(form, "PollDeviceValuesAsync");
+        PumpUntil(() => offsetReadStarted.Task.IsCompleted, TimeSpan.FromSeconds(3));
+        SetPrivateField(form, "_handyDisconnecting", true);
+        SetPrivateField(form, "_handy", null);
+        releaseOffsetRead.TrySetResult();
+        PumpUntil(() => poll.IsCompleted, TimeSpan.FromSeconds(3));
+        poll.GetAwaiter().GetResult();
+
+        Assert.AreEqual(100, offset.LowerValue);
+        Assert.AreEqual(20, stroke.LowerValue);
+        Assert.AreEqual(80, stroke.UpperValue);
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hstp/offset"));
+        Assert.IsFalse(handler.Requests.Any(request => request.Path == "slider/stroke" || request.Path == "slider/state"));
+    }
+
+    [STATestMethod]
     public void UnopposedPollAdoptsExternalValuesWithoutIssuingWrites()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -445,6 +495,8 @@ public sealed class DeviceControlPollingTests
         using var handler = new RecordingHandler((_, _, _) => Task.FromResult(
             JsonResponse("{\"result\":{\"motor_temp\":68}}")));
         using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        SetPrivateField(form, "_handy", client);
+        SetPrivateField(form, "_deviceControlsSupported", true);
         SetPrivateField(form, "_temperatureHighTrigger", null);
         SetPrivateField(form, "_temperatureHysteresis", null);
 

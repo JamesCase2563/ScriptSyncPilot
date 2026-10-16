@@ -12,6 +12,19 @@ namespace ScriptSyncPilot.FunscriptEditor.Tests;
 [TestClass]
 public sealed class PlaybackSpeedCommandTests
 {
+    [TestMethod]
+    public void HsspSetup_StopsOnlyWhenReplacingSetupForTheSameClient()
+    {
+        using var client = new HandyApiClient("test-only");
+        using var anotherClient = new HandyApiClient("test-only");
+
+        Assert.IsFalse(HandyForm.ShouldStopBeforeHsspSetup(null, client));
+        Assert.IsTrue(HandyForm.ShouldStopBeforeHsspSetup(client, client));
+        Assert.IsFalse(HandyForm.ShouldStopBeforeHsspSetup(anotherClient, client));
+        Assert.IsFalse(HandyForm.ShouldStopOnDisconnect(null, client));
+        Assert.IsTrue(HandyForm.ShouldStopOnDisconnect(client, client));
+    }
+
     [STATestMethod]
     public void HandySync_SuspendsUnknownAndNonNormalRatesAndResumesAtCurrentPosition()
     {

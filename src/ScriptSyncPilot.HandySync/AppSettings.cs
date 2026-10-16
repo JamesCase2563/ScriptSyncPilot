@@ -24,8 +24,7 @@ public sealed class AppSettings
             if (File.Exists(FilePath))
             {
                 var json = File.ReadAllText(FilePath);
-                LogDiscardedLegacyOffset(json);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                return Deserialize(json);
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException)
@@ -35,14 +34,22 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
-    private static void LogDiscardedLegacyOffset(string json)
+    internal static AppSettings Deserialize(string json, Action<string>? log = null)
+    {
+        LogDiscardedLegacyOffset(json, log ?? AppLog.Write);
+        return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+    }
+
+    internal string Serialize() => JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+
+    private static void LogDiscardedLegacyOffset(string json, Action<string> log)
     {
         try
         {
             using var document = JsonDocument.Parse(json);
             if (document.RootElement.TryGetProperty("OffsetMs", out var legacyOffset)
                 && legacyOffset.TryGetInt32(out var value) && value != 0)
-                AppLog.Write("Discarded legacy local OffsetMs setting; the device-side HSTP offset is independent.");
+                log("Discarded legacy local OffsetMs setting; the device-side HSTP offset is independent.");
         }
         catch (JsonException)
         {
@@ -55,7 +62,7 @@ public sealed class AppSettings
          {
              var dir = Path.GetDirectoryName(FilePath)!;
              Directory.CreateDirectory(dir);
-             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+             File.WriteAllText(FilePath, Serialize());
          }
          catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
          {

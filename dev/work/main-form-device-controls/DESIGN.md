@@ -8,15 +8,15 @@ Online players write the HSTP offset and slider stroke range to the device and d
 
 ## API Contract (REST v3)
 
-Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/docs/spec.yaml`, retrieved 2026-10-11). Items marked *verify* are not stated by the spec and must be confirmed on the device.
+Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/docs/spec.yaml`, retrieved 2026-10-11). Where the spec does not define a behavior, this design records it as unspecified rather than requiring speculative device testing.
 
 | Endpoint | Request | Response `result` | Notes |
 | --- | --- | --- | --- |
 | `GET /info` | - | `fw_status` (0 up-to-date, 1 update-available, 2 update-required), `fw_version` string, `hw_model_name`, `session_id` | v3 requires firmware 4 or newer. |
-| `GET /hstp/offset` | - | `{ offset }` integer ms | "User adjusted device time offset". |
-| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Verified 2026-10-14: positive values make device operation run ahead of video; negative values delay it. A change takes effect immediately during running HSSP playback. Bounds: not specified; *verify*. |
+| `GET /hstp/offset` | - | `{ offset }` integer ms | "User adjusted device time offset". Offset units are taken from the v3 contract. |
+| `PUT /hstp/offset` | `{ offset }` number ms | `"ok"` | Verified 2026-10-14: positive values make device operation run ahead of video; negative values delay it. A change takes effect immediately during running HSSP playback. Offset bounds are not specified by the contract and are treated as device-defined. |
 | `GET /slider/stroke` | - | `min`, `max` (0.0-1.0), `min_absolute`, `max_absolute` (mm) | |
-| `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for min >= max: *verify*. |
+| `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for invalid ranges is unspecified; the UI keeps min <= max and surfaces request errors. |
 | `GET /capabilities` | - | `slider` count, `battery`, ... | Disable stroke controls when `slider` is 0. |
 | `GET /settings/slider` | - | `x_stroke_min`/`x_stroke_max` (mm), `x_min_speed`/`x_max_speed` (mm/s), `temp_high_trigger`, `temp_hysteresis` (°C), ... | Read-only; changed only in the Handy onboarding app. |
 | `GET /slider/state` | - | `motor_temp` (°C), `position`, `speed_absolute`, ... | |
@@ -73,10 +73,10 @@ After `IsConnectedAsync` succeeds:
 1. `GET /info`; if `fw_version` major < 4 or `fw_status` is 2, set the controls to *unsupported firmware* (with version text) and skip all offset/stroke calls. Whether the rest of the HSSP connection continues is governed by the separate Firmware and Capabilities item; this work only gates the new controls.
 2. Set HSSP mode and estimate clock offset (unchanged).
 3. Read `GET /capabilities` and `GET /settings/slider` once; read `GET /hstp/offset` and `GET /slider/stroke`; log the device's current values. If `slider` is 0, show *no slider* and skip stroke calls.
-4. Apply the agreed connect policy (recommended: write saved HandySync values when they differ from the device values).
+4. Adopt the values returned by the device into the controls and settings. Do not write offset or stroke values during connect; only a user adjustment in HandySync issues a PUT.
 5. Install the script and mark HSSP ready (unchanged).
 
-Applying values before HSSP ready means playback never starts with a stale offset or stroke. Failures in steps 3-4 mark the controls *not applied* but do not fail the connection. Polling (below) starts after step 4.
+Adopting device values before HSSP ready means the controls never show stale saved values after connect. Failures to read offset or stroke mark the related controls *not applied* but do not fail the connection. Polling (below) starts after step 4.
 
 ## Observing External Changes
 

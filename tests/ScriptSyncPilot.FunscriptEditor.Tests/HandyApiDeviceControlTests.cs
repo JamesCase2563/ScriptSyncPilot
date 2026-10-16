@@ -25,6 +25,7 @@ public sealed class HandyApiDeviceControlTests
         using var client = new HandyApiClient("test-connection-key", handler, new Uri("https://example.test/api/"));
 
         var info = await client.GetInfoAsync(CancellationToken.None);
+        Assert.AreEqual(0, info.FirmwareStatus);
         Assert.AreEqual("4.3.0", info.FirmwareVersion);
         Assert.AreEqual("H01", info.ModelName);
         Assert.AreEqual("info", handler.Requests[0].Path);
@@ -48,6 +49,7 @@ public sealed class HandyApiDeviceControlTests
         Assert.AreEqual(0.25, stroke.Min);
         Assert.AreEqual(0.75, stroke.Max);
         Assert.AreEqual(30.165, stroke.MinAbsolute);
+        Assert.AreEqual(80.495, stroke.MaxAbsolute);
         using (var strokeBody = JsonDocument.Parse(handler.Requests[3].Body!))
         {
             Assert.AreEqual(0.25, strokeBody.RootElement.GetProperty("min").GetDouble());

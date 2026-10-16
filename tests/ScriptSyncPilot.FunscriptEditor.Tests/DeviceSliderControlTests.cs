@@ -23,6 +23,56 @@ public sealed class DeviceSliderControlTests
         Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", null));
     }
 
+    [TestMethod]
+    public void PercentConversionRoundTripsAndUsesAcceptedNormalizedValues()
+    {
+        for (var percent = 0; percent <= 100; percent++)
+            Assert.AreEqual(percent, DeviceControlLogic.FromRelativeStroke(DeviceControlLogic.ToRelativeStroke(percent)));
+
+        Assert.AreEqual(21, DeviceControlLogic.FromRelativeStroke(0.206));
+        Assert.AreEqual(79, DeviceControlLogic.FromRelativeStroke(0.794));
+    }
+
+    [TestMethod]
+    public void InvalidPersistedStrokeRangesFallBackToFullRange()
+    {
+        Assert.AreEqual((0, 100), DeviceControlLogic.NormalizeStrokeRange(-1, 80));
+        Assert.AreEqual((0, 100), DeviceControlLogic.NormalizeStrokeRange(20, 101));
+        Assert.AreEqual((0, 100), DeviceControlLogic.NormalizeStrokeRange(80, 20));
+        Assert.AreEqual((0, 100), DeviceControlLogic.NormalizeStrokeRange(50, 50));
+        Assert.AreEqual((20, 80), DeviceControlLogic.NormalizeStrokeRange(20, 80));
+    }
+
+    [TestMethod]
+    public void PollAcceptanceRejectsRacedOrLocallyOwnedValues()
+    {
+        Assert.IsTrue(DeviceControlLogic.ShouldApplyPolledValue(4, 4, false, false, false));
+        Assert.IsFalse(DeviceControlLogic.ShouldApplyPolledValue(4, 5, false, false, false));
+        Assert.IsFalse(DeviceControlLogic.ShouldApplyPolledValue(4, 4, true, false, false));
+        Assert.IsFalse(DeviceControlLogic.ShouldApplyPolledValue(4, 4, false, true, false));
+        Assert.IsFalse(DeviceControlLogic.ShouldApplyPolledValue(4, 4, false, false, true));
+    }
+
+    [TestMethod]
+    public void TemperatureBandsUseThresholdsAndClearWithHysteresis()
+    {
+        var band = DeviceTemperatureBand.Normal;
+        band = DeviceControlLogic.GetTemperatureBand(band, 69, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Normal, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 70, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Warm, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 80, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Hot, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 70, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Hot, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 69, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Warm, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 60, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Warm, band);
+        band = DeviceControlLogic.GetTemperatureBand(band, 59, 80, 10);
+        Assert.AreEqual(DeviceTemperatureBand.Normal, band);
+    }
+
     [STATestMethod]
     public void SingleThumbAcceptsSignedValueAndDoesNotClampAgainstSecondThumb()
     {
@@ -71,6 +121,36 @@ public sealed class DeviceSliderControlTests
     }
 
     [STATestMethod]
+    public void MouseDragClampsAtOtherThumbAndProgrammaticSetIsSilent()
+    {
+        using var slider = new DeviceSliderControl { IsRange = true, Size = new Size(220, 40) };
+        slider.SetValues(20, 80);
+        var changedEvents = 0;
+        slider.ValuesChanged += (_, _) => changedEvents++;
+        var valueToPoint = typeof(DeviceSliderControl).GetMethod("ValueToPoint", PrivateInstance)!;
+        var mouseDown = typeof(DeviceSliderControl).GetMethod("OnMouseDown", PrivateInstance)!;
+        var mouseMove = typeof(DeviceSliderControl).GetMethod("OnMouseMove", PrivateInstance)!;
+        var mouseUp = typeof(DeviceSliderControl).GetMethod("OnMouseUp", PrivateInstance)!;
+        var minimumPoint = (PointF)valueToPoint.Invoke(slider, [20])!;
+        var beyondMaximum = (PointF)valueToPoint.Invoke(slider, [95])!;
+        _ = slider.Handle;
+
+        slider.SetValues(30, 70);
+        Assert.AreEqual(0, changedEvents);
+        slider.SetValues(20, 80);
+        mouseDown.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 1, (int)minimumPoint.X, (int)minimumPoint.Y, 0)]);
+        Assert.IsTrue(slider.IsBeingAdjusted);
+        mouseMove.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondMaximum.X, (int)beyondMaximum.Y, 0)]);
+
+        Assert.AreEqual(80, slider.LowerValue);
+        Assert.AreEqual(80, slider.UpperValue);
+        Assert.AreEqual(1, changedEvents);
+
+        mouseUp.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondMaximum.X, (int)beyondMaximum.Y, 0)]);
+        Assert.IsFalse(slider.IsBeingAdjusted);
+    }
+
+    [STATestMethod]
     public void RapidStrokeChangesSendOnlyTheNewestValue()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -96,6 +176,49 @@ public sealed class DeviceSliderControlTests
         Assert.AreEqual(0.75, body.RootElement.GetProperty("max").GetDouble());
     }
 
+    [STATestMethod]
+    public void ConnectAdoptsDeviceValuesWithoutWritingSavedValuesBack()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new ConnectReadHandler();
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        SetPrivateField(form, "_handy", client);
+        SetPrivateField(form, "_deviceControlsSupported", true);
+        SetPrivateField(form, "_hasDeviceSlider", true);
+        var settings = (AppSettings)GetPrivateField(form, "_settings")!;
+        settings.DeviceOffsetMs = -500;
+        settings.StrokeMinPercent = 0;
+        settings.StrokeMaxPercent = 100;
+
+        InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
+
+        var offsetSlider = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var strokeSlider = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        Assert.AreEqual(250, offsetSlider.LowerValue);
+        Assert.AreEqual(20, strokeSlider.LowerValue);
+        Assert.AreEqual(80, strokeSlider.UpperValue);
+        Assert.AreEqual(250, settings.DeviceOffsetMs);
+        Assert.AreEqual(20, settings.StrokeMinPercent);
+        Assert.AreEqual(80, settings.StrokeMaxPercent);
+        Assert.IsTrue(handler.Methods.All(method => method == "GET"));
+    }
+
+    [TestMethod]
+    public void LegacyOffsetIsIgnoredAndOmittedFromSerializedSettings()
+    {
+        var messages = new List<string>();
+        var settings = AppSettings.Deserialize(
+            "{\"OffsetMs\":725,\"StrokeMinPercent\":20,\"StrokeMaxPercent\":80}", messages.Add);
+
+        Assert.AreEqual(0, settings.DeviceOffsetMs);
+        Assert.AreEqual(20, settings.StrokeMinPercent);
+        Assert.AreEqual(80, settings.StrokeMaxPercent);
+        Assert.AreEqual(1, messages.Count);
+        using var serialized = JsonDocument.Parse(settings.Serialize());
+        Assert.IsFalse(serialized.RootElement.TryGetProperty("OffsetMs", out _));
+        Assert.IsTrue(serialized.RootElement.TryGetProperty("DeviceOffsetMs", out _));
+    }
+
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
 
     private static object? GetPrivateField(object target, string name) =>
@@ -106,6 +229,32 @@ public sealed class DeviceSliderControlTests
 
     private static void InvokePrivate(object target, string name) =>
         target.GetType().GetMethod(name, PrivateInstance)!.Invoke(target, null);
+
+    private static Task InvokePrivateTask(object target, string name, params object[] arguments) =>
+        (Task)target.GetType().GetMethod(name, PrivateInstance)!.Invoke(target, arguments)!;
+
+    private sealed class ConnectReadHandler : HttpMessageHandler
+    {
+        public List<string> Methods { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Methods.Add(request.Method.Method);
+            var path = request.RequestUri!.AbsolutePath;
+            var body = path switch
+            {
+                "/api/capabilities" => "{\"result\":{\"slider\":1}}",
+                "/api/settings/slider" => "{\"result\":{\"x_limit_start\":0,\"x_limit_stop\":110,\"x_min_speed\":30,\"x_max_speed\":400,\"temp_high_trigger\":80,\"temp_hysteresis\":10}}",
+                "/api/hstp/offset" => "{\"result\":{\"offset\":250}}",
+                "/api/slider/stroke" => "{\"result\":{\"min\":0.2,\"max\":0.8,\"min_absolute\":25,\"max_absolute\":85}}",
+                _ => throw new InvalidOperationException($"Unexpected request path: {path}")
+            };
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            });
+        }
+    }
 
     private sealed class StrokeWriteHandler : HttpMessageHandler
     {

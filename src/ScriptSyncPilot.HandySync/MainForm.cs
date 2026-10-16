@@ -73,7 +73,7 @@ public sealed class MainForm : Form
     private double? _strokeMaxAbsolute;
     private double? _temperatureHighTrigger;
     private double? _temperatureHysteresis;
-    private string _temperatureBand = "normal";
+    private DeviceTemperatureBand _temperatureBand = DeviceTemperatureBand.Normal;
     private long _clockOffsetMs;
     private bool _hsspReady;
     private bool _handyDisconnecting;
@@ -93,9 +93,8 @@ public sealed class MainForm : Form
         if (_scriptPathBox.Text.Length > 0 && File.Exists(_scriptPathBox.Text))
             LoadScript(_scriptPathBox.Text);
         _offsetSlider.SetValues(Math.Clamp(_settings.DeviceOffsetMs, _offsetSlider.Minimum, _offsetSlider.Maximum), 0);
-        var strokeMin = Math.Clamp(_settings.StrokeMinPercent, 0, 100);
-        var strokeMax = Math.Clamp(_settings.StrokeMaxPercent, 0, 100);
-        if (strokeMin >= strokeMax) (strokeMin, strokeMax) = (0, 100);
+        var (strokeMin, strokeMax) = DeviceControlLogic.NormalizeStrokeRange(
+            _settings.StrokeMinPercent, _settings.StrokeMaxPercent);
         _strokeSlider.SetValues(strokeMin, strokeMax);
         UpdateOffsetLabel();
         UpdateStrokeLabel();
@@ -273,7 +272,8 @@ public sealed class MainForm : Form
                 if (ReferenceEquals(_installedScriptClient, client) && _installedScriptVersion == scriptVersion)
                     return;
 
-                await client.HsspStopAsync(cancellationToken);
+                if (ShouldStopBeforeHsspSetup(_installedScriptClient, client))
+                    await client.HsspStopAsync(cancellationToken);
                 if (!ReferenceEquals(_handy, client)) return;
                 if (!await SetupScriptOnDeviceAsync(client, script, scriptVersion, cancellationToken))
                 {
@@ -293,6 +293,12 @@ public sealed class MainForm : Form
             _deviceCommandGate.Release();
         }
     }
+
+    internal static bool ShouldStopBeforeHsspSetup(HandyApiClient? installedClient, HandyApiClient client) =>
+        ReferenceEquals(installedClient, client);
+
+    internal static bool ShouldStopOnDisconnect(HandyApiClient? installedClient, HandyApiClient client) =>
+        ReferenceEquals(installedClient, client);
 
     private async Task<bool> SetupScriptOnDeviceAsync(HandyApiClient client, Funscript script, long scriptVersion, CancellationToken cancellationToken)
     {
@@ -416,7 +422,7 @@ public sealed class MainForm : Form
             }
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
 
-            await ReadAndApplyDeviceControlsAsync(client);
+            await ReadAndAdoptDeviceControlsAsync(client);
             if (!ReferenceEquals(_handy, client) || _isClosing) return;
 
             await EnsureCurrentScriptInstalledAsync(client, _lifetimeCts.Token);
@@ -489,7 +495,7 @@ public sealed class MainForm : Form
                && firmwareStatus is int status && status != 2;
     }
 
-    private async Task ReadAndApplyDeviceControlsAsync(HandyApiClient client)
+    private async Task ReadAndAdoptDeviceControlsAsync(HandyApiClient client)
     {
         if (!_deviceControlsSupported) return;
         var gateAcquired = false;
@@ -536,18 +542,15 @@ public sealed class MainForm : Form
                 var currentOffset = await client.GetOffsetAsync(_lifetimeCts.Token);
                 _lastDeviceOffset = currentOffset;
                 Log($"Device HSTP offset on connect: {currentOffset} ms.");
-                if (currentOffset != _settings.DeviceOffsetMs)
-                {
-                    await client.SetOffsetAsync(_settings.DeviceOffsetMs, _lifetimeCts.Token);
-                    _lastDeviceOffset = _settings.DeviceOffsetMs;
-                    Log($"Reapplied saved device offset: {_settings.DeviceOffsetMs} ms.");
-                }
+                _offsetSlider.SetValues(currentOffset, 0);
+                _settings.DeviceOffsetMs = currentOffset;
+                UpdateOffsetLabel();
                 _offsetState.Text = "applied";
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
                 _offsetState.Text = "not applied";
-                Log($"Could not read/apply device offset: {ex.Message}");
+                Log($"Could not read device offset: {ex.Message}");
             }
 
             if (_hasDeviceSlider)
@@ -558,14 +561,6 @@ public sealed class MainForm : Form
                     _lastDeviceStroke = currentStroke;
                     Log($"Device stroke on connect: {currentStroke.Min:P0}-{currentStroke.Max:P0} "
                         + $"({currentStroke.MinAbsolute:F1}-{currentStroke.MaxAbsolute:F1} mm).");
-                    var desiredMin = _settings.StrokeMinPercent / 100.0;
-                    var desiredMax = _settings.StrokeMaxPercent / 100.0;
-                    if (Math.Abs(currentStroke.Min - desiredMin) > 0.0001 || Math.Abs(currentStroke.Max - desiredMax) > 0.0001)
-                    {
-                        currentStroke = await client.SetStrokeAsync(desiredMin, desiredMax, _lifetimeCts.Token);
-                        _lastDeviceStroke = currentStroke;
-                        Log($"Reapplied saved stroke range: {currentStroke.Min:P0}-{currentStroke.Max:P0}.");
-                    }
                     _strokeSlider.SetValues((int)Math.Round(currentStroke.Min * 100), (int)Math.Round(currentStroke.Max * 100));
                     _strokeMinAbsolute = currentStroke.MinAbsolute;
                     _strokeMaxAbsolute = currentStroke.MaxAbsolute;
@@ -577,7 +572,7 @@ public sealed class MainForm : Form
                 catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
                 {
                     _strokeState.Text = "not applied";
-                    Log($"Could not read/apply device stroke: {ex.Message}");
+                    Log($"Could not read device stroke: {ex.Message}");
                 }
             }
         }
@@ -600,6 +595,7 @@ public sealed class MainForm : Form
         CancelPendingDeviceWrites();
 
         var client = _handy;
+        var shouldStopDevice = client is not null && ShouldStopOnDisconnect(_installedScriptClient, client);
         _handy = null;
         _hsspReady = false;
         _installedScriptClient = null;
@@ -610,7 +606,7 @@ public sealed class MainForm : Form
         await _deviceCommandGate.WaitAsync();
         try
         {
-            if (client is not null)
+            if (client is not null && shouldStopDevice)
                 await client.HsspStopAsync(CancellationToken.None);
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
@@ -629,7 +625,7 @@ public sealed class MainForm : Form
         _temperatureValue.Text = "Motor -- °C";
         _temperatureValue.ForeColor = SystemColors.ControlText;
         _temperatureValue.BackColor = SystemColors.Control;
-        _temperatureBand = "normal";
+        _temperatureBand = DeviceTemperatureBand.Normal;
         if (!_isClosing) _connectButton.Enabled = true;
         SetStatus(_mpv is null ? "Idle" : "Playing (no Handy)");
     }
@@ -762,12 +758,14 @@ public sealed class MainForm : Form
                 if (token.IsCancellationRequested || _handyDisconnecting || !ReferenceEquals(_handy, client)
                     || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
                 _strokeWriteInFlight = true;
-                var accepted = await client.SetStrokeAsync(minimum / 100.0, maximum / 100.0, token);
+                var accepted = await client.SetStrokeAsync(
+                    DeviceControlLogic.ToRelativeStroke(minimum), DeviceControlLogic.ToRelativeStroke(maximum), token);
                 if (token.IsCancellationRequested || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
                 _lastDeviceStroke = accepted;
                 _strokeMinAbsolute = accepted.MinAbsolute;
                 _strokeMaxAbsolute = accepted.MaxAbsolute;
-                _strokeSlider.SetValues((int)Math.Round(accepted.Min * 100), (int)Math.Round(accepted.Max * 100));
+                _strokeSlider.SetValues(
+                    DeviceControlLogic.FromRelativeStroke(accepted.Min), DeviceControlLogic.FromRelativeStroke(accepted.Max));
                 _settings.StrokeMinPercent = _strokeSlider.LowerValue;
                 _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
                 UpdateStrokeLabel();
@@ -823,8 +821,9 @@ public sealed class MainForm : Form
         {
             if (!ReferenceEquals(_handy, client) || _handyDisconnecting) return;
             var offset = await client.GetOffsetAsync(_lifetimeCts.Token);
-            if (_lastDeviceOffset is int previousOffset && previousOffset != offset
-                && offsetVersion == _offsetEditVersion && _offsetWriteCts is null && !_offsetWriteInFlight && !_offsetSlider.IsBeingAdjusted)
+            var mayApplyOffset = DeviceControlLogic.ShouldApplyPolledValue(
+                offsetVersion, _offsetEditVersion, _offsetWriteCts is not null, _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
+            if (_lastDeviceOffset is int previousOffset && previousOffset != offset && mayApplyOffset)
             {
                 _offsetSlider.SetValues(offset, 0);
                 UpdateOffsetLabel();
@@ -832,7 +831,7 @@ public sealed class MainForm : Form
                 _offsetState.Text = "changed by another app";
                 Log($"Device offset changed externally: {previousOffset} -> {offset} ms.");
             }
-            else if (_lastDeviceOffset is null && offsetVersion == _offsetEditVersion && _offsetState.Text != "not applied")
+            else if (_lastDeviceOffset is null && mayApplyOffset && _offsetState.Text != "not applied")
             {
                 _offsetSlider.SetValues(offset, 0);
                 UpdateOffsetLabel();
@@ -842,19 +841,22 @@ public sealed class MainForm : Form
             if (_hasDeviceSlider)
             {
                 var stroke = await client.GetStrokeAsync(_lifetimeCts.Token);
+                var mayApplyStroke = DeviceControlLogic.ShouldApplyPolledValue(
+                    strokeVersion, _strokeEditVersion, _strokeWriteCts is not null, _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
                 if (_lastDeviceStroke is { } previousStroke
-                    && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max)
-                    && strokeVersion == _strokeEditVersion && _strokeWriteCts is null && !_strokeWriteInFlight && !_strokeSlider.IsBeingAdjusted)
+                    && (previousStroke.Min != stroke.Min || previousStroke.Max != stroke.Max) && mayApplyStroke)
                 {
-                    _strokeSlider.SetValues((int)Math.Round(stroke.Min * 100), (int)Math.Round(stroke.Max * 100));
+                    _strokeSlider.SetValues(
+                        DeviceControlLogic.FromRelativeStroke(stroke.Min), DeviceControlLogic.FromRelativeStroke(stroke.Max));
                     _settings.StrokeMinPercent = _strokeSlider.LowerValue;
                     _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
                     _strokeState.Text = "changed by another app";
                     Log($"Device stroke changed externally: {previousStroke.Min:P0}-{previousStroke.Max:P0} -> {stroke.Min:P0}-{stroke.Max:P0}.");
                 }
-                else if (_lastDeviceStroke is null && strokeVersion == _strokeEditVersion && _strokeState.Text != "not applied")
+                else if (_lastDeviceStroke is null && mayApplyStroke && _strokeState.Text != "not applied")
                 {
-                    _strokeSlider.SetValues((int)Math.Round(stroke.Min * 100), (int)Math.Round(stroke.Max * 100));
+                    _strokeSlider.SetValues(
+                        DeviceControlLogic.FromRelativeStroke(stroke.Min), DeviceControlLogic.FromRelativeStroke(stroke.Max));
                 }
                 _lastDeviceStroke = stroke;
                 _strokeMinAbsolute = stroke.MinAbsolute;
@@ -900,24 +902,16 @@ public sealed class MainForm : Form
         var trigger = _temperatureHighTrigger ?? 75;
         var hysteresis = _temperatureHysteresis ?? 10;
         var previousBand = _temperatureBand;
-        _temperatureBand = _temperatureBand switch
-        {
-            "hot" when temperature >= trigger - hysteresis => "hot",
-            "hot" when temperature >= trigger - 10 - hysteresis => "warm",
-            "warm" when temperature >= trigger - 10 - hysteresis && temperature < trigger => "warm",
-            _ when temperature >= trigger => "hot",
-            _ when temperature >= trigger - 10 => "warm",
-            _ => "normal"
-        };
+        _temperatureBand = DeviceControlLogic.GetTemperatureBand(previousBand, temperature, trigger, hysteresis);
 
         _temperatureValue.Text = _temperatureBand switch
         {
-            "hot" => $"Motor {temperature:F1} °C (High)",
-            "warm" => $"Motor {temperature:F1} °C (Warm)",
+            DeviceTemperatureBand.Hot => $"Motor {temperature:F1} °C (High)",
+            DeviceTemperatureBand.Warm => $"Motor {temperature:F1} °C (Warm)",
             _ => $"Motor {temperature:F1} °C"
         };
-        _temperatureValue.ForeColor = _temperatureBand == "warm" ? Color.DarkGoldenrod : SystemColors.ControlText;
-        _temperatureValue.BackColor = _temperatureBand == "hot" ? Color.MistyRose : SystemColors.Control;
+        _temperatureValue.ForeColor = _temperatureBand == DeviceTemperatureBand.Warm ? Color.DarkGoldenrod : SystemColors.ControlText;
+        _temperatureValue.BackColor = _temperatureBand == DeviceTemperatureBand.Hot ? Color.MistyRose : SystemColors.Control;
         if (previousBand != _temperatureBand)
             Log($"Motor temperature state: {previousBand} -> {_temperatureBand} ({temperature:F1} °C, trigger {trigger:F1} °C).");
         await Task.CompletedTask;

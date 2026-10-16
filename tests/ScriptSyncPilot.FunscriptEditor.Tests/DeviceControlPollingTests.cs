@@ -418,18 +418,27 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
-    public void DisconnectClearsDeviceSpecificStrokeDetails()
+    [DataRow(true, true)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    public void DisconnectClearsDeviceSpecificStrokeDetails(bool controlsSupported, bool hasSlider)
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
         using var client = new HandyApiClient("test-key", new RecordingHandler((_, _, _) =>
             Task.FromResult(JsonResponse("{\"result\":\"ok\"}"))), new Uri("https://example.test/api/"));
         SetPrivateField(form, "_handy", client);
-        SetPrivateField(form, "_hasDeviceSlider", true);
+        SetPrivateField(form, "_deviceControlsSupported", controlsSupported);
+        SetPrivateField(form, "_hasDeviceSlider", hasSlider);
         SetPrivateField(form, "_strokeMinAbsolute", 25d);
         SetPrivateField(form, "_strokeMaxAbsolute", 85d);
         SetPrivateField(form, "_temperatureHighTrigger", 80d);
         SetPrivateField(form, "_temperatureHysteresis", 10d);
         var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        offset.Enabled = controlsSupported;
+        stroke.Enabled = controlsSupported && hasSlider;
+        ((Label)GetPrivateField(form, "_offsetState")!).Text = controlsSupported ? "applied" : "unsupported";
+        ((Label)GetPrivateField(form, "_strokeState")!).Text = hasSlider ? "unsupported" : "no slider";
         stroke.SetValues(20, 80);
         InvokePrivate(form, "UpdateStrokeLabel");
         var toolTip = (ToolTip)GetPrivateField(form, "_deviceToolTip")!;
@@ -440,6 +449,10 @@ public sealed class DeviceControlPollingTests
         PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
         disconnect.GetAwaiter().GetResult();
 
+        Assert.IsTrue(offset.Enabled);
+        Assert.IsTrue(stroke.Enabled);
+        Assert.AreEqual("not connected", ((Label)GetPrivateField(form, "_offsetState")!).Text);
+        Assert.AreEqual("not connected", ((Label)GetPrivateField(form, "_strokeState")!).Text);
         Assert.IsNull(GetPrivateField(form, "_strokeMinAbsolute"));
         Assert.IsNull(GetPrivateField(form, "_strokeMaxAbsolute"));
         Assert.IsNull(GetPrivateField(form, "_temperatureHighTrigger"));

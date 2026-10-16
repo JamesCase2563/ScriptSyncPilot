@@ -667,7 +667,9 @@ public sealed class MainForm : Form
 
         _handyDisconnecting = false;
         _offsetState.Text = "not connected";
-        if (_hasDeviceSlider) _strokeState.Text = "not connected";
+        _strokeState.Text = "not connected";
+        _offsetSlider.Enabled = true;
+        _strokeSlider.Enabled = true;
         _strokeMinAbsolute = null;
         _strokeMaxAbsolute = null;
         UpdateStrokeLabel();

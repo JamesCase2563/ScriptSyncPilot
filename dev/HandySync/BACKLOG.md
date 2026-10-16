@@ -56,7 +56,7 @@ Keep the single device-command gate. Add newest-desired-state handling to suppre
 
 Evaluate SSE connection/error events with connectivity polling fallback. Verify event names against the current API reference. Reconnect the SSE reader with backoff and cancel it cleanly when the device connection ends.
 
-Feed device warnings into the main-form device status area from [main-form device controls](../work/main-form-device-controls/DESIGN.md#device-status-read-only): `temp_high`/`temp_ok`, `slider_blocked`/`slider_unblocked`, and `battery_changed` (battery level only when capabilities report a battery). `stroke_changed` can replace stroke polling. Never log the SSE URL, which carries the API key.
+Feed device warnings into the main-form device status area from [main-form device controls](../archive/2026-10-main-form-device-controls/DESIGN.md#device-status-read-only): `temp_high`/`temp_ok`, `slider_blocked`/`slider_unblocked`, and `battery_changed` (battery level only when capabilities report a battery). `stroke_changed` can replace stroke polling. Never log the SSE URL, which carries the API key.
 
 ## Firmware and Capabilities
 

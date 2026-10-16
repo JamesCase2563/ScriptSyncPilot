@@ -276,6 +276,49 @@ public sealed class DeviceSliderControlTests
         Assert.IsTrue(handler.Methods.All(method => method == "GET"));
     }
 
+    [STATestMethod]
+    public void DeviceSlidersStayDisabledUntilInitialReadsAreAdopted()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new DelayedConnectReadHandler();
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        SetPrivateField(form, "_handy", client);
+        SetPrivateField(form, "_deviceControlsSupported", true);
+        SetPrivateField(form, "_hasDeviceSlider", true);
+        var offsetSlider = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var strokeSlider = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        offsetSlider.Enabled = false;
+        strokeSlider.Enabled = false;
+
+        var adoption = InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client);
+        var wait = Stopwatch.StartNew();
+        while (!handler.OffsetReadStarted.Task.IsCompleted && wait.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            Application.DoEvents();
+            Thread.Sleep(5);
+        }
+
+        Assert.IsTrue(handler.OffsetReadStarted.Task.IsCompleted);
+        Assert.IsFalse(offsetSlider.Enabled);
+        Assert.IsFalse(strokeSlider.Enabled);
+
+        handler.ReleaseOffsetRead.TrySetResult();
+        wait.Restart();
+        while (!adoption.IsCompleted && wait.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            Application.DoEvents();
+            Thread.Sleep(5);
+        }
+        adoption.GetAwaiter().GetResult();
+
+        Assert.AreEqual(250, offsetSlider.LowerValue);
+        Assert.AreEqual(20, strokeSlider.LowerValue);
+        Assert.AreEqual(80, strokeSlider.UpperValue);
+        Assert.IsTrue(offsetSlider.Enabled);
+        Assert.IsTrue(strokeSlider.Enabled);
+        ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
+    }
+
     [TestMethod]
     public void LegacyOffsetIsIgnoredAndOmittedFromSerializedSettings()
     {
@@ -333,6 +376,38 @@ public sealed class DeviceSliderControlTests
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")
             });
+        }
+    }
+
+    private sealed class DelayedConnectReadHandler : HttpMessageHandler
+    {
+        public TaskCompletionSource OffsetReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseOffsetRead { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path == "/api/hstp/offset")
+            {
+                OffsetReadStarted.TrySetResult();
+                await ReleaseOffsetRead.Task.WaitAsync(cancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"result\":{\"offset\":250}}", Encoding.UTF8, "application/json")
+                };
+            }
+
+            var body = path switch
+            {
+                "/api/capabilities" => "{\"result\":{\"slider\":1}}",
+                "/api/settings/slider" => "{\"result\":{\"x_limit_start\":0,\"x_limit_stop\":110,\"x_min_speed\":30,\"x_max_speed\":400,\"temp_high_trigger\":80,\"temp_hysteresis\":10}}",
+                "/api/slider/stroke" => "{\"result\":{\"min\":0.2,\"max\":0.8,\"min_absolute\":25,\"max_absolute\":85}}",
+                _ => throw new InvalidOperationException($"Unexpected request path: {path}")
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
         }
     }
 

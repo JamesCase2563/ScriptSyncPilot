@@ -483,8 +483,6 @@ public sealed class MainForm : Form
             }
 
             _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
-            _offsetSlider.Enabled = _deviceControlsSupported;
-            _strokeSlider.Enabled = _deviceControlsSupported;
             if (!_deviceControlsSupported)
             {
                 _offsetState.Text = "unsupported firmware";
@@ -535,7 +533,6 @@ public sealed class MainForm : Form
                 Log($"Could not read device capabilities: {ex.Message}");
             }
 
-            _strokeSlider.Enabled = _hasDeviceSlider;
             if (!_hasDeviceSlider)
             {
                 _strokeState.Text = "no slider";
@@ -603,8 +600,13 @@ public sealed class MainForm : Form
             if (gateAcquired) _deviceCommandGate.Release();
         }
 
-        if (_deviceControlsSupported && !_handyDisconnecting && !_isClosing && !_lifetimeCts.IsCancellationRequested)
+        if (_deviceControlsSupported && ReferenceEquals(_handy, client) && !_handyDisconnecting
+            && !_isClosing && !_lifetimeCts.IsCancellationRequested)
+        {
+            _offsetSlider.Enabled = true;
+            _strokeSlider.Enabled = _hasDeviceSlider;
             _devicePollTimer.Start();
+        }
     }
 
     private async Task DisconnectHandyAsync()

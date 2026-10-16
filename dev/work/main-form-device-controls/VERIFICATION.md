@@ -40,6 +40,7 @@ Record firmware version, device model, and date for each result.
 - [x] Failed optional capabilities/settings reads leave controls usable and omit the related details.
 - [x] Capabilities with `slider` 0 disable stroke controls and suppress stroke reads and writes.
 - [x] Temperature bands cover thresholds and hysteresis; the fallback trigger is used without settings; one log entry is emitted per transition; temperature is read every third poll tick; polling issues no playback command.
+- [x] Video actions are separately labeled `Attach to mpv`, `Detach from mpv`, `Play Video`, and `Pause Video`; transport buttons are disabled until attached and track mpv's observed pause state.
 
 ## Manual Interaction (running app with device)
 
@@ -60,16 +61,17 @@ Record firmware version, device model, and date for each result.
 - [x] Values persist across app restart; an existing legacy `OffsetMs` is discarded with one log entry and does not shift playback.
 - [x] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect. Record whether the provisional 10 °C warm band and 75 °C fallback felt right during trial, and any adjusted values.
 - [x] No pre-v4/update-required device was available (current device is 4.3.0); unsupported firmware was not tested on hardware and the gate is covered by automated tests.
-- [x] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, start/stop session, disconnect/reconnect.
+- [x] Confirmed the Video/Handy button grouping is clear at the form's normal size and display scaling (2026-10-16).
+- [x] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, mpv attach/detach, Handy connect/disconnect.
 
 ## Required Gates
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
-- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/verification-audit/bin/ -p:UseAppHost=false` (2026-10-16): passed, 128 tests.
-- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/verification-audit/bin/ -p:UseAppHost=false` (2026-10-16): passed.
-- [x] Focused tests for slider logic, write coordination, polling, temperature cadence, HSSP reconnect ordering, and non-invasive connect adoption passed.
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/transport-controls/bin/ -p:UseAppHost=false` (2026-10-16): passed, 129 tests.
+- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/transport-controls/bin/ -p:UseAppHost=false` (2026-10-16): passed.
+- [x] Focused tests for slider logic, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, and video transport labels/state passed.
 
 ## Results and Limitations
 
-The standalone device probe and API contract checks were run on 2026-10-14. Connect-time adoption was confirmed on 2026-10-15. All manual HandySync interaction checks, including offset/stroke persistence across reconnect and power cycle, were confirmed by 2026-10-16. Offset bounds and invalid stroke normalization remain unspecified by the API and were not probed.
+The standalone device probe and API contract checks were run on 2026-10-14. Connect-time adoption was confirmed on 2026-10-15. Manual HandySync interaction checks, including offset/stroke persistence across reconnect and power cycle and the Video/Handy button grouping, were confirmed by 2026-10-16. Offset bounds and invalid stroke normalization remain unspecified by the API and were not probed.

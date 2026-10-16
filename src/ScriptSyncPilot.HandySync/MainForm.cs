@@ -35,8 +35,10 @@ public sealed class MainForm : Form
     private readonly Label _strokeState = new() { AutoSize = true, Text = "not connected" };
     private readonly Label _temperatureValue = new() { AutoSize = true, Text = "Motor -- °C" };
     private readonly ToolTip _deviceToolTip = new();
-    private readonly Button _startButton = new() { Text = "Start Session" };
-    private readonly Button _stopButton = new() { Text = "Stop Session", Enabled = false };
+    private readonly Button _attachMpvButton = new() { Text = "Attach to mpv" };
+    private readonly Button _detachMpvButton = new() { Text = "Detach from mpv", Enabled = false };
+    private readonly Button _playVideoButton = new() { Text = "Play Video", Enabled = false };
+    private readonly Button _pauseVideoButton = new() { Text = "Pause Video", Enabled = false };
     private readonly Button _connectButton = new() { Text = "Connect Handy" };
     private readonly Button _disconnectButton = new() { Text = "Disconnect Handy", Enabled = false };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill };
@@ -76,6 +78,10 @@ public sealed class MainForm : Form
     private DeviceTemperatureBand _temperatureBand = DeviceTemperatureBand.Normal;
     private long _clockOffsetMs;
     private bool _hsspReady;
+    private bool _mpvAttached;
+    private bool _videoTransportPending;
+    private bool _mpvAttachInProgress;
+    private bool _mpvDetaching;
     private bool _handyDisconnecting;
     private bool _isClosing;
     private bool _allowClose;
@@ -139,9 +145,13 @@ public sealed class MainForm : Form
         strokeInfo.Controls.Add(strokeLabels);
         AddRow("Stroke range", strokeInfo, _temperatureValue);
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
-        buttons.Controls.Add(_startButton);
-        buttons.Controls.Add(_stopButton);
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8), WrapContents = true };
+        buttons.Controls.Add(new Label { Text = "Video", AutoSize = true, Margin = new Padding(4, 8, 2, 3) });
+        buttons.Controls.Add(_attachMpvButton);
+        buttons.Controls.Add(_detachMpvButton);
+        buttons.Controls.Add(_playVideoButton);
+        buttons.Controls.Add(_pauseVideoButton);
+        buttons.Controls.Add(new Label { Text = "Handy", AutoSize = true, Margin = new Padding(12, 8, 2, 3) });
         buttons.Controls.Add(_connectButton);
         buttons.Controls.Add(_disconnectButton);
         buttons.Controls.Add(_status);
@@ -151,8 +161,10 @@ public sealed class MainForm : Form
         Controls.Add(buttons);
         Controls.Add(layout);
 
-        _startButton.Click += async (_, _) => await StartAsync();
-        _stopButton.Click += async (_, _) => await StopAsync();
+        _attachMpvButton.Click += async (_, _) => await AttachMpvAsync();
+        _detachMpvButton.Click += async (_, _) => await DetachMpvAsync();
+        _playVideoButton.Click += async (_, _) => await SetVideoPausedAsync(false);
+        _pauseVideoButton.Click += async (_, _) => await SetVideoPausedAsync(true);
         _connectButton.Click += async (_, _) => await ConnectHandyAsync();
         _disconnectButton.Click += async (_, _) => await DisconnectHandyAsync();
         _waveform.SeekRequested += OnWaveformSeekRequested;
@@ -195,7 +207,7 @@ public sealed class MainForm : Form
             _settings.Save();
 
             _lifetimeCts.Cancel();
-            await StopAsync(stopDevice: false);
+            await DetachMpvAsync(stopDevice: false);
             await DisconnectHandyAsync();
             _allowClose = true;
             Close();
@@ -315,18 +327,20 @@ public sealed class MainForm : Form
     }
 
     /// <summary>Attaches to mpv and follows its playhead. Does not require a Handy.</summary>
-    private async Task StartAsync()
+    private async Task AttachMpvAsync()
     {
+        if (_mpv is not null || _mpvAttachInProgress) return;
         if (_script is null)
         {
             MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
             return;
         }
-        _startButton.Enabled = false;
+        _mpvAttachInProgress = true;
+        UpdateVideoTransportButtons(null);
         await _sessionTransitionGate.WaitAsync();
         try
         {
-            SetStatus("Attaching to mpv…");
+            SetStatus("Attaching to mpv video…");
             var session = new MpvSession();
             _mpv = session;
             session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
@@ -335,28 +349,30 @@ public sealed class MainForm : Form
             session.SpeedChanged += _ => OnMpvSpeedChanged(session);
             session.Disconnected += () => BeginInvoke(() =>
             {
-                if (ReferenceEquals(_mpv, session)) _ = StopAsync();
+                if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
             });
             await session.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
             Log("Attached to mpv IPC pipe.");
 
+            _mpvAttached = true;
             _syncTimer.Start();
-            _stopButton.Enabled = true;
-            SetStatus(_hsspReady ? "Playing" : "Playing (no Handy)");
+            UpdateVideoTransportButtons(session);
+            SetStatus(session.IsPaused ? "Video attached (paused)" : _hsspReady ? "Playing" : "Video playing (Handy not ready)");
 
-            if (_hsspReady && session.IsPaused == false)
+            if (_hsspReady && !session.IsPaused)
                 await OnMpvPauseChangedAsync(session, false);
         }
         catch (Exception ex) when (ex is IOException or TaskCanceledException or ArgumentException)
         {
             Log($"Error: {ex.Message}");
             SetStatus("Error");
-            await StopCoreAsync();
+            await DetachMpvCoreAsync();
         }
         finally
         {
             _sessionTransitionGate.Release();
-            _startButton.Enabled = !_isClosing && _mpv is null;
+            _mpvAttachInProgress = false;
+            UpdateVideoTransportButtons(_mpv);
         }
     }
 
@@ -979,11 +995,62 @@ public sealed class MainForm : Form
         }
     }
 
+    private async Task SetVideoPausedAsync(bool paused)
+    {
+        var session = _mpv;
+        if (!_mpvAttached || session is null || session.IsPaused == paused || _videoTransportPending) return;
+
+        _videoTransportPending = true;
+        UpdateVideoTransportButtons(session);
+        try
+        {
+            await session.SetPauseAsync(paused, _lifetimeCts.Token);
+            var wait = Stopwatch.StartNew();
+            while (ReferenceEquals(_mpv, session) && session.IsPaused != paused && wait.Elapsed < TimeSpan.FromSeconds(2))
+                await Task.Delay(25, _lifetimeCts.Token);
+
+            if (ReferenceEquals(_mpv, session) && session.IsPaused != paused)
+                Log($"mpv did not confirm video {(paused ? "pause" : "play")}.");
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or TaskCanceledException)
+        {
+            Log($"Could not {(paused ? "pause" : "play")} mpv video: {ex.Message}");
+        }
+        finally
+        {
+            _videoTransportPending = false;
+            UpdateVideoTransportButtons(session);
+        }
+    }
+
+    private void UpdateVideoTransportButtons(MpvSession? session)
+    {
+        if (IsDisposed) return;
+        if (InvokeRequired)
+        {
+            try { BeginInvoke(() => UpdateVideoTransportButtons(session)); }
+            catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+            return;
+        }
+
+        var attached = _mpvAttached && session is not null && ReferenceEquals(_mpv, session);
+        _attachMpvButton.Enabled = !_isClosing && !_mpvAttachInProgress && !attached && _mpv is null;
+        _detachMpvButton.Enabled = !_isClosing && !_mpvDetaching && attached;
+        _playVideoButton.Enabled = attached && !_videoTransportPending && session!.IsPaused;
+        _pauseVideoButton.Enabled = attached && !_videoTransportPending && !session!.IsPaused;
+    }
+
     private async Task OnMpvPauseChangedAsync(MpvSession session, bool paused)
     {
         if (!ReferenceEquals(_mpv, session)) return;
+        _videoTransportPending = false;
+        UpdateVideoTransportButtons(session);
         var client = _handy;
-        if (!_hsspReady || client is null) return;
+        if (!_hsspReady || client is null)
+        {
+            SetStatus(session.IsPaused ? "Video paused (Handy not ready)" : "Video playing (Handy not ready)");
+            return;
+        }
 
         try
         {
@@ -1050,31 +1117,36 @@ public sealed class MainForm : Form
         }
     }
 
-    // Ends the mpv session only; the Handy connection outlives it so a new session can reuse the HSSP setup.
-    private async Task StopAsync(bool stopDevice = true)
+    // Detaches from mpv; the Handy connection outlives it so a new attachment can reuse the HSSP setup.
+    private async Task DetachMpvAsync(bool stopDevice = true)
     {
-        _startButton.Enabled = false;
+        if (_mpvDetaching) return;
+        _mpvDetaching = true;
+        UpdateVideoTransportButtons(_mpv);
         await _sessionTransitionGate.WaitAsync();
         try
         {
-            await StopCoreAsync(stopDevice);
+            await DetachMpvCoreAsync(stopDevice);
         }
         finally
         {
             _sessionTransitionGate.Release();
-            _startButton.Enabled = !_isClosing && _mpv is null;
+            _mpvDetaching = false;
+            UpdateVideoTransportButtons(_mpv);
         }
     }
 
-    private async Task StopCoreAsync(bool stopDevice = true)
+    private async Task DetachMpvCoreAsync(bool stopDevice = true)
     {
         _syncTimer.Stop();
         var client = _handy;
         _hsspReady = false;
+        _mpvAttached = false;
+        _videoTransportPending = false;
         _mpv?.Dispose();
         _mpv = null;
+        UpdateVideoTransportButtons(null);
         _waveform.SetMediaDuration(0);
-        _stopButton.Enabled = false;
 
         if (stopDevice && client is not null)
         {

@@ -12,6 +12,40 @@ namespace ScriptSyncPilot.FunscriptEditor.Tests;
 [TestClass]
 public sealed class PlaybackSpeedCommandTests
 {
+    [STATestMethod]
+    public void VideoTransportButtonsAreDistinctFromAttachAndFollowMpvPauseState()
+    {
+        using var form = new HandyForm();
+        using var session = new MpvSession();
+        var attach = (Button)GetPrivateField(form, "_attachMpvButton")!;
+        var detach = (Button)GetPrivateField(form, "_detachMpvButton")!;
+        var play = (Button)GetPrivateField(form, "_playVideoButton")!;
+        var pause = (Button)GetPrivateField(form, "_pauseVideoButton")!;
+
+        Assert.AreEqual("Attach to mpv", attach.Text);
+        Assert.AreEqual("Detach from mpv", detach.Text);
+        Assert.AreEqual("Play Video", play.Text);
+        Assert.AreEqual("Pause Video", pause.Text);
+        Assert.IsTrue(attach.Enabled);
+        Assert.IsFalse(detach.Enabled);
+        Assert.IsFalse(play.Enabled);
+        Assert.IsFalse(pause.Enabled);
+
+        SetPrivateField(form, "_mpv", session);
+        SetPrivateField(form, "_mpvAttached", true);
+        typeof(HandyForm).GetMethod("UpdateVideoTransportButtons", PrivateInstance)!
+            .Invoke(form, [session]);
+        Assert.IsTrue(detach.Enabled);
+        Assert.IsTrue(play.Enabled);
+        Assert.IsFalse(pause.Enabled);
+
+        Observe(session, "pause", "false");
+        typeof(HandyForm).GetMethod("UpdateVideoTransportButtons", PrivateInstance)!
+            .Invoke(form, [session]);
+        Assert.IsFalse(play.Enabled);
+        Assert.IsTrue(pause.Enabled);
+    }
+
     [TestMethod]
     public void HsspSetup_StopsOnlyWhenReplacingSetupForTheSameClient()
     {

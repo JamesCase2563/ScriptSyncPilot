@@ -368,6 +368,38 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectClearsDeviceSpecificStrokeDetails()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var client = new HandyApiClient("test-key", new RecordingHandler((_, _, _) =>
+            Task.FromResult(JsonResponse("{\"result\":\"ok\"}"))), new Uri("https://example.test/api/"));
+        SetPrivateField(form, "_handy", client);
+        SetPrivateField(form, "_hasDeviceSlider", true);
+        SetPrivateField(form, "_strokeMinAbsolute", 25d);
+        SetPrivateField(form, "_strokeMaxAbsolute", 85d);
+        SetPrivateField(form, "_temperatureHighTrigger", 80d);
+        SetPrivateField(form, "_temperatureHysteresis", 10d);
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        stroke.SetValues(20, 80);
+        InvokePrivate(form, "UpdateStrokeLabel");
+        var toolTip = (ToolTip)GetPrivateField(form, "_deviceToolTip")!;
+        toolTip.SetToolTip(stroke, "Previous device physical settings.");
+        _ = form.Handle;
+
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
+        disconnect.GetAwaiter().GetResult();
+
+        Assert.IsNull(GetPrivateField(form, "_strokeMinAbsolute"));
+        Assert.IsNull(GetPrivateField(form, "_strokeMaxAbsolute"));
+        Assert.IsNull(GetPrivateField(form, "_temperatureHighTrigger"));
+        Assert.IsNull(GetPrivateField(form, "_temperatureHysteresis"));
+        Assert.AreEqual("20-80 %", ((Label)GetPrivateField(form, "_strokeValue")!).Text);
+        Assert.AreEqual(string.Empty, toolTip.GetToolTip(stroke));
+        Assert.AreEqual("Motor -- °C", ((Label)GetPrivateField(form, "_temperatureValue")!).Text);
+    }
+
+    [STATestMethod]
     public void TemperatureIsPolledEveryThirdTickWithoutPlaybackCommands()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

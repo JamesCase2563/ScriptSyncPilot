@@ -668,6 +668,12 @@ public sealed class MainForm : Form
         _handyDisconnecting = false;
         _offsetState.Text = "not connected";
         if (_hasDeviceSlider) _strokeState.Text = "not connected";
+        _strokeMinAbsolute = null;
+        _strokeMaxAbsolute = null;
+        UpdateStrokeLabel();
+        _deviceToolTip.SetToolTip(_strokeSlider, string.Empty);
+        _temperatureHighTrigger = null;
+        _temperatureHysteresis = null;
         _temperatureValue.Text = "Motor -- °C";
         _temperatureValue.ForeColor = SystemColors.ControlText;
         _temperatureValue.BackColor = SystemColors.Control;

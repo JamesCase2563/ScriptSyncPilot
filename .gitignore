@@ -39,3 +39,4 @@ node_modules/
 
 # Workspace
 ScriptSyncPilot.code-workspace
+.vscode/settings.json

@@ -35,12 +35,12 @@ public sealed class MainForm : Form
     private readonly Label _strokeState = new() { AutoSize = true, Text = "not connected" };
     private readonly Label _temperatureValue = new() { AutoSize = true, Text = "Motor -- °C" };
     private readonly ToolTip _deviceToolTip = new();
-    private readonly Button _attachMpvButton = new() { Text = "Attach to mpv" };
-    private readonly Button _detachMpvButton = new() { Text = "Detach from mpv", Enabled = false };
-    private readonly Button _playVideoButton = new() { Text = "Play Video", Enabled = false };
-    private readonly Button _pauseVideoButton = new() { Text = "Pause Video", Enabled = false };
-    private readonly Button _connectButton = new() { Text = "Connect Handy" };
-    private readonly Button _disconnectButton = new() { Text = "Disconnect Handy", Enabled = false };
+    private readonly Button _attachMpvButton = new() { Text = "Attach" };
+    private readonly Button _detachMpvButton = new() { Text = "Detach", Enabled = false };
+    private readonly Button _playVideoButton = new() { Text = "Play", Enabled = false };
+    private readonly Button _pauseVideoButton = new() { Text = "Pause", Enabled = false };
+    private readonly Button _connectButton = new() { Text = "Connect" };
+    private readonly Button _disconnectButton = new() { Text = "Disconnect", Enabled = false };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill };
     private readonly Label _status = new() { Text = "Idle", AutoSize = true };
     private readonly ScriptWaveformControl _waveform = new() { Dock = DockStyle.Bottom, Height = 90 };

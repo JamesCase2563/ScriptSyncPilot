@@ -1,6 +1,6 @@
 # Main-Form Device Controls Plan
 
-**Status:** Implementation and device verification complete; final closeout remains.
+**Status:** Complete and archived; implementation, verification, and closeout finished.
 **Selected:** 2026-10-11.
 **Affected projects:** HandySync (API client, main form, settings). Common and FunscriptEditor are outside scope.
 

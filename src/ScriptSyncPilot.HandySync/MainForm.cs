@@ -391,6 +391,9 @@ public sealed class MainForm : Form
         {
             SetStatus("Connecting to Handy…");
             var client = new HandyApiClient(_connectionKeyBox.Text.Trim());
+            _deviceControlsSupported = false;
+            _offsetSlider.Enabled = false;
+            _strokeSlider.Enabled = false;
             _handy = client;
             _lastDeviceOffset = null;
             _lastDeviceStroke = null;
@@ -711,7 +714,7 @@ public sealed class MainForm : Form
             await _deviceCommandGate.WaitAsync(token);
             try
             {
-                if (token.IsCancellationRequested || _handyDisconnecting || !ReferenceEquals(_handy, client)
+                if (token.IsCancellationRequested || !_deviceControlsSupported || _handyDisconnecting || !ReferenceEquals(_handy, client)
                     || !ReferenceEquals(_offsetWriteCts, cancellation)) return;
                 _offsetWriteInFlight = true;
                 await client.SetOffsetAsync(offset, token);
@@ -771,7 +774,7 @@ public sealed class MainForm : Form
             await _deviceCommandGate.WaitAsync(token);
             try
             {
-                if (token.IsCancellationRequested || _handyDisconnecting || !ReferenceEquals(_handy, client)
+                if (token.IsCancellationRequested || !_deviceControlsSupported || !_hasDeviceSlider || _handyDisconnecting || !ReferenceEquals(_handy, client)
                     || !ReferenceEquals(_strokeWriteCts, cancellation)) return;
                 _strokeWriteInFlight = true;
                 var accepted = await client.SetStrokeAsync(

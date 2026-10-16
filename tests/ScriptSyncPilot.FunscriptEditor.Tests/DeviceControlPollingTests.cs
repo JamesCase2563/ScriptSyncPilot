@@ -59,6 +59,28 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void PendingWritesRecheckFirmwareSupportAfterAcquiringGate()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializeWritableForm(form, client);
+        var gate = (SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!;
+        gate.Wait();
+        ((DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!).SetValues(125, 0);
+        ((DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!).SetValues(20, 80);
+        InvokePrivate(form, "ScheduleOffsetWrite");
+        InvokePrivate(form, "ScheduleStrokeWrite");
+        PumpFor(TimeSpan.FromMilliseconds(250));
+
+        SetPrivateField(form, "_deviceControlsSupported", false);
+        gate.Release();
+        PumpFor(TimeSpan.FromMilliseconds(350));
+
+        Assert.AreEqual(0, handler.Requests.Count(request => request.Method == "PUT"));
+    }
+
+    [STATestMethod]
     public void PollSkipsBusyGateAndDoesNotRunOverlappingTicks()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

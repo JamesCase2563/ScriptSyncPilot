@@ -1,6 +1,6 @@
 # Main-Form Device Controls Design
 
-**Status:** Implementation in progress; selected decisions and verified device observations are recorded in the [plan](PLAN.md) and [verification](VERIFICATION.md).
+**Status:** Complete and archived; implementation, verification, and closeout finished. Selected decisions and verified device observations are recorded in the [plan](PLAN.md) and [verification](VERIFICATION.md).
 
 ## Motivation
 

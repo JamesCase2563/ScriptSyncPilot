@@ -1,10 +1,10 @@
 # Main-Form Device Controls Plan
 
-**Status:** Implementation complete; device verification and closeout remain.
+**Status:** Implementation and device verification complete; final closeout remains.
 **Selected:** 2026-10-11.
 **Affected projects:** HandySync (API client, main form, settings). Common and FunscriptEditor are outside scope.
 
-Source: [HandySync backlog](../../HandySync/BACKLOG.md#main-form-device-controls). Details: [design](DESIGN.md) and [verification](VERIFICATION.md).
+Source: Completed HandySync backlog item (removed after implementation). Details: [design](DESIGN.md) and [verification](VERIFICATION.md).
 
 ## Goal
 
@@ -46,7 +46,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 
 - [x] Record API contract from the v3 OpenAPI spec in DESIGN.md.
 - [x] Resolve the open decisions above.
-- [ ] Verify device-specific behavior not guaranteed by the REST contract: persistence across HandySync reconnect/device power cycle and HandySync UI response to live external changes. Offset sign and immediate effect during running HSSP playback are confirmed; valid stroke writes and external stroke visibility via GET were observed on 2026-10-14. Treat API-defined units/error shapes as authoritative; offset bounds and invalid stroke normalization are unspecified and will not be manually probed.
+- [x] Verify device-specific behavior not guaranteed by the REST contract: offset/stroke persistence across device reconnect and power cycle and HandySync live external-change UI behavior were confirmed manually on 2026-10-16. Offset sign and immediate HSSP effect were confirmed on 2026-10-14. Treat API-defined units/error shapes as authoritative; offset bounds and invalid stroke normalization are unspecified and were not manually probed.
 - [x] Record verified results in VERIFICATION.md and adjust DESIGN.md.
 
 ### 2. Implementation
@@ -66,11 +66,12 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 ### 3. Verification and Completion
 
 - [x] Run automated checks and build the solution; record exact commands and results.
-- [ ] Complete manual device checks during live playback, including values left by an online player.
-- [ ] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) and the backlog (remove this item; adjust Firmware and Capabilities and Offset Feedback to what remains).
-- [ ] Record limitations and the PR reference.
+- [x] Complete manual device checks during live playback, including values left by an online player.
+- [x] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) and the backlog (remove this item; adjust Firmware and Capabilities and Offset Feedback to what remains).
+- [x] Record limitations in DESIGN.md and VERIFICATION.md.
+- [ ] Add the PR reference (not provided yet).
 - [ ] Archive under `dev/archive/2026-10-main-form-device-controls/` (or the completion month) and update links.
 
 ## Outcome
 
-Implementation complete; solution tests and build pass. Manual HandySync UI/device checks, remaining contract verification, architecture/backlog updates, and archival are still pending.
+Implementation, device verification, automated tests, manual HandySync interaction checks, and architecture/backlog updates are complete. Record the PR reference and archive the work item to finish closeout.

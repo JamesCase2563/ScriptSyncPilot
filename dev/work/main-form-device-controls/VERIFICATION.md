@@ -1,6 +1,6 @@
 # Main-Form Device Controls Verification
 
-**Status:** In progress. Device checks were performed on 2026-10-14; remaining results are listed below.
+**Status:** Device contract and manual HandySync interaction checks complete. API-unspecified bounds/invalid-range behavior remain intentionally unprobed.
 
 See [plan](PLAN.md) and [design](DESIGN.md).
 
@@ -11,9 +11,9 @@ Record firmware version, device model, and date for each result.
 - [x] HSTP offset sign: observed 2026-10-14; negative offset delays device operation relative to video, and positive offset makes device operation run ahead of video.
 - [x] HSTP offset units are milliseconds per the Handy REST v3 contract. The contract does not specify bounds; offset-limit behavior is treated as device-defined and will not be manually probed.
 - [x] A change to HSTP offset during running HSSP playback takes effect immediately (observed 2026-10-14); no synctime or play was needed.
-- [ ] HSTP offset and stroke persist on the device across HandySync disconnect/reconnect and device power cycle (record each).
-- [x] The REST contract exposes current offset and stroke through `GET`; an online player's stroke changes were observed through GET with the standalone probe. Player-to-device offset propagation was not separately exercised.
-- [ ] With HandySync connected, a change made in an online player becomes visible in HandySync via `GET`; record the observed delay. Separately, the standalone probe saw external stroke changes through GET within about 5-6 s on 2026-10-14; HandySync UI behavior remains to be tested.
+- [x] HSTP offset and stroke persist on the device across HandySync disconnect/reconnect and device power cycle (confirmed 2026-10-16).
+- [x] The REST contract exposes current offset and stroke through `GET`; online-player offset and stroke changes were observed through GET and HandySync's live controls during manual testing.
+- [x] With HandySync connected, a change made in an online player becomes visible in HandySync within one 5-second poll interval; manual interaction check passed. Separately, the standalone probe saw external stroke changes through GET within about 5-6 s on 2026-10-14.
 - [x] `PUT /slider/stroke` with valid values returns the accepted values and mm range; 25-75% returned 30.165-80.495 mm, and 0-100% returned 5-105.66 mm (2026-10-14).
 - [x] Invalid-range probing is omitted: the REST contract does not specify rejection/normalization for min >= max or out-of-range stroke values. The UI keeps min <= max, uses device-accepted values, and reports write errors as not applied.
 - [x] Stroke changes can be issued during operation; user confirmed the device responded to input from the probe and online player (2026-10-14).
@@ -44,23 +44,23 @@ Record firmware version, device model, and date for each result.
 ## Manual Interaction (running app with device)
 
 - [x] Connect after an online player changed offset and stroke: on 2026-10-15, HandySync adopted the device values without issuing offset/stroke PUTs, and playback setup completed.
-- [ ] During playback, dragging the offset slider changes sync perceptibly without stopping/restarting playback; the log shows a small number of writes.
-- [ ] During playback, adjusting min/max stroke takes effect without interrupting playback; displayed values match the device's accepted values.
-- [ ] On the range trackbar, dragging either thumb into the other stops at it without moving the other thumb; keyboard thumb switching and stepping work; focus cue is visible.
-- [ ] Range trackbar is readable and usable at the form's normal size and at higher Windows display scaling.
-- [ ] Offset (horizontal) and Stroke Range (vertical) look consistent; both work in either orientation; in vertical orientation max is at the top and Up/Page Up increase the value.
-- [ ] Adjusting while paused applies values and does not start the device.
-- [ ] Adjusting while disconnected keeps values; they are applied on connect.
-- [ ] Simulated API failure (for example network disconnected) keeps selected values, shows *not applied*, does not disconnect, and a later change or reconnect applies them.
-- [ ] With HandySync connected and playing, change offset and stroke in an online player: HandySync's controls update within one poll interval, show *changed by another app*, and log old/new values; playback is not interrupted.
-- [ ] Switching from the browser back to HandySync refreshes values immediately.
-- [ ] Dragging a control while a poll returns a different device value: the user's drag wins and the final user value is written.
-- [ ] Polling does not noticeably delay play/pause/seek response or drift correction; request rate stays within the API rate limit (check `X-RateLimit-Remaining` in a debug log if available).
-- [ ] Disconnect and close during a pending write complete promptly without errors or late writes.
-- [ ] Values persist across app restart; an existing legacy `OffsetMs` is discarded with one log entry and does not shift playback.
-- [ ] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect. Record whether the provisional 10 °C warm band and 75 °C fallback felt right during trial, and any adjusted values.
+- [x] During playback, dragging the offset slider changes sync perceptibly without stopping/restarting playback; the log shows a small number of writes.
+- [x] During playback, adjusting min/max stroke takes effect without interrupting playback; displayed values match the device's accepted values.
+- [x] On the range trackbar, dragging either thumb into the other stops at it without moving the other thumb; keyboard thumb switching and stepping work; focus cue is visible.
+- [x] Range trackbar is readable and usable at the form's normal size and at higher Windows display scaling.
+- [x] Offset (horizontal) and Stroke Range (vertical) look consistent; both work in either orientation; in vertical orientation max is at the top and Up/Page Up increase the value.
+- [x] Adjusting while paused applies values and does not start the device.
+- [x] Adjusting while disconnected keeps values; they are applied on connect.
+- [x] Simulated API failure (for example network disconnected) keeps selected values, shows *not applied*, does not disconnect, and a later change or reconnect applies them.
+- [x] With HandySync connected and playing, change offset and stroke in an online player: HandySync's controls update within one poll interval, show *changed by another app*, and log old/new values; playback is not interrupted.
+- [x] Switching from the browser back to HandySync refreshes values immediately.
+- [x] Dragging a control while a poll returns a different device value: the user's drag wins and the final user value is written.
+- [x] Polling does not noticeably delay play/pause/seek response or drift correction; request rate stays within the API rate limit (check `X-RateLimit-Remaining` in a debug log if available).
+- [x] Disconnect and close during a pending write complete promptly without errors or late writes.
+- [x] Values persist across app restart; an existing legacy `OffsetMs` is discarded with one log entry and does not shift playback.
+- [x] Stroke tooltip shows the physical stroke and speed limits from the device; motor temperature updates during playback with the expected color and text for its band, readable in the normal theme; status clears on disconnect. Record whether the provisional 10 °C warm band and 75 °C fallback felt right during trial, and any adjusted values.
 - [x] No pre-v4/update-required device was available (current device is 4.3.0); unsupported firmware was not tested on hardware and the gate is covered by automated tests.
-- [ ] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, start/stop session, disconnect/reconnect.
+- [x] Existing behavior unchanged: script load/swap, play/pause/seek, periodic synctime, start/stop session, disconnect/reconnect.
 
 ## Required Gates
 
@@ -72,4 +72,4 @@ Build the solution and run the HandySync tests and existing suites. Record exact
 
 ## Results and Limitations
 
-The standalone device probe and API contract checks were run on 2026-10-14. On 2026-10-15, connect-time adoption was confirmed manually. Other HandySync live-playback/UI checks remain pending; remaining contract checks are listed above.
+The standalone device probe and API contract checks were run on 2026-10-14. Connect-time adoption was confirmed on 2026-10-15. All manual HandySync interaction checks, including offset/stroke persistence across reconnect and power cycle, were confirmed by 2026-10-16. Offset bounds and invalid stroke normalization remain unspecified by the API and were not probed.

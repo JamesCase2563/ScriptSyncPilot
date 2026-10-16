@@ -74,7 +74,7 @@ Record firmware version, device model, and date for each result.
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
-- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/poll-disconnect/bin/ -p:UseAppHost=false`: passed, 139 tests.
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/poll-disconnect/bin/ -p:UseAppHost=false` (local working-tree rerun, 2026-10-16): 139 total, 139 passed, 0 failed, 0 skipped. This result supersedes the earlier 129- and 137-test reports.
 - [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/poll-disconnect/bin/ -p:UseAppHost=false`: passed.
 - [x] Focused tests for slider logic/capture loss/keyboard routing, connect-adoption locking, support-state write races, initial-read recovery, unknown-state recovery, failed-write preservation, stationary-drag poll ownership, optional-settings fallback, disconnect detail clearing, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, video transport labels/state, and poll cancellation after disconnect during an offset GET passed.
 

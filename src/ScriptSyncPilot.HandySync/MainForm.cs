@@ -923,10 +923,13 @@ public sealed class MainForm : Form
                     _strokeState.Text = "applied";
                     _strokeInitialReadFailed = false;
                 }
-                if (mayApplyStroke) _lastDeviceStroke = stroke;
-                _strokeMinAbsolute = stroke.MinAbsolute;
-                _strokeMaxAbsolute = stroke.MaxAbsolute;
-                UpdateStrokeLabel();
+                if (mayApplyStroke)
+                {
+                    _lastDeviceStroke = stroke;
+                    _strokeMinAbsolute = stroke.MinAbsolute;
+                    _strokeMaxAbsolute = stroke.MaxAbsolute;
+                    UpdateStrokeLabel();
+                }
             }
 
             _devicePollTick++;

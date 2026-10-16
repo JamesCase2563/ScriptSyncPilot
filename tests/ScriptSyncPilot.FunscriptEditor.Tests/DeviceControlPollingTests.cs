@@ -148,6 +148,57 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void PollDuringStationaryDragDoesNotAdvanceBaselinesOrMillimetres()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":250}}"),
+            "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.3,\"max\":0.75,\"min_absolute\":35,\"max_absolute\":85}}"),
+            _ => throw new InvalidOperationException("Unexpected polling request.")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        offset.SetValues(100, 0);
+        stroke.SetValues(20, 80);
+        SetPrivateField(form, "_lastDeviceOffset", 100);
+        SetPrivateField(form, "_lastDeviceStroke", new HandyApiClient.SliderStroke
+        {
+            Min = 0.2,
+            Max = 0.8,
+            MinAbsolute = 25,
+            MaxAbsolute = 85
+        });
+        SetPrivateField(form, "_strokeMinAbsolute", 25d);
+        SetPrivateField(form, "_strokeMaxAbsolute", 85d);
+        InvokePrivate(form, "UpdateStrokeLabel");
+        SetPrivateField(offset, "_dragging", true);
+        SetPrivateField(stroke, "_dragging", true);
+
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual(100, offset.LowerValue);
+        Assert.AreEqual(20, stroke.LowerValue);
+        Assert.AreEqual(80, stroke.UpperValue);
+        Assert.AreEqual(100, GetPrivateField(form, "_lastDeviceOffset"));
+        var heldBaseline = (HandyApiClient.SliderStroke)GetPrivateField(form, "_lastDeviceStroke")!;
+        Assert.AreEqual(0.2, heldBaseline.Min);
+        Assert.AreEqual(25d, GetPrivateField(form, "_strokeMinAbsolute"));
+        Assert.IsTrue(((Label)GetPrivateField(form, "_strokeValue")!).Text.Contains("25.0-85.0 mm"));
+
+        SetPrivateField(offset, "_dragging", false);
+        SetPrivateField(stroke, "_dragging", false);
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual(250, offset.LowerValue);
+        Assert.AreEqual(30, stroke.LowerValue);
+        Assert.AreEqual(75, stroke.UpperValue);
+        Assert.IsTrue(((Label)GetPrivateField(form, "_strokeValue")!).Text.Contains("35.0-85.0 mm"));
+    }
+
+    [STATestMethod]
     public void PollFailuresPreserveValuesAndConnectionThenMarkUnknown()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

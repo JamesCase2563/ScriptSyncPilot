@@ -18,7 +18,7 @@ Taken from the v3 OpenAPI spec (`https://www.handyfeeling.com/api/handy-rest/v3/
 | `GET /slider/stroke` | - | `min`, `max` (0.0-1.0), `min_absolute`, `max_absolute` (mm) | |
 | `PUT /slider/stroke` | `{ min, max }` 0.0-1.0 | same as GET | Device may normalize values; use the response, not the request. Behavior for invalid ranges is unspecified; the UI keeps min <= max and surfaces request errors. |
 | `GET /capabilities` | - | `slider` count, `battery`, ... | Disable stroke controls when `slider` is 0. |
-| `GET /settings/slider` | - | `x_stroke_min`/`x_stroke_max` (mm), `x_min_speed`/`x_max_speed` (mm/s), `temp_high_trigger`, `temp_hysteresis` (°C), ... | Read-only; changed only in the Handy onboarding app. |
+| `GET /settings/slider` | - | `x_limit_start`/`x_limit_stop` (mm), `x_min_speed`/`x_max_speed` (mm/s), `temp_high_trigger`, `temp_hysteresis` (°C), ... | Read-only; changed only in the Handy onboarding app. |
 | `GET /slider/state` | - | `motor_temp` (°C), `position`, `speed_absolute`, ... | |
 
 Device errors may be returned in a 200 response as `{ "error": { code, name, message, connected } }` (for example 1001 DeviceNotConnected, 1002 DeviceTimeout). `HandyApiClient` treats a present `error` object as failure and raises `HandyApiException` with code and name; the message does not include response details, connection keys, or application keys.

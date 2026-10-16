@@ -31,6 +31,10 @@ public sealed class DeviceSliderControlTests
 
         Assert.AreEqual(21, DeviceControlLogic.FromRelativeStroke(0.206));
         Assert.AreEqual(79, DeviceControlLogic.FromRelativeStroke(0.794));
+        var normalizedPercent = DeviceControlLogic.FromRelativeStroke(0.206);
+        for (var iteration = 0; iteration < 10; iteration++)
+            normalizedPercent = DeviceControlLogic.FromRelativeStroke(DeviceControlLogic.ToRelativeStroke(normalizedPercent));
+        Assert.AreEqual(21, normalizedPercent);
     }
 
     [TestMethod]
@@ -151,6 +155,34 @@ public sealed class DeviceSliderControlTests
     }
 
     [STATestMethod]
+    public void MouseHitTestingSelectsNearestThumbAndLowerThumbWinsCoincidentTie()
+    {
+        using var slider = new DeviceSliderControl { IsRange = true, Size = new Size(220, 40) };
+        slider.SetValues(20, 80);
+        var valueToPoint = typeof(DeviceSliderControl).GetMethod("ValueToPoint", PrivateInstance)!;
+        var mouseDown = typeof(DeviceSliderControl).GetMethod("OnMouseDown", PrivateInstance)!;
+        var mouseMove = typeof(DeviceSliderControl).GetMethod("OnMouseMove", PrivateInstance)!;
+        var mouseUp = typeof(DeviceSliderControl).GetMethod("OnMouseUp", PrivateInstance)!;
+        var upperPoint = (PointF)valueToPoint.Invoke(slider, [80])!;
+        var beyondUpper = (PointF)valueToPoint.Invoke(slider, [95])!;
+        _ = slider.Handle;
+
+        mouseDown.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 1, (int)upperPoint.X, (int)upperPoint.Y, 0)]);
+        mouseMove.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondUpper.X, (int)beyondUpper.Y, 0)]);
+        mouseUp.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondUpper.X, (int)beyondUpper.Y, 0)]);
+        Assert.AreEqual(20, slider.LowerValue);
+        Assert.AreEqual(95, slider.UpperValue);
+
+        slider.SetValues(80, 80);
+        var coincident = (PointF)valueToPoint.Invoke(slider, [80])!;
+        mouseDown.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 1, (int)coincident.X, (int)coincident.Y, 0)]);
+        mouseMove.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondUpper.X, (int)beyondUpper.Y, 0)]);
+        mouseUp.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 0, (int)beyondUpper.X, (int)beyondUpper.Y, 0)]);
+        Assert.AreEqual(80, slider.LowerValue);
+        Assert.AreEqual(80, slider.UpperValue);
+    }
+
+    [STATestMethod]
     public void RapidStrokeChangesSendOnlyTheNewestValue()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -191,6 +223,7 @@ public sealed class DeviceSliderControlTests
         settings.StrokeMaxPercent = 100;
 
         InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
+        ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
 
         var offsetSlider = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
         var strokeSlider = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;

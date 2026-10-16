@@ -90,6 +90,42 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void UnopposedPollAdoptsExternalValuesWithoutIssuingWrites()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":250}}"),
+            "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.25,\"max\":0.75,\"min_absolute\":25,\"max_absolute\":85}}"),
+            _ => throw new InvalidOperationException("Unexpected polling request.")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        SetPrivateField(form, "_lastDeviceOffset", 100);
+        SetPrivateField(form, "_lastDeviceStroke", new HandyApiClient.SliderStroke
+        {
+            Min = 0.1,
+            Max = 0.9,
+            MinAbsolute = 15,
+            MaxAbsolute = 95
+        });
+
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        var settings = (AppSettings)GetPrivateField(form, "_settings")!;
+        Assert.AreEqual(250, offset.LowerValue);
+        Assert.AreEqual(25, stroke.LowerValue);
+        Assert.AreEqual(75, stroke.UpperValue);
+        Assert.AreEqual(250, settings.DeviceOffsetMs);
+        Assert.AreEqual(25, settings.StrokeMinPercent);
+        Assert.AreEqual(75, settings.StrokeMaxPercent);
+        Assert.AreEqual(2, handler.Requests.Count);
+        Assert.IsTrue(handler.Requests.All(request => request.Method == "GET"));
+    }
+
+    [STATestMethod]
     public void PollFailuresPreserveValuesAndConnectionThenMarkUnknown()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -97,13 +133,17 @@ public sealed class DeviceControlPollingTests
             "{\"error\":{\"code\":1002,\"name\":\"DeviceTimeout\"}}")));
         using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
         InitializePollingForm(form, client);
+        _ = form.Handle;
         var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
         var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
         offset.SetValues(33, 0);
         stroke.SetValues(20, 80);
 
         for (var attempt = 0; attempt < 3; attempt++)
+        {
             InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+            Application.DoEvents();
+        }
 
         Assert.AreSame(client, GetPrivateField(form, "_handy"));
         Assert.AreEqual(33, offset.LowerValue);
@@ -112,6 +152,8 @@ public sealed class DeviceControlPollingTests
         Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_offsetState")!).Text);
         Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_strokeState")!).Text);
         Assert.IsTrue((bool)GetPrivateField(form, "_pollFailureLogged")!);
+        var log = (TextBox)GetPrivateField(form, "_log")!;
+        Assert.AreEqual(1, log.Text.Split("Device value polling failed:", StringSplitOptions.None).Length - 1);
     }
 
     [STATestMethod]
@@ -132,6 +174,61 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void TemperatureIsPolledEveryThirdTickWithoutPlaybackCommands()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var temperatureReadCount = 0;
+        using var handler = new RecordingHandler((request, _, _) =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path == "/api/slider/state")
+            {
+                var temperature = temperatureReadCount++ switch { 0 => 70, 1 => 80, _ => 69 };
+                return Task.FromResult(JsonResponse($"{{\"result\":{{\"motor_temp\":{temperature}}}}}"));
+            }
+            return Task.FromResult(path switch
+            {
+                "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":125}}"),
+                "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.25,\"max\":0.75,\"min_absolute\":25,\"max_absolute\":85}}"),
+                _ => throw new InvalidOperationException($"Unexpected request: {request.Method} {request.RequestUri}")
+            });
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        SetPrivateField(form, "_temperatureHighTrigger", 80d);
+        SetPrivateField(form, "_temperatureHysteresis", 10d);
+        _ = form.Handle;
+
+        for (var tick = 0; tick < 9; tick++)
+        {
+            InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+            Application.DoEvents();
+        }
+
+        Assert.AreEqual(3, handler.Requests.Count(request => request.Path == "slider/state"));
+        Assert.AreEqual(21, handler.Requests.Count(request => request.Method == "GET"));
+        var log = (TextBox)GetPrivateField(form, "_log")!;
+        Assert.AreEqual(3, log.Text.Split("Motor temperature state:", StringSplitOptions.None).Length - 1);
+        Assert.IsFalse(handler.Requests.Any(request => request.Path.StartsWith("hssp/", StringComparison.Ordinal)));
+    }
+
+    [STATestMethod]
+    public void MissingTemperatureSettingsUseFallbackTrigger()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(
+            JsonResponse("{\"result\":{\"motor_temp\":68}}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        SetPrivateField(form, "_temperatureHighTrigger", null);
+        SetPrivateField(form, "_temperatureHysteresis", null);
+
+        InvokePrivateTask(form, "UpdateTemperatureAsync", client).GetAwaiter().GetResult();
+
+        Assert.AreEqual(DeviceTemperatureBand.Warm, GetPrivateField(form, "_temperatureBand"));
+        Assert.AreEqual("Motor 68.0 °C (Warm)", ((Label)GetPrivateField(form, "_temperatureValue")!).Text);
+    }
+
+    [STATestMethod]
     public void FailedOptionalReadsLeaveControlsUsableAndNoSliderSuppressesStrokeRead()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -147,6 +244,7 @@ public sealed class DeviceControlPollingTests
         InitializePollingForm(form, client);
 
         InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
+        ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
 
         Assert.IsTrue(((DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!).Enabled);
         Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
@@ -165,9 +263,12 @@ public sealed class DeviceControlPollingTests
         InitializePollingForm(noSliderForm, noSliderClient);
 
         InvokePrivateTask(noSliderForm, "ReadAndAdoptDeviceControlsAsync", noSliderClient).GetAwaiter().GetResult();
+        ((System.Windows.Forms.Timer)GetPrivateField(noSliderForm, "_devicePollTimer")!).Stop();
 
         Assert.IsFalse(((DeviceSliderControl)GetPrivateField(noSliderForm, "_strokeSlider")!).Enabled);
         Assert.IsFalse(noSliderHandler.Requests.Any(request => request.Path == "slider/stroke"));
+        InvokePrivate(noSliderForm, "ScheduleStrokeWrite");
+        Assert.IsFalse(noSliderHandler.Requests.Any(request => request.Method == "PUT"));
     }
 
     private static void InitializeWritableForm(ScriptSyncPilot.HandySync.MainForm form, HandyApiClient client)
@@ -258,15 +359,15 @@ public sealed class DeviceControlPollingTests
                 FirstWriteStarted.TrySetResult();
                 await ReleaseFirstWrite.Task;
             }
-+            using var parsed = JsonDocument.Parse(body);
-+            var min = parsed.RootElement.GetProperty("min").GetDouble();
-+            var max = parsed.RootElement.GetProperty("max").GetDouble();
-+            return JsonResponse(JsonSerializer.Serialize(new
-+            {
-+                result = new { min, max, min_absolute = min * 100, max_absolute = max * 100 }
-+            }));
-+        }
-+    }
-+
-+    private sealed record RequestRecord(string Method, string Path, string? Body);
-+}
+            using var parsed = JsonDocument.Parse(body);
+            var min = parsed.RootElement.GetProperty("min").GetDouble();
+            var max = parsed.RootElement.GetProperty("max").GetDouble();
+            return JsonResponse(JsonSerializer.Serialize(new
+            {
+                result = new { min, max, min_absolute = min * 100, max_absolute = max * 100 }
+            }));
+        }
+    }
+
+    private sealed record RequestRecord(string Method, string Path, string? Body);
+}

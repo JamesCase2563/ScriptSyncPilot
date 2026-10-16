@@ -26,20 +26,20 @@ Record firmware version, device model, and date for each result.
 - [x] Core responses parse correctly, including stroke `min_absolute`/`max_absolute` and info `fw_status`/`fw_version`.
 - [x] A 200 response containing `error` raises `HandyApiException` with code/name; messages contain no connection key or device error message.
 - [x] Firmware gate: `4.x`/`fw_status` 0 or 1 supported; `3.x`, `fw_status` 2, missing status, and unparsable versions unsupported.
-- [ ] Percent/relative conversion round-trips 0-100 and handles device-normalized values without drift.
+- [x] Percent/relative conversion round-trips 0-100 and remains stable after device-normalized values.
 - [x] Slider checks: signed single-thumb values, horizontal thumb rendering, range ordering, keyboard thumb switching/stepping, and coincident-thumb behavior.
-- [ ] Remaining slider checks: mouse hit-testing/clamping, silent programmatic setter, invalid persisted values falling back to 0-100.
+- [x] Mouse hit-testing selects the nearest thumb; range dragging clamps at the other thumb; programmatic setting is silent; invalid persisted ranges fall back to 0-100.
 - [x] Rapid stroke changes coalesce into one write containing the newest value.
-- [ ] Write coordinator: a change during an in-flight write produces exactly one follow-up write; cancellation after disconnect produces no write.
+- [x] A change during an in-flight stroke write produces exactly one latest-value follow-up; a pending write is cancelled when disconnect begins.
 - [x] `DeviceTimeMs` no longer includes any offset; `OnOffsetChangedAsync`, `_offsetChangeCts`, and `AppSettings.OffsetMs` were removed from the runtime code.
-- [ ] A settings file containing a legacy `OffsetMs` loads without error, the value is not applied, and it is absent after the next save.
-- [ ] Poll acceptance: a result is applied when nothing changed locally; discarded when the edit version changed, a write is pending or in flight, or the control is being dragged/key-adjusted. Applying a poll result raises no write.
-- [ ] Poll skipping: a tick with the device-command gate busy issues no request; overlapping ticks do not run concurrently; no poll after disconnect starts or after close.
-- [ ] Poll failures do not change control values or disconnect; repeated failures produce one log entry and the *device values unknown* state.
+- [x] A settings file containing legacy `OffsetMs` loads without error, the value is not applied, and the property is omitted on serialization.
+- [x] An unopposed poll adopts device offset/stroke values; raced, pending, in-flight, or user-adjusted values are rejected by the poll acceptance rule; poll application sends no PUT.
+- [x] Polling skips a busy gate, does not overlap ticks, and does not start after disconnect or close begins.
+- [x] Poll failures preserve selected values and connection state; repeated failures log once and reach *device values unknown*.
 - [x] Core slider settings, capabilities, and slider state properties parse correctly.
-- [ ] A missing or failed optional device-information read leaves the controls usable and omits only the related details.
-- [ ] Capabilities with `slider` 0 disable the stroke control and suppress stroke reads/writes.
-- [ ] Temperature bands: normal below `trigger - 10`, warm up to `trigger`, hot at or above `trigger`; each band clears only after falling `temp_hysteresis` below its lower edge; default trigger used when slider settings are missing; one log entry per transition; no playback command is issued. Temperature is read every third poll tick only.
+- [x] Failed optional capabilities/settings reads leave controls usable and omit the related details.
+- [x] Capabilities with `slider` 0 disable stroke controls and suppress stroke reads and writes.
+- [x] Temperature bands cover thresholds and hysteresis; the fallback trigger is used without settings; one log entry is emitted per transition; temperature is read every third poll tick; polling issues no playback command.
 
 ## Manual Interaction (running app with device)
 
@@ -66,9 +66,9 @@ Record firmware version, device model, and date for each result.
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
-- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/connect-policy/bin/ -p:UseAppHost=false` (2026-10-15): passed, 112 tests.
-- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/connect-policy/bin/ -p:UseAppHost=false` (2026-10-15): passed.
-- [x] Focused tests for horizontal thumb rendering, HSSP reconnect ordering, and non-invasive connect adoption passed.
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/verification-audit/bin/ -p:UseAppHost=false` (2026-10-16): passed, 128 tests.
+- [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/verification-audit/bin/ -p:UseAppHost=false` (2026-10-16): passed.
+- [x] Focused tests for slider logic, write coordination, polling, temperature cadence, HSSP reconnect ordering, and non-invasive connect adoption passed.
 
 ## Results and Limitations
 

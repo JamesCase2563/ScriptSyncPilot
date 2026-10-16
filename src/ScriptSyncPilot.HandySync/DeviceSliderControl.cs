@@ -137,6 +137,17 @@ public sealed class DeviceSliderControl : Control
         Invalidate();
     }
 
+    protected override bool IsInputKey(Keys keyData)
+    {
+        if (!Enabled) return base.IsInputKey(keyData);
+        var keyCode = keyData & Keys.KeyCode;
+        if (keyCode is Keys.Left or Keys.Right or Keys.Up or Keys.Down
+            or Keys.PageUp or Keys.PageDown or Keys.Home or Keys.End)
+            return true;
+        if (IsRange && keyCode == Keys.Space) return true;
+        return base.IsInputKey(keyData);
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);

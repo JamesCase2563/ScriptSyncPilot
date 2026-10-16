@@ -125,6 +125,28 @@ public sealed class DeviceSliderControlTests
     }
 
     [STATestMethod]
+    public void ArrowKeyPreprocessingRoutesAdjustmentKeyToSlider()
+    {
+        using var form = new Form();
+        using var slider = new DeviceSliderControl { IsRange = true, Orientation = Orientation.Vertical };
+        slider.SetValues(20, 80);
+        form.Controls.Add(slider);
+        form.Show();
+        slider.Focus();
+        var isInputKey = typeof(DeviceSliderControl).GetMethod("IsInputKey", PrivateInstance)!;
+        Assert.IsTrue((bool)isInputKey.Invoke(slider, [Keys.Up])!);
+        var message = Message.Create(slider.Handle, 0x0100, (IntPtr)Keys.Up, IntPtr.Zero);
+
+        var processed = slider.PreProcessMessage(ref message);
+
+        Assert.IsFalse(processed, "An adjustment key should pass through dialog-key preprocessing to the control.");
+        typeof(Control).GetMethod("WndProc", PrivateInstance)!.Invoke(slider, [message]);
+        Assert.AreEqual(21, slider.LowerValue);
+        Assert.AreEqual(80, slider.UpperValue);
+        form.Close();
+    }
+
+    [STATestMethod]
     public void MouseDragClampsAtOtherThumbAndProgrammaticSetIsSilent()
     {
         using var slider = new DeviceSliderControl { IsRange = true, Size = new Size(220, 40) };

@@ -183,6 +183,24 @@ public sealed class DeviceSliderControlTests
     }
 
     [STATestMethod]
+    public void LosingMouseCaptureEndsDragWithoutMouseUp()
+    {
+        using var slider = new DeviceSliderControl { IsRange = true, Size = new Size(220, 40) };
+        slider.SetValues(20, 80);
+        var valueToPoint = typeof(DeviceSliderControl).GetMethod("ValueToPoint", PrivateInstance)!;
+        var mouseDown = typeof(DeviceSliderControl).GetMethod("OnMouseDown", PrivateInstance)!;
+        var minimumPoint = (PointF)valueToPoint.Invoke(slider, [20])!;
+        _ = slider.Handle;
+
+        mouseDown.Invoke(slider, [new MouseEventArgs(MouseButtons.Left, 1, (int)minimumPoint.X, (int)minimumPoint.Y, 0)]);
+        Assert.IsTrue(slider.IsBeingAdjusted);
+
+        slider.Capture = false;
+
+        Assert.IsFalse(slider.IsBeingAdjusted);
+    }
+
+    [STATestMethod]
     public void RapidStrokeChangesSendOnlyTheNewestValue()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

@@ -129,6 +129,14 @@ public sealed class DeviceSliderControl : Control
         Capture = false;
     }
 
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        if (Capture || !_dragging) return;
+        _dragging = false;
+        Invalidate();
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);

@@ -22,10 +22,10 @@ public sealed class PlaybackSpeedCommandTests
         var play = (Button)GetPrivateField(form, "_playVideoButton")!;
         var pause = (Button)GetPrivateField(form, "_pauseVideoButton")!;
 
-        Assert.AreEqual("Attach to mpv", attach.Text);
-        Assert.AreEqual("Detach from mpv", detach.Text);
-        Assert.AreEqual("Play Video", play.Text);
-        Assert.AreEqual("Pause Video", pause.Text);
+        Assert.AreEqual("Attach", attach.Text);
+        Assert.AreEqual("Detach", detach.Text);
+        Assert.AreEqual("Play", play.Text);
+        Assert.AreEqual("Pause", pause.Text);
         Assert.IsTrue(attach.Enabled);
         Assert.IsFalse(detach.Enabled);
         Assert.IsFalse(play.Enabled);

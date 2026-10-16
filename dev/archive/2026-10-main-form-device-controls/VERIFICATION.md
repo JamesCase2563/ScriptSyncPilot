@@ -27,7 +27,7 @@ Record firmware version, device model, and date for each result.
 - [x] A 200 response containing `error` raises `HandyApiException` with code/name; messages contain no connection key or device error message.
 - [x] Firmware gate: `4.x`/`fw_status` 0 or 1 supported; `3.x`, `fw_status` 2, missing status, and unparsable versions unsupported.
 - [x] Percent/relative conversion round-trips 0-100 and remains stable after device-normalized values.
-- [x] Slider checks: signed single-thumb values, horizontal thumb rendering, range ordering, keyboard thumb switching/stepping, and coincident-thumb behavior.
+- [x] Slider checks: signed single-thumb values, horizontal thumb rendering, range ordering, keyboard thumb switching/stepping, coincident-thumb behavior, and drag cleanup after mouse-capture loss.
 - [x] Mouse hit-testing selects the nearest thumb; range dragging clamps at the other thumb; programmatic setting is silent; invalid persisted ranges fall back to 0-100.
 - [x] Rapid stroke changes coalesce into one write containing the newest value.
 - [x] A change during an in-flight stroke write produces exactly one latest-value follow-up; a pending write is cancelled when disconnect begins.
@@ -68,9 +68,9 @@ Record firmware version, device model, and date for each result.
 
 Build the solution and run the HandySync tests and existing suites. Record exact commands and results. Builds alone do not verify device behavior; Common model tests do not verify HandySync UI or device effects. Update permanent HandySync architecture/backlog only to what was implemented and verified.
 
-- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/transport-controls/bin/ -p:UseAppHost=false` (2026-10-16): passed, 129 tests.
+- [x] `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/capture-loss/bin/ -p:UseAppHost=false` (2026-10-16): passed, 130 tests.
 - [x] `dotnet build ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/transport-controls/bin/ -p:UseAppHost=false` (2026-10-16): passed.
-- [x] Focused tests for slider logic, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, and video transport labels/state passed.
+- [x] Focused tests for slider logic/capture loss, write coordination, polling, temperature cadence, HSSP reconnect ordering, non-invasive connect adoption, and video transport labels/state passed.
 
 ## Results and Limitations
 

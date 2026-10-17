@@ -57,8 +57,8 @@ Record firmware version, device model, and date for each result.
 - [x] Range trackbar is readable and usable at the form's normal size and at higher Windows display scaling.
 - [x] Offset (horizontal) and Stroke Range (vertical) look consistent; both work in either orientation; in vertical orientation max is at the top and Up/Page Up increase the value.
 - [x] Adjusting while paused applies values and does not start the device.
-- [x] Adjusting while disconnected keeps values; they are applied on connect.
-- [x] Simulated API failure (for example network disconnected) keeps selected values, shows *not applied*, does not disconnect, and a later change or reconnect applies them.
+- [x] Adjusting while disconnected updates local selections/settings only; no write is queued. On connect, device reads adopt and persist the device's current offset/stroke, replacing local selections without issuing offset/stroke PUTs.
+- [x] Simulated API failure (for example network disconnected) keeps selected values, shows *not applied*, and does not disconnect. A later connected edit issues a new write; reconnect instead reads and adopts the device's current values without reapplying the failed selections.
 - [x] With HandySync connected and playing, change offset and stroke in an online player: HandySync's controls update within one poll interval, show *changed by another app*, and log old/new values; playback is not interrupted.
 - [x] Switching from the browser back to HandySync refreshes values immediately.
 - [x] Dragging a control while a poll returns a different device value: the user's drag wins and the final user value is written.

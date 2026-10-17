@@ -72,8 +72,7 @@ public sealed class MainForm : Form
     private bool _strokeInitialReadFailed;
     private bool _offsetWriteFailed;
     private bool _strokeWriteFailed;
-    private int _pollFailureCount;
-    private bool _pollFailureLogged;
+    private readonly Dictionary<string, int> _pollFailureCounts = new();
     private bool _offsetWriteInFlight;
     private bool _strokeWriteInFlight;
     private int? _lastDeviceOffset;
@@ -639,6 +638,7 @@ public sealed class MainForm : Form
     {
         _handyDisconnecting = true;
         _devicePollTimer.Stop();
+        _pollFailureCounts.Clear();
         CancelPendingDeviceWrites();
 
         var client = _handy;
@@ -880,10 +880,12 @@ public sealed class MainForm : Form
 
         var offsetVersion = _offsetEditVersion;
         var strokeVersion = _strokeEditVersion;
+        var endpoint = "hstp/offset";
         try
         {
             var offset = await client.GetOffsetAsync(_lifetimeCts.Token);
             if (!IsCurrentPollClient(client)) return;
+            _pollFailureCounts.Remove(endpoint);
             var mayApplyOffset = DeviceControlLogic.ShouldApplyPolledValue(
                 offsetVersion, _offsetEditVersion, _offsetWriteCts is not null || _offsetWriteFailed,
                 _offsetWriteInFlight, _offsetSlider.IsBeingAdjusted);
@@ -915,8 +917,10 @@ public sealed class MainForm : Form
             if (_hasDeviceSlider)
             {
                 if (!IsCurrentPollClient(client)) return;
+                endpoint = "slider/stroke";
                 var stroke = await client.GetStrokeAsync(_lifetimeCts.Token);
                 if (!IsCurrentPollClient(client)) return;
+                _pollFailureCounts.Remove(endpoint);
                 var mayApplyStroke = DeviceControlLogic.ShouldApplyPolledValue(
                     strokeVersion, _strokeEditVersion, _strokeWriteCts is not null || _strokeWriteFailed,
                     _strokeWriteInFlight, _strokeSlider.IsBeingAdjusted);
@@ -960,29 +964,28 @@ public sealed class MainForm : Form
             if (_hasDeviceSlider && _devicePollTick % 3 == 0)
             {
                 if (!IsCurrentPollClient(client)) return;
+                endpoint = "slider/state";
                 await UpdateTemperatureAsync(client);
+                if (!IsCurrentPollClient(client)) return;
+                _pollFailureCounts.Remove(endpoint);
             }
-
-            if (!IsCurrentPollClient(client)) return;
-
-            _pollFailureCount = 0;
-            _pollFailureLogged = false;
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or ObjectDisposedException or OperationCanceledException)
         {
-            _pollFailureCount++;
-            if (!_pollFailureLogged)
+            if (!IsCurrentPollClient(client)) return;
+            var failureCount = _pollFailureCounts.GetValueOrDefault(endpoint) + 1;
+            _pollFailureCounts[endpoint] = failureCount;
+            if (failureCount == 1)
             {
-                Log($"Device value polling failed: {ex.Message}");
-                _pollFailureLogged = true;
+                Log($"Device value polling failed: {endpoint}: {ex.Message}");
             }
-            if (_pollFailureCount >= 3)
+            if (failureCount >= 3)
             {
-                if (!_offsetWriteFailed) _offsetState.Text = "device values unknown";
-                if (_hasDeviceSlider && !_strokeWriteFailed) _strokeState.Text = "device values unknown";
+                if (endpoint == "hstp/offset" && !_offsetWriteFailed) _offsetState.Text = "device values unknown";
+                if (endpoint == "slider/stroke" && !_strokeWriteFailed) _strokeState.Text = "device values unknown";
             }
         }
         finally

@@ -261,6 +261,7 @@ public sealed class DeviceControlPollingTests
         var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
         offset.SetValues(33, 0);
         stroke.SetValues(20, 80);
+        var initialStrokeState = ((Label)GetPrivateField(form, "_strokeState")!).Text;
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -273,8 +274,7 @@ public sealed class DeviceControlPollingTests
         Assert.AreEqual(20, stroke.LowerValue);
         Assert.AreEqual(80, stroke.UpperValue);
         Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_offsetState")!).Text);
-        Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_strokeState")!).Text);
-        Assert.IsTrue((bool)GetPrivateField(form, "_pollFailureLogged")!);
+        Assert.AreEqual(initialStrokeState, ((Label)GetPrivateField(form, "_strokeState")!).Text);
         var log = (TextBox)GetPrivateField(form, "_log")!;
         Assert.AreEqual(1, log.Text.Split("Device value polling failed:", StringSplitOptions.None).Length - 1);
     }
@@ -381,6 +381,7 @@ public sealed class DeviceControlPollingTests
         var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
         offset.SetValues(125, 0);
         stroke.SetValues(25, 75);
+        var initialStrokeState = ((Label)GetPrivateField(form, "_strokeState")!).Text;
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -388,7 +389,7 @@ public sealed class DeviceControlPollingTests
             Application.DoEvents();
         }
         Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_offsetState")!).Text);
-        Assert.AreEqual("device values unknown", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.AreEqual(initialStrokeState, ((Label)GetPrivateField(form, "_strokeState")!).Text);
 
         returnFailure = false;
         InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
@@ -397,7 +398,56 @@ public sealed class DeviceControlPollingTests
         Assert.AreEqual(25, stroke.LowerValue);
         Assert.AreEqual(75, stroke.UpperValue);
         Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
-        Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.AreEqual(initialStrokeState, ((Label)GetPrivateField(form, "_strokeState")!).Text);
+    }
+
+    [STATestMethod]
+    [DataRow("hstp/offset")]
+    [DataRow("slider/stroke")]
+    [DataRow("slider/state")]
+    public void PollFailuresOnlyMarkTheFailingControlsUnknownAndRecoverIndependently(string failingEndpoint)
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var returnFailure = true;
+        using var handler = new RecordingHandler((request, _, _) =>
+        {
+            var endpoint = request.RequestUri!.AbsolutePath.Replace("/api/", string.Empty);
+            return Task.FromResult(returnFailure && endpoint == failingEndpoint
+                ? JsonResponse("{\"error\":{\"code\":1002,\"name\":\"DeviceTimeout\"}}")
+                : endpoint switch
+                {
+                    "hstp/offset" => JsonResponse("{\"result\":{\"offset\":125}}"),
+                    "slider/stroke" => JsonResponse("{\"result\":{\"min\":0.25,\"max\":0.75,\"min_absolute\":25,\"max_absolute\":85}}"),
+                    "slider/state" => JsonResponse("{\"result\":{\"motor_temp\":30}}"),
+                    _ => throw new InvalidOperationException("Unexpected request.")
+                });
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        var offsetState = (Label)GetPrivateField(form, "_offsetState")!;
+        var strokeState = (Label)GetPrivateField(form, "_strokeState")!;
+        offsetState.Text = "applied";
+        strokeState.Text = "applied";
+        _ = form.Handle;
+
+        for (var attempt = 0; attempt < 9; attempt++)
+        {
+            InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+            Application.DoEvents();
+        }
+
+        Assert.AreEqual(failingEndpoint == "hstp/offset" ? "device values unknown" : "applied", offsetState.Text);
+        Assert.AreEqual(failingEndpoint == "slider/stroke" ? "device values unknown" : "applied", strokeState.Text);
+        Assert.AreSame(client, GetPrivateField(form, "_handy"));
+        var log = (TextBox)GetPrivateField(form, "_log")!;
+        Assert.AreEqual(1, log.Text.Split($"Device value polling failed: {failingEndpoint}:", StringSplitOptions.None).Length - 1);
+
+        returnFailure = false;
+        for (var attempt = 0; attempt < 3; attempt++)
+            InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual("applied", offsetState.Text);
+        Assert.AreEqual("applied", strokeState.Text);
     }
 
     [STATestMethod]

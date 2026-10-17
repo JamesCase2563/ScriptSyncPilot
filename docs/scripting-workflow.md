@@ -20,13 +20,13 @@ Markers are ordinary script points, so each level uses its own position value. T
 
 | Marker | Key | Position |
 | --- | --- | --- |
-| Scene change (only if the video has several scenes) | `9` | 90% |
+| Scene change (only if the video has several scenes) | `0` | 100% |
 | Cut | `5` | 50% |
 | Movement start | `7` | 70% |
 | Movement stop | `3` | 30% |
 | Tempo tap (stroke bottom) | key left of `1` | 0% |
 
-Mnemonic: start is high, stop is low, cuts sit in the middle, taps are on the floor.
+Mnemonic: scenes are at the ceiling, start is high, stop is low, cuts sit in the middle, taps are on the floor.
 
 ## Passes
 
@@ -34,7 +34,7 @@ Save after each pass. Before pass 4, also save a copy (for example `movie.marker
 
 ### 1. Cuts (optional, 2x)
 
-Play at 2x and press `5` at each cut or pause; press `9` at a change of scene. Skip this pass for short videos or a single continuous take.
+Play at 2x and press `5` at each cut or pause; press `0` at a change of scene. Skip this pass for short videos or a single continuous take.
 
 ### 2. Movement sections (1.5-2x)
 
@@ -70,4 +70,4 @@ Finally play through at 1x with the device connected and adjust transitions at s
 
 - Most of the time is spent in pass 3. Keep passes 1-2 fast and rough; boundaries can be refined later.
 - Undo (`Ctrl+Z`) covers taps, drags, and whole pattern insertions.
-- A section with irregular movement can keep hand-tapped points instead of a pattern: tap both the bottom (key left of `1`) and the top (`0`) of each stroke.
+- A section with irregular movement can keep hand-tapped points instead of a pattern: tap each turning point with the key matching its depth, so both timing and stroke length follow the video.

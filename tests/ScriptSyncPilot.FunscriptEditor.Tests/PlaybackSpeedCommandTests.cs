@@ -13,6 +13,53 @@ namespace ScriptSyncPilot.FunscriptEditor.Tests;
 public sealed class PlaybackSpeedCommandTests
 {
     [STATestMethod]
+    public void VideoTransportButtonsAreDistinctFromAttachAndFollowMpvPauseState()
+    {
+        using var form = new HandyForm();
+        using var session = new MpvSession();
+        var attach = (Button)GetPrivateField(form, "_attachMpvButton")!;
+        var detach = (Button)GetPrivateField(form, "_detachMpvButton")!;
+        var play = (Button)GetPrivateField(form, "_playVideoButton")!;
+        var pause = (Button)GetPrivateField(form, "_pauseVideoButton")!;
+
+        Assert.AreEqual("Attach", attach.Text);
+        Assert.AreEqual("Detach", detach.Text);
+        Assert.AreEqual("Play", play.Text);
+        Assert.AreEqual("Pause", pause.Text);
+        Assert.IsTrue(attach.Enabled);
+        Assert.IsFalse(detach.Enabled);
+        Assert.IsFalse(play.Enabled);
+        Assert.IsFalse(pause.Enabled);
+
+        SetPrivateField(form, "_mpv", session);
+        SetPrivateField(form, "_mpvAttached", true);
+        typeof(HandyForm).GetMethod("UpdateVideoTransportButtons", PrivateInstance)!
+            .Invoke(form, [session]);
+        Assert.IsTrue(detach.Enabled);
+        Assert.IsTrue(play.Enabled);
+        Assert.IsFalse(pause.Enabled);
+
+        Observe(session, "pause", "false");
+        typeof(HandyForm).GetMethod("UpdateVideoTransportButtons", PrivateInstance)!
+            .Invoke(form, [session]);
+        Assert.IsFalse(play.Enabled);
+        Assert.IsTrue(pause.Enabled);
+    }
+
+    [TestMethod]
+    public void HsspSetup_StopsOnlyWhenReplacingSetupForTheSameClient()
+    {
+        using var client = new HandyApiClient("test-only");
+        using var anotherClient = new HandyApiClient("test-only");
+
+        Assert.IsFalse(HandyForm.ShouldStopBeforeHsspSetup(null, client));
+        Assert.IsTrue(HandyForm.ShouldStopBeforeHsspSetup(client, client));
+        Assert.IsFalse(HandyForm.ShouldStopBeforeHsspSetup(anotherClient, client));
+        Assert.IsFalse(HandyForm.ShouldStopOnDisconnect(null, client));
+        Assert.IsTrue(HandyForm.ShouldStopOnDisconnect(client, client));
+    }
+
+    [STATestMethod]
     public void HandySync_SuspendsUnknownAndNonNormalRatesAndResumesAtCurrentPosition()
     {
         using var form = new HandyForm();
@@ -27,6 +74,7 @@ public sealed class PlaybackSpeedCommandTests
         SetPrivateField(form, "_mpv", session);
         SetPrivateField(form, "_handy", client);
         SetPrivateField(form, "_hsspReady", true);
+        ((DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!).SetValues(350, 0);
         _ = form.Handle;
 
         Observe(session, "pause", "false");
@@ -41,7 +89,6 @@ public sealed class PlaybackSpeedCommandTests
             var count = handler.Paths.Count;
             InvokeHandyTask(form, "OnMpvPositionChangedAsync", session, 10.0).GetAwaiter().GetResult();
             InvokeHandyTask(form, "OnSyncTickAsync").GetAwaiter().GetResult();
-            InvokeHandyTask(form, "OnOffsetChangedAsync").GetAwaiter().GetResult();
             Assert.AreEqual(count, handler.Paths.Count);
         }
 
@@ -51,8 +98,7 @@ public sealed class PlaybackSpeedCommandTests
         Assert.AreEqual("hssp/play", handler.Paths.Last());
         using var body = JsonDocument.Parse(handler.Bodies.Last()!);
         Assert.AreEqual(1.0, body.RootElement.GetProperty("playback_rate").GetDouble());
-        Assert.AreEqual(42000L, body.RootElement.GetProperty("start_time").GetInt64()
-            - ((TrackBar)GetPrivateField(form, "_offsetSlider")!).Value);
+        Assert.AreEqual(42000L, body.RootElement.GetProperty("start_time").GetInt64());
 
         Observe(session, "pause", "true");
         InvokeHandySpeedUpdate(form, session);

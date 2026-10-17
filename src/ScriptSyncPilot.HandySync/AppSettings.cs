@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ScriptSyncPilot.Common;
 
 namespace ScriptSyncPilot.HandySync;
 
@@ -7,7 +8,9 @@ public sealed class AppSettings
 {
     public string ConnectionKey { get; set; } = "";
     public string MpvIpcPipe { get; set; } = @"\\.\pipe\vrheadtrack";
-    public int OffsetMs { get; set; }
+    public int DeviceOffsetMs { get; set; }
+    public int StrokeMinPercent { get; set; }
+    public int StrokeMaxPercent { get; set; } = 100;
     public string LastScriptPath { get; set; } = "";
 
     private static string FilePath =>
@@ -19,7 +22,10 @@ public sealed class AppSettings
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+            {
+                var json = File.ReadAllText(FilePath);
+                return Deserialize(json);
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
@@ -28,13 +34,37 @@ public sealed class AppSettings
         return new AppSettings();
     }
 
+    internal static AppSettings Deserialize(string json, Action<string>? log = null)
+    {
+        LogDiscardedLegacyOffset(json, log ?? AppLog.Write);
+        return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+    }
+
+    internal string Serialize() => JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+
+    private static void LogDiscardedLegacyOffset(string json, Action<string> log)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("OffsetMs", out var legacyOffset)
+                && legacyOffset.ValueKind == JsonValueKind.Number
+                && legacyOffset.TryGetInt32(out var value) && value != 0)
+                log("Discarded legacy local OffsetMs setting; the device-side HSTP offset is independent.");
+        }
+        catch (JsonException)
+        {
+        }
+    }
+
     public void Save()
     {
          try
          {
              var dir = Path.GetDirectoryName(FilePath)!;
              Directory.CreateDirectory(dir);
-             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+             File.WriteAllText(FilePath, Serialize());
          }
          catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
          {

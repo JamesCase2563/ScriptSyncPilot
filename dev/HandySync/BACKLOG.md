@@ -9,12 +9,11 @@
 - [Firmware and Capabilities](#firmware-and-capabilities)
 - [Timing and Diagnostics](#timing-and-diagnostics)
 - [Offset Feedback](#offset-feedback)
-- [Main-Form Device Controls](#main-form-device-controls)
 - [Playback Speed Sync](#playback-speed-sync)
 - [Local Buttplug/Intiface Output](#local-buttplugintiface-output)
 - [Verification and Order](#verification-and-order)
 
-All entries below are proposed future work. Implemented command serialization, version-aware setup, session checks, and awaited teardown are described in [architecture](ARCHITECTURE.md), not listed as wholly unfinished features.
+Entries below track future work; status notes call out partial implementations. Implemented command serialization, version-aware setup, session checks, awaited teardown, and main-form device controls are described in [architecture](ARCHITECTURE.md), not listed as wholly unfinished features.
 
 Intermittent Handy disconnects have also been observed with other services. Wi-Fi instability is a working hypothesis, not a confirmed cause. Diagnostics should distinguish network, service, firmware, credential, and local lifecycle failures.
 
@@ -26,7 +25,7 @@ Introduce explicit unavailable/recovering/ready states for transient HTTP failur
 
 Online players can switch the device mode or replace the HSSP script while HandySync is connected; HandySync currently sets mode and script only on connect and does not notice. Record `mode_session_id` from the `PUT /mode2` response, then check `GET /mode` periodically, potentially combined with future offset/stroke polling. A different mode or `mode_session_id` means another client took over: log it and enter recovery to restore HSSP mode and the script. A script replaced within HSSP mode may not change `mode_session_id`; verify whether `GET /hssp/state` (for example `stream_id`) exposes it. Decide whether takeover recovers automatically or waits for the user, to avoid fighting an online player that is still open.
 
-Device reboots and server reconnects can also silently reset device state. Record `boot_session_id` and `socket_session_id` from `GET /sids` after setup and check them in the same periodic poll. A changed `boot_session_id` means the device rebooted; a changed `socket_session_id` within the same boot means it reconnected to the server. Either way, treat mode, HSSP setup, and the device-to-server clock as lost: enter recovery, re-estimate the client/server clock offset, re-read offset and stroke (applying the main-form connect policy), and log which ID changed. Verify whether HSTP offset and stroke survive a reboot or reconnect.
+Device reboots and server reconnects can also silently reset device state. Record `boot_session_id` and `socket_session_id` from `GET /sids` after setup and check them in the same periodic poll. A changed `boot_session_id` means the device rebooted; a changed `socket_session_id` within the same boot means it reconnected to the server. Either way, treat mode, HSSP setup, and the device-to-server clock as lost: enter recovery, re-estimate the client/server clock offset, re-read and adopt offset/stroke using the main-form device-control policy, and log which ID changed. Verify whether HSTP offset and stroke survive a reboot or reconnect.
 
 1. Suspend normal device synchronization.
 2. Retry connectivity with exponential backoff, for example 1, 2, 4, 8, 15, and 30 seconds.
@@ -57,11 +56,13 @@ Keep the single device-command gate. Add newest-desired-state handling to suppre
 
 Evaluate SSE connection/error events with connectivity polling fallback. Verify event names against the current API reference. Reconnect the SSE reader with backoff and cancel it cleanly when the device connection ends.
 
+Feed device warnings into the main-form device status area from [main-form device controls](../archive/2026-10-main-form-device-controls/DESIGN.md#device-status-read-only): `temp_high`/`temp_ok`, `slider_blocked`/`slider_unblocked`, and `battery_changed` (battery level only when capabilities report a battery). `stroke_changed` can replace stroke polling. Never log the SSE URL, which carries the API key.
+
 ## Firmware and Capabilities
 
-**Priority:** Medium. **Status:** Proposed.
+**Priority:** Medium. **Status:** Partially implemented for main-form device controls.
 
-Before device setup, check `/connected`, `/info`, firmware status, and `/capabilities` where models vary. Report required updates/incompatibility rather than issuing unsupported commands. Vendor documentation requires firmware 4 or newer for API v3. Script loading stays independent of device availability.
+The main-form offset/stroke controls call `/info` and are enabled only for firmware 4+ with `fw_status` other than update-required. `/capabilities` is read on connect; stroke controls are disabled and stroke requests are suppressed when `slider` is zero. This is a control-specific gate, not a gate on the rest of HSSP setup. Remaining work is broader firmware/capability validation before setup, if required, and handling additional model-specific capabilities. Vendor documentation requires firmware 4 or newer for API v3. Script loading stays independent of device availability.
 
 ## Timing and Diagnostics
 
@@ -77,21 +78,9 @@ Before device setup, check `/connected`, `/info`, firmware status, and `/capabil
 
 ## Offset Feedback
 
-**Priority:** Medium. **Status:** Proposed; debounce implemented.
+**Priority:** Medium. **Status:** Partial; basic device-side offset control is implemented with the completed main-form device controls.
 
-Show syncing/applied/unavailable state for the API-backed offset, retain the selected value during recovery, reapply it when the device is ready, and offer reset-to-zero. Evaluate 10 ms steps and an advanced range beyond +/- 1000 ms if needed.
-
-## Main-Form Device Controls
-
-**Priority:** Medium. **Status:** Proposed.
-
-Keep user-adjustable sync offset and minimum/maximum stroke controls on the main form; do not add a settings dialog. Use Handy REST API v3 only, consistent with the existing client; do not add an API v2 fallback.
-
-- Replace the current local `OffsetMs` adjustment to the mpv timestamp with the API's device-side HSTP offset. Keep client/server clock-offset estimation separate; it is still required to calculate server time for synchronized playback.
-- Read and set the device's slider stroke range through the v3 slider settings/stroke endpoints. Reflect the values accepted by the device in the controls.
-- Read the current device values on connection and preserve the user's chosen values across app restarts/reconnects where needed. Debounce rapid slider changes and serialize API writes through the existing device-command gate.
-- Depend on the Firmware and Capabilities check: require firmware compatible with API v3 (firmware 4 or newer), and show a clear unsupported-firmware state instead of attempting these controls on older devices. Do not silently fall back to v2.
-- Verify offset sign/units and slider-range units against the current v3 API contract; test reconnect, rejected/normalized ranges, and API failures without losing the selected UI values.
+The main form displays raw HSTP offset, adopts the device value on connect, polls for external changes, and debounces user writes. Remaining work is an explicit reset-to-zero and any range extension beyond the current +/- 1000 ms / 10 ms steps, if device limits and user need justify it. Do not restore a local mpv-time offset or reapply stale saved values on connect.
 
 ## Playback Speed Sync
 

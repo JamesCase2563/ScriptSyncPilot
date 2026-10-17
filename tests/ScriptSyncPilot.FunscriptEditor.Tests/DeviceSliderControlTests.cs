@@ -78,6 +78,39 @@ public sealed class DeviceSliderControlTests
     }
 
     [STATestMethod]
+    public void AccessibilityExposesSliderRoleNamesValuesAndLimits()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var offset = (DeviceSliderControl)typeof(ScriptSyncPilot.HandySync.MainForm)
+            .GetField("_offsetSlider", PrivateInstance)!.GetValue(form)!;
+        var stroke = (DeviceSliderControl)typeof(ScriptSyncPilot.HandySync.MainForm)
+            .GetField("_strokeSlider", PrivateInstance)!.GetValue(form)!;
+        offset.SetValues(-350, 0);
+        stroke.SetValues(20, 80);
+
+        Assert.AreEqual(AccessibleRole.Slider, offset.AccessibilityObject.Role);
+        Assert.AreEqual("Device offset (milliseconds)", offset.AccessibilityObject.Name);
+        Assert.AreEqual("-350", offset.AccessibilityObject.Value);
+        Assert.AreEqual("Allowed minimum -1000; allowed maximum 1000.", offset.AccessibilityObject.Description);
+        Assert.AreEqual(AccessibleRole.Slider, stroke.AccessibilityObject.Role);
+        Assert.AreEqual("Stroke range (percent)", stroke.AccessibilityObject.Name);
+        Assert.AreEqual("Minimum 20; maximum 80; editing minimum.", stroke.AccessibilityObject.Value);
+        Assert.AreEqual("Allowed minimum 0; allowed maximum 100.", stroke.AccessibilityObject.Description);
+
+        typeof(DeviceSliderControl).GetMethod("OnKeyDown", PrivateInstance)!.Invoke(stroke, [new KeyEventArgs(Keys.Space)]);
+        Assert.AreEqual("Minimum 20; maximum 80; editing maximum.", stroke.AccessibilityObject.Value);
+        stroke.AccessibilityObject.Value = "90";
+        Assert.AreEqual(90, stroke.UpperValue);
+        Assert.AreEqual("Minimum 20; maximum 90; editing maximum.", stroke.AccessibilityObject.Value);
+        offset.AccessibilityObject.Value = "-2000";
+        Assert.AreEqual(-1000, offset.LowerValue);
+        offset.Enabled = false;
+        offset.AccessibilityObject.Value = "0";
+        Assert.AreEqual(-1000, offset.LowerValue);
+        Assert.IsTrue(offset.AccessibilityObject.State.HasFlag(AccessibleStates.Unavailable));
+    }
+
+    [STATestMethod]
     public void SingleThumbAcceptsSignedValueAndDoesNotClampAgainstSecondThumb()
     {
         using var slider = new DeviceSliderControl { Minimum = -1000, Maximum = 1000 };

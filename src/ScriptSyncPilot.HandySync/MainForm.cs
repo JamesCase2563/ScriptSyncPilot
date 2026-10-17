@@ -17,11 +17,12 @@ public sealed class MainForm : Form
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
-    private readonly DeviceSliderControl _offsetSlider = new() { Minimum = -1000, Maximum = 1000, SmallStep = 10, LargeStep = 100 };
+    private readonly DeviceSliderControl _offsetSlider = new() { AccessibleName = "Device offset (milliseconds)", Minimum = -1000, Maximum = 1000, SmallStep = 10, LargeStep = 100 };
     private readonly Label _offsetValue = new() { AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, MinimumSize = new Size(72, 0) };
     private readonly Label _offsetState = new() { AutoSize = true, Text = "not connected" };
     private readonly DeviceSliderControl _strokeSlider = new()
     {
+        AccessibleName = "Stroke range (percent)",
         Minimum = 0,
         Maximum = 100,
         IsRange = true,

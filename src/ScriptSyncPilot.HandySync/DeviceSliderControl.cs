@@ -62,12 +62,17 @@ public sealed class DeviceSliderControl : Control
 
     public bool IsBeingAdjusted => _dragging;
 
+    protected override AccessibleObject CreateAccessibilityInstance() => new SliderAccessibleObject(this);
+
     public void SetValues(int lowerValue, int upperValue)
     {
+        var oldLower = _lowerValue;
+        var oldUpper = _upperValue;
         _lowerValue = Math.Clamp(lowerValue, _minimum, _maximum);
         _upperValue = IsRange ? Math.Clamp(upperValue, _minimum, _maximum) : _lowerValue;
         if (IsRange && _lowerValue > _upperValue) _lowerValue = _upperValue;
         Invalidate();
+        if (oldLower != _lowerValue || oldUpper != _upperValue) NotifyAccessibleValueChanged();
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -109,7 +114,9 @@ public sealed class DeviceSliderControl : Control
         if (!Enabled || e.Button != MouseButtons.Left) return;
         Focus();
         var point = new Point(e.X, e.Y);
+        var previousThumb = _activeThumb;
         _activeThumb = IsRange && Distance(point, ValueToPoint(_upperValue)) < Distance(point, ValueToPoint(_lowerValue)) ? 1 : 0;
+        if (previousThumb != _activeThumb) NotifyAccessibleValueChanged();
         _dragging = true;
         Capture = true;
         SetActiveValue(PointToValue(point));
@@ -156,6 +163,7 @@ public sealed class DeviceSliderControl : Control
         {
             _activeThumb = 1 - _activeThumb;
             Invalidate();
+            NotifyAccessibleValueChanged();
             e.Handled = true;
             return;
         }
@@ -241,7 +249,44 @@ public sealed class DeviceSliderControl : Control
 
         if (oldLower == _lowerValue && oldUpper == _upperValue) return;
         Invalidate();
+        NotifyAccessibleValueChanged();
         ValuesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void NotifyAccessibleValueChanged()
+    {
+        if (IsHandleCreated) AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
+    }
+
+    private sealed class SliderAccessibleObject : ControlAccessibleObject
+    {
+        private readonly DeviceSliderControl _slider;
+
+        public SliderAccessibleObject(DeviceSliderControl slider) : base(slider)
+        {
+            _slider = slider;
+        }
+
+        public override AccessibleRole Role => AccessibleRole.Slider;
+
+        public override AccessibleStates State => base.State | AccessibleStates.Focusable
+            | (_slider.Enabled ? AccessibleStates.None : AccessibleStates.Unavailable)
+            | (_slider.Focused ? AccessibleStates.Focused : AccessibleStates.None);
+
+        public override string? Description =>
+            $"Allowed minimum {_slider.Minimum}; allowed maximum {_slider.Maximum}.";
+
+        public override string? Value
+        {
+            get => _slider.IsRange
+                ? $"Minimum {_slider.LowerValue}; maximum {_slider.UpperValue}; editing {(_slider._activeThumb == 0 ? "minimum" : "maximum")}."
+                : _slider.LowerValue.ToString(System.Globalization.CultureInfo.CurrentCulture);
+            set
+            {
+                if (_slider.Enabled && int.TryParse(value, out var requestedValue))
+                    _slider.SetActiveValue(requestedValue);
+            }
+        }
     }
 
     private static float Distance(Point left, PointF right)

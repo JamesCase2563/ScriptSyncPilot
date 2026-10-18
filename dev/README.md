@@ -20,6 +20,10 @@ Start with the [system architecture](ARCHITECTURE.md). The [vision](VISION.md) d
 
 Useful ideas from the earlier proposal survive in current architecture requirements and backlogs: command ordering, lifecycle safety, compatibility checks, diagnostics, privacy, tests, UI/session separation, and an optional local backend.
 
+## Active Cross-Project Work
+
+- [Production readiness](work/production-readiness/PLAN.md): coordinate ownership, legal/privacy review, product/protocol boundaries, reliability, and release readiness without duplicating component backlog details.
+
 ## Working Documents and Archives
 
 This README is the canonical convention; conversational notes are historical context, not competing instructions.

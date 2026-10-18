@@ -18,12 +18,13 @@ This is a coordinating work item, not a commitment to implement every possible f
 
 - Maintained/published from Norway by an individual; intended for worldwide use.
 - Free, MIT-licensed, source-only distribution; no commercial activity and no service provided. Keep releases source-only unless the scope is reassessed.
+- **Preliminary CRA position:** Based on the European Commission's [CRA summary](https://digital-strategy.ec.europa.eu/en/policies/cra-summary) and [open-source guidance](https://digital-strategy.ec.europa.eu/en/policies/cra-open-source), the current free, non-monetised FOSS distribution appears not to be made available on the market in the course of commercial activity and therefore appears outside the CRA. The Commission describes open-source software stewards as legal persons, which does not match the stated individual maintainer. This is a reasoned preliminary position, not legal advice or a formal determination; reassess if monetisation, commercial distribution/support, a steward arrangement, or other relevant facts change.
 - The maintainer reports not receiving or controlling personal data. Verify this against telemetry, diagnostics, support workflows, and actual data flows before publishing privacy statements.
 - Firmware updates are outside ScriptSyncPilot's scope; provide compatibility information and refer users to official manufacturer instructions.
 
 ## Open Decisions
 
-- **Legal applicability:** Whether GDPR, the CRA, Norwegian/EEA rules, or other obligations apply to the verified operating model, and what actions/notices are required. Obtain qualified legal advice; do not claim compliance or non-applicability before the assessment.
+- **Legal applicability:** Whether GDPR, Norwegian/EEA rules, or other obligations apply to the verified operating model, and what actions/notices are required. Obtain qualified legal advice; do not claim compliance or non-applicability before the assessment.
 
 ## Scope
 
@@ -73,7 +74,7 @@ The following describes the current implementation and documented vendor require
 - [ ] Document the support/reporting channel and instruct users not to include personal data, connection keys, or private hosted-script URLs in reports; reassess if a project-controlled collection channel is introduced.
 - [x] Inspect credential handling and logs: HandySync persists the connection key in its local settings JSON, and logs the temporary hosted-script URL. The connection key was not found in the inspected explicit log messages.
 - [ ] Decide and implement appropriate protections for the locally stored connection key and temporary script URL; redact or omit the URL from logs, and document log/settings locations and retention. Review exception and support-report paths for accidental disclosure.
-- [ ] Verify the source-only, non-commercial, individual-publisher, no-service operating model and obtain a CRA assessment, including whether any open-source software steward role or other obligation applies. Reassess before introducing binaries, paid support, sponsorship, or other commercial activity.
+- [x] Compare the stated source-only, non-commercial FOSS model with the European Commission's [CRA summary](https://digital-strategy.ec.europa.eu/en/policies/cra-summary) and [open-source guidance](https://digital-strategy.ec.europa.eu/en/policies/cra-open-source): preliminary position is that the current model appears outside CRA scope, and the maintainer does not meet the stated legal-person condition for an open-source software steward. Reassess if monetisation, commercial distribution/support, a steward arrangement, or other relevant facts change; this is not a formal legal opinion.
 - [ ] Assess GDPR and Norwegian/EEA data-protection obligations based on the maintainer's role, any personal data the project itself receives, the app's third-party data flows, and the worldwide audience. Determine whether privacy information, a lawful-basis/role analysis, contact point, or other process is required.
 - [ ] Ask qualified counsel whether any additional obligations apply to this free software, including copyright/dependency notices, product liability or safety expectations for software that controls a physical device, security vulnerability handling, and any consumer-facing claims. Disclaimers do not replace applicable duties.
 - [ ] Publish only reviewed, accurate disclaimers, privacy information, security reporting instructions, and support contact details.

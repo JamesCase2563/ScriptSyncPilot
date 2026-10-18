@@ -1,6 +1,6 @@
 # Production Readiness
 
-**Status:** Proposed; discovery and decisions not started.  
+**Status:** In progress; core product and operating decisions are recorded, with verification and implementation work remaining.
 **Affected projects:** Repository/operations, FunscriptEditor, HandySync, Common, documentation.  
 **Goal:** Establish the maintainer, legal, product-scope, security, reliability, and release foundations needed before describing ScriptSyncPilot as production-ready.
 
@@ -14,9 +14,16 @@ This is a coordinating work item, not a commitment to implement every possible f
 - Existing reliability and privacy gaps are prioritized, implemented, and verified against measurable release criteria.
 - A release checklist and support/maintenance expectations exist.
 
+## Confirmed Operating Facts
+
+- Maintained/published from Norway by an individual; intended for worldwide use.
+- Free, MIT-licensed, source-only distribution; no commercial activity and no service provided. Keep releases source-only unless the scope is reassessed.
+- The maintainer reports not receiving or controlling personal data. Verify this against telemetry, diagnostics, support workflows, and actual data flows before publishing privacy statements.
+- Firmware updates are outside ScriptSyncPilot's scope; provide compatibility information and refer users to official manufacturer instructions.
+
 ## Open Decisions
 
-- **Legal scope:** The project is maintained/published from Norway by an individual, is free and MIT-licensed, distributes source only, has no commercial activity, provides no service, and is intended for worldwide use. The maintainer states they do not receive or control personal data. Assess any remaining Norwegian/EEA or other applicable legal obligations against these facts; do not claim compliance or non-applicability solely from this summary.
+- **Legal applicability:** Whether GDPR, the CRA, Norwegian/EEA rules, or other obligations apply to the verified operating model, and what actions/notices are required. Obtain qualified legal advice; do not claim compliance or non-applicability before the assessment.
 
 ## Scope
 
@@ -55,12 +62,12 @@ The following describes the current implementation and documented vendor require
 - [x] Record that the maintainer states they do not receive or control personal data.
 - [ ] Inventory shipped code, dependencies, assets, and existing attribution obligations.
 - [x] Select MIT as the repository license.
-- [ ] Add the MIT license text with the appropriate copyright holder/year; include required third-party notices and contribution terms/process if contributions are accepted.
+- [ ] Confirm the exact copyright holder name and year for the MIT notice with the maintainer; then add the MIT license text and required third-party notices. Decide whether to accept contributions and, if so, document the contribution process/terms.
 - [x] Document the implemented HandySync flow: the Handy REST requests include the connection key and application identifier in headers; the app uploads a CSV containing only the funscript action timestamps/positions to Handy's Hosting API, receives a temporary download URL, then sends that URL and playback/synchronization timing to HSSP. Video and app settings remain local. See [HandyApiClient](../../../src/ScriptSyncPilot.HandySync/HandyApiClient.cs) and [Funscript.ToCsv](../../../src/ScriptSyncPilot.Common/Funscript.cs).
 - [ ] Verify this data-flow description against runtime behavior and current official docs. The [Hosting API spec](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml) describes uploads as temporary URLs but does not specify their exact expiry/deletion period. The [Handy privacy policy](https://www.thehandy.com/privacy-policy/) says that for online third-party synchronization Handy processes the connection key/IP, device state, third-party provider identification, and script download URL; it says session data is deleted within one hour after logoff and the device retains the script in persistent memory until overwritten. Confirm which policy statements apply to ScriptSyncPilot's direct upload/HSSP flow; do not infer a retention guarantee for the uploaded CSV from the policy's session-data statement.
-- [ ] Verify that the project does not collect telemetry, crash reports, support diagnostics, or user data, and document this accurately. Distinguish maintainer access/control from data the app sends directly to Handy services.
+- [ ] Verify, by inspecting the application and support workflow, whether any telemetry, crash reports, support diagnostics, or user data reach the maintainer; document the result accurately. Distinguish maintainer access/control from data the app sends directly to Handy services.
 - [ ] Review secret handling and diagnostic logging; document privacy controls and avoid exposing credentials in logs or support requests.
-- [ ] Verify the intended source-only, non-commercial, individual-publisher, no-service operating model and assess its treatment under the CRA, including whether any open-source software steward role or other obligation applies. Reassess before introducing binaries, paid support, sponsorship, or other commercial activity.
+- [ ] Verify the source-only, non-commercial, individual-publisher, no-service operating model and obtain a CRA assessment, including whether any open-source software steward role or other obligation applies. Reassess before introducing binaries, paid support, sponsorship, or other commercial activity.
 - [ ] Assess GDPR and Norwegian/EEA data-protection obligations based on the maintainer's role, any personal data the project itself receives, the app's third-party data flows, and the worldwide audience. Determine whether privacy information, a lawful-basis/role analysis, contact point, or other process is required.
 - [ ] Ask qualified counsel whether any additional obligations apply to this free software, including copyright/dependency notices, product liability or safety expectations for software that controls a physical device, security vulnerability handling, and any consumer-facing claims. Disclaimers do not replace applicable duties.
 - [ ] Publish only reviewed, accurate disclaimers, privacy information, security reporting instructions, and support contact details.
@@ -82,8 +89,9 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [ ] Prioritize the existing recovery, timeout/retry, command coalescing, diagnostics, and capability-validation work against agreed failure scenarios.
 - [ ] Establish CI build/test gates and required coverage for lifecycle, protocol handling, persistence, and failure paths.
 - [ ] Verify privacy/security controls, user-visible errors, settings behavior, shutdown, and recovery without physical hardware where test doubles allow.
-- [ ] Define supported installation/update/rollback steps and troubleshooting guidance for external tools and device connectivity.
-- [ ] Set release acceptance criteria, versioning/changelog practice, artifact provenance/signing needs, and a rollback/hotfix path.
+- [ ] Document how users obtain source, build/install it, update to a later source revision, and return to a prior known-good revision; include troubleshooting guidance for external tools and device connectivity.
+- [ ] Define version tags and release notes for source releases, plus how to withdraw or supersede a faulty release. Do not plan binary artifact signing/distribution unless the source-only scope changes.
+- [ ] Set measurable release acceptance criteria: required CI build and tests pass from a clean checkout; documented supported environment/protocol requirements match the tested matrix; no known release-blocking defects remain; privacy/security and troubleshooting documentation is reviewed; and limitations are published.
 
 ### 4. Confirm release readiness
 
@@ -110,7 +118,7 @@ Do not call the software production-ready until the team can answer and verify:
 - Who owns and maintains the software, and where are support/security reports handled?
 - What license applies, what third-party notices are required, and what user-facing legal/privacy information has been reviewed?
 - What information leaves the user's machine, where credentials are stored, and what appears in logs?
-- Which operating systems, devices, firmware, protocols, and external dependencies are supported?
+- Which operating systems, devices, firmware, protocols, and external dependencies are supported, and which exact combinations have been verified?
 - How does the software behave on network/service loss, invalid credentials, unsupported firmware, protocol changes, and shutdown?
 - Can CI build and test the release, are known limitations documented, and can a bad release be withdrawn or superseded?
 

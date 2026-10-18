@@ -17,9 +17,7 @@ This is a coordinating work item, not a commitment to implement every possible f
 
 ## Open Decisions
 
-- **GitHub destination:** Which user or organization should own `Frank-Yong/ScriptSyncPilot` after transfer? Confirm the recipient can administer the repository and preserve issues, pull requests, releases, Actions, Pages, and package links as applicable.
-- **License:** Which license fits the intended users, contributions, dependencies, and distribution model? Review dependency licenses and required notices before choosing.
-- **Legal scope:** Which jurisdictions and distribution model are intended? Obtain qualified advice on required disclaimers/notices and whether GDPR, the Cyber Resilience Act (CRA), or other product/privacy obligations apply. Do not claim compliance until applicability and obligations have been assessed.
+- **Legal scope:** The project is maintained/published from Norway by an individual, is free and MIT-licensed, distributes source only, has no commercial activity, provides no service, and is intended for worldwide use. The maintainer states they do not receive or control personal data. Assess any remaining Norwegian/EEA or other applicable legal obligations against these facts; do not claim compliance or non-applicability solely from this summary.
 - **Firmware policy:** Should firmware update functionality be supported by ScriptSyncPilot? **Proposed default:** do not implement firmware update/install flows; detect and explain relevant compatibility requirements, then link users to the device manufacturer's official update instructions. Revisit only if a concrete user need and safe vendor-supported interface justify owning this capability.
 - **Protocol support:** Which device models, firmware versions, Handy API/HSSP modes, and failure/recovery behaviors are supported, experimental, or unsupported? Which protocol/API version changes require revalidation?
 - **Release/support policy:** Who triages issues and security reports, publishes releases, supports older versions, and communicates breaking changes?
@@ -49,19 +47,31 @@ This is a coordinating work item, not a commitment to implement every possible f
 
 ### 1. Confirm ownership and operating model
 
-- [ ] Select the destination GitHub account/organization and confirm recipient acceptance.
+- [x] Select the destination GitHub account/organization: `JamesCase2563`.
+- [x] Confirm the recipient can administer the repository.
+- [ ] Confirm recipient acceptance and transfer readiness.
 - [ ] Inventory repository settings and integrations that may need transfer/reconfiguration: maintainers, branch protections, Actions secrets/variables, Pages, releases, issue/PR templates, security reporting, and any external links.
 - [ ] Transfer ownership using GitHub's supported process; verify redirects, clone/fetch, permissions, CI, releases, and links afterward.
 - [ ] Record maintainers, release authority, security contact, and issue-triage expectations.
 
 ### 2. Establish legal, licensing, and privacy foundations
 
+- [x] Record the intended distribution facts: Norway to worldwide; free source distribution under MIT.
+- [x] Record CRA-related operating facts supplied by the maintainer: source-only distribution, no commercial activity, individual publisher, and no service provided. Keep distribution source-only; do not add binary releases without reassessing the scope.
+- [x] Record that the maintainer states they do not receive or control personal data.
 - [ ] Inventory shipped code, dependencies, assets, and existing attribution obligations.
-- [ ] Choose and apply a repository license; include required third-party notices and contribution terms/process if contributions are accepted.
-- [ ] Map data flows and local/remote storage, including device connection keys, settings, logs, script/video paths, Handy/cloud API requests, and retention/deletion behavior.
+- [x] Select MIT as the repository license.
+- [ ] Add the MIT license text with the appropriate copyright holder/year; include required third-party notices and contribution terms/process if contributions are accepted.
+- [x] Document the implemented HandySync flow: the Handy REST requests include the connection key and application identifier in headers; the app uploads a CSV containing only the funscript action timestamps/positions to Handy's Hosting API, receives a temporary download URL, then sends that URL and playback/synchronization timing to HSSP. Video and app settings remain local. See [HandyApiClient](../../../src/ScriptSyncPilot.HandySync/HandyApiClient.cs) and [Funscript.ToCsv](../../../src/ScriptSyncPilot.Common/Funscript.cs).
+- [ ] Verify this data-flow description against runtime behavior and current official docs. The [Hosting API spec](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml) describes uploads as temporary URLs but does not specify their exact expiry/deletion period. The [Handy privacy policy](https://www.thehandy.com/privacy-policy/) says that for online third-party synchronization Handy processes the connection key/IP, device state, third-party provider identification, and script download URL; it says session data is deleted within one hour after logoff and the device retains the script in persistent memory until overwritten. Confirm which policy statements apply to ScriptSyncPilot's direct upload/HSSP flow; do not infer a retention guarantee for the uploaded CSV from the policy's session-data statement.
+- [ ] Verify that the project does not collect telemetry, crash reports, support diagnostics, or user data, and document this accurately. Distinguish maintainer access/control from data the app sends directly to Handy services.
 - [ ] Review secret handling and diagnostic logging; document privacy controls and avoid exposing credentials in logs or support requests.
-- [ ] Obtain qualified advice on relevant jurisdictions, distribution, GDPR and CRA applicability, obligations, and any required user notices or processes.
+- [ ] Verify the intended source-only, non-commercial, individual-publisher, no-service operating model and assess its treatment under the CRA, including whether any open-source software steward role or other obligation applies. Reassess before introducing binaries, paid support, sponsorship, or other commercial activity.
+- [ ] Assess GDPR and Norwegian/EEA data-protection obligations based on the maintainer's role, any personal data the project itself receives, the app's third-party data flows, and the worldwide audience. Determine whether privacy information, a lawful-basis/role analysis, contact point, or other process is required.
+- [ ] Ask qualified counsel whether any additional obligations apply to this free software, including copyright/dependency notices, product liability or safety expectations for software that controls a physical device, security vulnerability handling, and any consumer-facing claims. Disclaimers do not replace applicable duties.
 - [ ] Publish only reviewed, accurate disclaimers, privacy information, security reporting instructions, and support contact details.
+
+External service references for the data-flow/privacy review: [Handyverse](https://handyverse.com/#/), [The Handy privacy policy](https://www.thehandy.com/privacy-policy/), [Handy API v3 docs](https://www.handyfeeling.com/api/handy-rest/v3/docs/), and the [Handy Hosting API spec](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml). The privacy policy and API docs provide useful facts but do not by themselves establish the project's legal role or the upload endpoint's exact data-retention period.
 
 ### 3. Freeze initial product and protocol boundaries
 

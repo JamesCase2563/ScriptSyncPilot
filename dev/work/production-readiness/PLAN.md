@@ -2,13 +2,13 @@
 
 **Status:** Proposed; discovery and decisions not started.  
 **Affected projects:** Repository/operations, FunscriptEditor, HandySync, Common, documentation.  
-**Goal:** Establish the ownership, legal, product-scope, security, reliability, and release foundations needed before describing ScriptSyncPilot as production-ready.
+**Goal:** Establish the maintainer, legal, product-scope, security, reliability, and release foundations needed before describing ScriptSyncPilot as production-ready.
 
 This is a coordinating work item, not a commitment to implement every possible feature. It records release decisions and sequences work that remains in the component backlogs. Legal and regulatory applicability must be confirmed with qualified counsel; this plan is not legal advice or a compliance determination.
 
 ## Outcomes
 
-- The repository has a confirmed long-term owner and maintainers, with access and release responsibilities documented.
+- Maintainer responsibilities for repository access, releases, and support are documented.
 - Licensing, attribution, user-facing notices, privacy/data handling, and security contact/reporting have been reviewed and published as appropriate.
 - Supported use cases, protocols, devices/firmware expectations, and explicit exclusions are documented.
 - Existing reliability and privacy gaps are prioritized, implemented, and verified against measurable release criteria.
@@ -32,7 +32,7 @@ The following describes the current implementation and documented vendor require
 
 ### In scope
 
-- Repository ownership/maintainer transfer planning and post-transfer verification.
+- Repository access, maintainer responsibilities, and release operations.
 - License and third-party notice selection; user-facing disclaimer and privacy documentation, as applicable.
 - A data inventory covering connection keys, settings, logs, media/script paths, network requests, retention, and user control.
 - Legal/regulatory applicability assessment and a process for updating compliance documentation.
@@ -48,17 +48,7 @@ The following describes the current implementation and documented vendor require
 
 ## Milestones
 
-### 1. Confirm ownership and operating model
-
-- [x] Select the destination GitHub account/organization: `JamesCase2563`.
-- [x] Confirm the recipient can administer the repository.
-- [x] Set accountability: the GitHub repository owner is responsible for triaging issues and security reports, publishing releases, setting any older-version support policy, and communicating breaking changes. This responsibility follows repository ownership.
-- [ ] Confirm recipient acceptance and transfer readiness.
-- [ ] Inventory repository settings and integrations that may need transfer/reconfiguration: maintainers, branch protections, Actions secrets/variables, Pages, releases, issue/PR templates, security reporting, and any external links.
-- [ ] Transfer ownership using GitHub's supported process; verify redirects, clone/fetch, permissions, CI, releases, and links afterward.
-- [ ] Record maintainers, release authority, security contact, and issue-triage expectations.
-
-### 2. Establish legal, licensing, and privacy foundations
+### 1. Establish legal, licensing, and privacy foundations
 
 - [x] Record the intended distribution facts: Norway to worldwide; free source distribution under MIT.
 - [x] Record CRA-related operating facts supplied by the maintainer: source-only distribution, no commercial activity, individual publisher, and no service provided. Keep distribution source-only; do not add binary releases without reassessing the scope.
@@ -77,7 +67,7 @@ The following describes the current implementation and documented vendor require
 
 External service references for the data-flow/privacy review: [Handyverse](https://handyverse.com/#/), [The Handy privacy policy](https://www.thehandy.com/privacy-policy/), [Handy API v3 docs](https://www.handyfeeling.com/api/handy-rest/v3/docs/), and the [Handy Hosting API spec](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml). The privacy policy and API docs provide useful facts but do not by themselves establish the project's legal role or the upload endpoint's exact data-retention period.
 
-### 3. Freeze initial product and protocol boundaries
+### 2. Freeze initial product and protocol boundaries
 
 - [ ] Define supported applications, operating systems, device models, firmware versions, API/protocol modes, and required external software.
 - [x] Keep firmware updating out of scope across the entire application: apps may report compatibility, and documentation refers users to official manufacturer instructions; ScriptSyncPilot does not download, install, distribute, or initiate firmware updates.
@@ -86,15 +76,16 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [ ] Maintain a protocol compatibility matrix and version-change/revalidation checklist.
 - [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.
 
-### 4. Stabilize software against the support promise
+### 3. Stabilize software against the support promise
 
+- [x] Assign accountability to the GitHub repository owner for issue and security-report triage, publishing releases, setting any older-version support policy, and communicating breaking changes.
 - [ ] Prioritize the existing recovery, timeout/retry, command coalescing, diagnostics, and capability-validation work against agreed failure scenarios.
 - [ ] Establish CI build/test gates and required coverage for lifecycle, protocol handling, persistence, and failure paths.
 - [ ] Verify privacy/security controls, user-visible errors, settings behavior, shutdown, and recovery without physical hardware where test doubles allow.
 - [ ] Define supported installation/update/rollback steps and troubleshooting guidance for external tools and device connectivity.
 - [ ] Set release acceptance criteria, versioning/changelog practice, artifact provenance/signing needs, and a rollback/hotfix path.
 
-### 5. Confirm release readiness
+### 4. Confirm release readiness
 
 - [ ] Run the release checklist, resolve blockers, document known limitations, and decide whether the product is ready for the stated support promise.
 
@@ -127,6 +118,6 @@ Record evidence, unresolved risks, and a go/no-go decision in a `VERIFICATION.md
 
 ## Status Notes
 
-- No repository ownership transfer or legal/compliance review has been performed by this work item.
+- No legal/compliance review has been performed by this work item.
 - No firmware updater or protocol support expansion is authorized by this plan.
 - The existing backlog items remain the implementation source of truth until explicitly selected and tracked here.

@@ -23,6 +23,7 @@ The applications share files/library code, not a controller service. The [soluti
 - Observations retain their emitting session identity. Obsolete sessions must not change replacement-session state.
 - Device teardown drains commands, awaits the final stop attempt, and disposes the client afterward.
 - Funscript persistence preserves unknown root properties and writes lowercase `actions`. Empty documents are allowed for editing; HandySync requires actions before setup.
+- Firmware lifecycle is outside the scope of all ScriptSyncPilot applications: apps may report compatibility requirements, while documentation points users to the manufacturer's official instructions. ScriptSyncPilot does not download, install, or initiate firmware updates.
 
 ## Design Direction
 

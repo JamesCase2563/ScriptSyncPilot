@@ -12,18 +12,23 @@ This is a coordinating work item, not a commitment to implement every possible f
 - Licensing, attribution, user-facing notices, privacy/data handling, and security contact/reporting have been reviewed and published as appropriate.
 - Supported use cases, protocols, devices/firmware expectations, and explicit exclusions are documented.
 - Existing reliability and privacy gaps are prioritized, implemented, and verified against measurable release criteria.
-- A professional GUI review is based on agreed user needs and follows, rather than substitutes for, product and protocol decisions.
 - A release checklist and support/maintenance expectations exist.
 
 ## Open Decisions
 
 - **Legal scope:** The project is maintained/published from Norway by an individual, is free and MIT-licensed, distributes source only, has no commercial activity, provides no service, and is intended for worldwide use. The maintainer states they do not receive or control personal data. Assess any remaining Norwegian/EEA or other applicable legal obligations against these facts; do not claim compliance or non-applicability solely from this summary.
-- **Firmware policy:** Should firmware update functionality be supported by ScriptSyncPilot? **Proposed default:** do not implement firmware update/install flows; detect and explain relevant compatibility requirements, then link users to the device manufacturer's official update instructions. Revisit only if a concrete user need and safe vendor-supported interface justify owning this capability.
-- **Protocol support:** Which device models, firmware versions, Handy API/HSSP modes, and failure/recovery behaviors are supported, experimental, or unsupported? Which protocol/API version changes require revalidation?
-- **Release/support policy:** Who triages issues and security reports, publishes releases, supports older versions, and communicates breaking changes?
-- **GUI scope:** Which user workflows and accessibility/usability problems justify a UI redesign or focused polish? Avoid a framework rewrite without evidence.
 
 ## Scope
+
+### Current Product and Protocol Baseline
+
+The following describes the current implementation and documented vendor requirements; it is not a certification or guarantee of compatibility with every model:
+
+- HandySync targets Handy REST API v3 and uses HSSP for synchronized script playback. Scripts are uploaded as CSV through Handy Hosting API v2 and referenced by the returned URL.
+- Handy's API v3 specification requires firmware v4 or newer. Offset/stroke controls additionally require firmware v4+ with `fw_status` other than update-required and the relevant slider capability.
+- HandySync requires an mpv session and internet access to Handy services. Automatic reconnection/recovery is not fully implemented; see the [HandySync backlog](../HandySync/BACKLOG.md).
+- Firmware update/install flows, other device vendors, alternate Handy protocols, legacy API v2, local/offline device output, and non-1x device playback are outside the current product scope.
+- Exact tested Handy models and firmware combinations have not yet been inventoried; do not make broader compatibility claims until verified.
 
 ### In scope
 
@@ -33,14 +38,12 @@ This is a coordinating work item, not a commitment to implement every possible f
 - Legal/regulatory applicability assessment and a process for updating compliance documentation.
 - Protocol/device/firmware compatibility policy and explicit product boundaries.
 - Reliability, diagnostics, testing, privacy/security, packaging, and release-readiness work tied to the agreed support promise.
-- Evidence-based GUI usability improvements after core workflows and supported behavior are settled.
 
 ### Not in scope unless separately approved
 
-- Building a firmware updater or distributing vendor firmware.
+- Firmware update/install flows or distribution of vendor firmware across all ScriptSyncPilot applications. Apps may report compatibility requirements; documentation may link to the manufacturer's official instructions, but users perform updates through official vendor channels.
 - Adding protocols, devices, backends, remote APIs, or platforms solely to broaden feature count.
 - Treating a disclaimer as a substitute for safety, privacy, or legal obligations.
-- A wholesale UI framework rewrite without user research, acceptance criteria, and a migration case.
 - Promising regulatory compliance or device compatibility that has not been independently verified.
 
 ## Milestones
@@ -49,6 +52,7 @@ This is a coordinating work item, not a commitment to implement every possible f
 
 - [x] Select the destination GitHub account/organization: `JamesCase2563`.
 - [x] Confirm the recipient can administer the repository.
+- [x] Set accountability: the GitHub repository owner is responsible for triaging issues and security reports, publishing releases, setting any older-version support policy, and communicating breaking changes. This responsibility follows repository ownership.
 - [ ] Confirm recipient acceptance and transfer readiness.
 - [ ] Inventory repository settings and integrations that may need transfer/reconfiguration: maintainers, branch protections, Actions secrets/variables, Pages, releases, issue/PR templates, security reporting, and any external links.
 - [ ] Transfer ownership using GitHub's supported process; verify redirects, clone/fetch, permissions, CI, releases, and links afterward.
@@ -76,7 +80,8 @@ External service references for the data-flow/privacy review: [Handyverse](https
 ### 3. Freeze initial product and protocol boundaries
 
 - [ ] Define supported applications, operating systems, device models, firmware versions, API/protocol modes, and required external software.
-- [ ] Decide firmware update policy; under the proposed default, document compatibility checks and point to official vendor instructions without downloading or installing firmware.
+- [x] Keep firmware updating out of scope across the entire application: apps may report compatibility, and documentation refers users to official manufacturer instructions; ScriptSyncPilot does not download, install, distribute, or initiate firmware updates.
+- [ ] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix.
 - [ ] Document behavior for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service.
 - [ ] Maintain a protocol compatibility matrix and version-change/revalidation checklist.
 - [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.
@@ -89,11 +94,8 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [ ] Define supported installation/update/rollback steps and troubleshooting guidance for external tools and device connectivity.
 - [ ] Set release acceptance criteria, versioning/changelog practice, artifact provenance/signing needs, and a rollback/hotfix path.
 
-### 5. Evaluate GUI quality and release readiness
+### 5. Confirm release readiness
 
-- [ ] Identify target users and top workflows; gather usability feedback before choosing redesign work.
-- [ ] Review consistency, accessibility, keyboard navigation, error recovery, onboarding, and high-DPI behavior across both applications.
-- [ ] Add only prioritized UI changes with testable acceptance criteria; preserve established protocol and lifecycle contracts.
 - [ ] Run the release checklist, resolve blockers, document known limitations, and decide whether the product is ready for the stated support promise.
 
 ## Backlog Overlap and Ownership
@@ -105,9 +107,8 @@ Keep implementation details in the existing component backlogs. This plan owns c
 | CI, automated tests, privacy/operational guidance | [Shared backlog](../../BACKLOG.md) | Direct overlap. Prioritize these items under milestone 4 and add release acceptance criteria; do not copy their test lists here. |
 | Session/UI separation | [Shared backlog](../../BACKLOG.md) | Related engineering quality work, but only extract boundaries where reliability or testability warrants it. |
 | Device recovery, timeouts/retries, coalescing, events, diagnostics | [HandySync backlog](../../HandySync/BACKLOG.md) | Direct overlap with reliability and support promises. Select and sequence specific entries after protocol support and recovery expectations are defined. |
-| Firmware and capabilities | [HandySync backlog](../../HandySync/BACKLOG.md) | Existing partial capability/firmware checks overlap with compatibility policy. Firmware updating itself is not currently an item; proposed default is external vendor instructions only. |
+| Firmware and capabilities | [HandySync backlog](../../HandySync/BACKLOG.md) | Existing partial capability/firmware checks overlap with compatibility policy. Firmware updates are explicitly out of scope across the application; user documentation points to official vendor instructions. |
 | Playback speed synchronization and local output | [HandySync backlog](../../HandySync/BACKLOG.md) | Product-scope decisions may defer or exclude these proposals; they are not automatic release blockers. |
-| Editor markers, live pattern recording, multiple tracks/project format | [Editor backlog](../../FunscriptEditor/BACKLOG.md) | GUI/product possibilities, not prerequisites for production readiness unless prioritized by target-user evidence. |
 | Product boundaries and possible extensions | [Product vision](../../VISION.md) | Treat as future direction; reconcile it with the supported protocol/product scope during milestone 3. |
 | Current component responsibilities and contracts | [System architecture](../../ARCHITECTURE.md) | Preserve these ownership and lifecycle contracts while stabilizing or changing features. |
 

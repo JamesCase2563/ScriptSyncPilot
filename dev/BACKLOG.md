@@ -4,6 +4,7 @@
 
 - [Automated Tests and CI](#automated-tests-and-ci)
 - [UI and Session Logic Boundaries](#ui-and-session-logic-boundaries)
+- [GUI Usability and Visual Polish](#gui-usability-and-visual-polish)
 - [Privacy and Operational Guidance](#privacy-and-operational-guidance)
 
 Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md) or [editor backlog](FunscriptEditor/BACKLOG.md).
@@ -25,6 +26,12 @@ Establish focused tests and CI build/test gates for the existing projects, prese
 **Priority:** Medium. **Status:** Proposed.
 
 Extract session/device orchestration from forms where this reduces lifecycle complexity or improves testing. Keep UI updates on the UI thread and services' ownership/cancellation explicit. Common should contain genuinely shared facilities, not become a catch-all controller.
+
+## GUI Usability and Visual Polish
+
+**Priority:** To be decided. **Status:** Proposed; separate from production-readiness work.
+
+Evaluate the FunscriptEditor and HandySync interfaces as a distinct product-improvement effort. Identify user workflows and usability friction before proposing visual redesign or framework changes. Consider consistency, accessibility, keyboard navigation, error recovery, onboarding, and high-DPI behavior across both applications. Define user-validated goals and testable acceptance criteria; prefer focused improvements over a wholesale rewrite without evidence.
 
 ## Privacy and Operational Guidance
 

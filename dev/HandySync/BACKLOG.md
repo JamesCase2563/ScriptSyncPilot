@@ -64,6 +64,8 @@ Feed device warnings into the main-form device status area from [main-form devic
 
 The main-form offset/stroke controls call `/info` and are enabled only for firmware 4+ with `fw_status` other than update-required. `/capabilities` is read on connect; stroke controls are disabled and stroke requests are suppressed when `slider` is zero. This is a control-specific gate, not a gate on the rest of HSSP setup. Remaining work is broader firmware/capability validation before setup, if required, and handling additional model-specific capabilities. Vendor documentation requires firmware 4 or newer for API v3. Script loading stays independent of device availability.
 
+Firmware updating is out of scope for the entire ScriptSyncPilot application. Do not implement update UI/flows, download or distribute firmware, or initiate updates. Apps may report compatibility requirements; user documentation should link to the manufacturer's official [firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3). Firmware installation remains the user's action through official vendor channels.
+
 ## Timing and Diagnostics
 
 **Priority:** Medium. **Status:** Proposed.

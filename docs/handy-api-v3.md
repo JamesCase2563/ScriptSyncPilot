@@ -59,6 +59,7 @@ Handy API v3 provides an HTTP interface for interacting with Handy devices. It i
 ## Firmware Requirements
 - Devices must be on firmware v4 or newer to use API v3.
 - See [Handling older firmware](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3) for migration.
+- ScriptSyncPilot does not update firmware. Use the manufacturer's official guidance linked above to check and perform any required update.
 
 ## Community & Support
 - Discord: Handy#8756

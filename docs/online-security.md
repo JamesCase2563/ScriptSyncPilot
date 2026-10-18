@@ -22,7 +22,7 @@ The Handy requires a persistent Internet connection to synchronize with content 
 
 ## Device Operation
 - **Offline by default**: The Handy is offline by default. Wi-Fi must be manually activated each time the device is powered on.
-- **Firmware and API**: Online connectivity allows for firmware updates and API access. If you wish to revoke third-party access, simply change your connection key.
+- **Firmware and API**: The Handy's online services may provide firmware updates and API access. ScriptSyncPilot does not download or install firmware; use the manufacturer's [official firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3) for updates. If you wish to revoke third-party access, change your connection key.
 
 ## Privacy Philosophy
 - **Privacy by default**: The Handy is designed with privacy as a priority. There is little incentive to collect user data, reducing future data collection risks.

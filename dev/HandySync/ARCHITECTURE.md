@@ -31,4 +31,4 @@ These are implemented foundations, not a complete recovery state machine or coal
 
 ## Requirements to Preserve
 
-Retain command ordering and stop-before-dispose during service extraction. Recovery follows current mpv position without resetting video. Device controls require firmware 4+ with `fw_status` other than update-required; stroke controls are disabled when capabilities report no slider. This control-specific gate does not reject the separate HSSP connection/setup. Never log connection/authentication credentials.
+Retain command ordering and stop-before-dispose during service extraction. Recovery follows current mpv position without resetting video. Device controls require firmware 4+ with `fw_status` other than update-required; stroke controls are disabled when capabilities report no slider. This control-specific gate does not reject the separate HSSP connection/setup. Firmware updates are not a ScriptSyncPilot feature; users are referred to official manufacturer instructions. Never log connection/authentication credentials.

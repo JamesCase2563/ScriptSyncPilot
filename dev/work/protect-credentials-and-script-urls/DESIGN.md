@@ -18,14 +18,18 @@ Reduce exposure of the Handy connection key and temporary hosted-script URL in l
 
 ## Security and Compatibility Decisions
 
-### Connection key at rest
+### Connection keys at rest
 
-- Use Windows Data Protection API (DPAPI) scoped to `CurrentUser` for the stored connection key. Keep the plaintext key available in memory only as required to create the Handy API client.
-- Store a versioned protected representation in the settings JSON, e.g. `ConnectionKeyProtected` with an explicit format/version prefix. Never serialize the plaintext `ConnectionKey`.
-- Do not support plaintext-key migration. When loading an existing settings file containing only the legacy plaintext `ConnectionKey`, ignore that value; the user can paste the short key into the form again. On the next successful settings save, replace the old plaintext value with protected storage. Do not silently treat a missing key as a successful connection.
-- If encrypted-key decryption fails, report a clear settings error and do not connect with an empty/default key or overwrite the settings file. Preserve all other settings and the original ciphertext so the user can recover the correct Windows account/profile or restore a backup.
+- Use Windows Data Protection API (DPAPI) scoped to `CurrentUser` to protect every stored Handy connection key. Keep each plaintext key in memory only as required to create the Handy API client.
+- Store keys as an ordered collection of entries, each with a stable identifier, a user-facing label, and a versioned protected value. Protect each key independently; never serialize a plaintext key. Labels and identifiers are not secret.
+- The current connection flow retrieves the first saved key in collection order. Keep this behavior until a future UI allows the user to select another saved key. Preserve insertion order across load/save.
+- The storage/API layer must support adding a labeled key, retrieving the selected/first key, and deleting a key by stable identifier. Deletion removes that entry from future settings saves; it must not affect other entries. If the first entry is deleted, the next entry becomes first. Deleting the last entry leaves no active key and must not silently connect with an empty/default key.
+- The existing single-key form creates a first entry with a default label (for example, `Default`) when no keys exist, and updates that first entry on save rather than creating duplicates. The future key-management UI can add entries with user-chosen labels.
+- Do not support plaintext-key migration. When loading an existing settings file containing only the legacy plaintext `ConnectionKey`, ignore that value; the user can paste the short key into the form again. Save it as a protected key entry on the next successful settings save. Do not silently treat a missing key as a successful connection.
+- If any encrypted-key decryption fails, report a clear settings error and do not connect with an empty/default key or overwrite the settings file. Preserve other settings and protected entries so the user can recover the correct Windows account/profile or restore a backup.
 - Explain that DPAPI CurrentUser protects against casual access by other Windows accounts and offline copying, but not malware or processes running as the same Windows user, administrators, or an already-unlocked user session. Copying the protected settings file to a different Windows user/machine is not a supported migration method.
 - Verify the selected .NET/Windows API availability and required framework/package references before implementation; do not add a package if the framework provides the needed API.
+- Do not add the dropdown, key labels editor, or key deletion controls to the UI in this work item. The existing form continues to use the first stored key; a future UI change can expose selection and deletion through the storage/API operations above.
 
 ### Temporary hosted-script URL and logging
 
@@ -38,7 +42,7 @@ Reduce exposure of the Handy connection key and temporary hosted-script URL in l
 ### Settings writes and failure handling
 
 - Persist settings atomically (write a temporary file in the same directory, then replace/move) so an interrupted save cannot truncate the settings file or leave a partially updated configuration.
-- Keep the existing non-secret setting fields and their semantics unchanged.
+- Keep the existing non-secret setting fields and their semantics unchanged. When saving after a user re-enters a legacy key, replace the plaintext `ConnectionKey` field with the protected collection.
 - Surface inability to protect/write the key explicitly in the UI and prevent a false-success save/connection state. Do not broadly catch and silently default when key protection or unprotection fails.
 - Add a short user-facing note in HandySync documentation describing local key protection, that users must re-enter their key after upgrading from plaintext storage, account/machine-bound behavior, and where settings/logs live. Do not promise protection against malware or same-user access.
 
@@ -49,11 +53,14 @@ Reduce exposure of the Handy connection key and temporary hosted-script URL in l
 - Adding telemetry, a remote credential vault, or a cloud service.
 - Automatically deleting/rotating all historical logs as part of this change; document current log handling and avoid adding new secrets. Log retention policy remains a separate decision if needed.
 - Hiding/masking the connection-key input control; the immediate scope is persistence and diagnostics.
+- A dropdown or other UI for choosing, labeling, adding, or deleting saved keys; the data model and operations must support that later.
 
 ## Acceptance Criteria
 
-- Newly saved settings never contain the connection key in plaintext.
+- Newly saved settings never contain any connection key in plaintext and can hold multiple labeled, independently protected keys.
+- Without a selection UI, the current connection flow uses the first saved key; deleting it makes the next saved key first.
 - Legacy plaintext-key settings load without using the plaintext key; the user can re-enter it, and subsequent saves store only its DPAPI-protected representation.
+- Storage/API tests cover adding, ordered retrieval, and deletion of labeled keys, including first-key and last-key deletion behavior.
 - Decryption/protection/write failures are explicit and never cause silent key loss or overwriting the original settings.
 - The full temporary upload URL is absent from UI logs, persistent logs, and error messages for success and failure paths.
 - Existing non-secret settings round-trip unchanged.

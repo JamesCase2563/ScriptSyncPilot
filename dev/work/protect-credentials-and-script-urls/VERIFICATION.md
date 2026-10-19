@@ -6,6 +6,9 @@
 
 - [ ] Protected connection-key serialization does not contain the plaintext key.
 - [ ] Protected connection-key load returns the original value for the same Windows user.
+- [ ] Multiple labeled keys round-trip independently and preserve their saved order.
+- [ ] The connection flow retrieves the first saved key when there is no UI selection.
+- [ ] Deleting a key removes only that entry; deleting the first promotes the next key, and deleting the last leaves no active key.
 - [ ] Legacy plaintext `ConnectionKey` values are not loaded or migrated; the user can re-enter the key and save it in protected storage.
 - [ ] Decryption failure is reported explicitly and does not return an empty/default key or overwrite the original settings.
 - [ ] Protection or settings-write failure is reported and does not truncate the prior valid settings.

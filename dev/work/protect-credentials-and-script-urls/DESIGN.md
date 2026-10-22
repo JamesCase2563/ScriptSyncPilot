@@ -1,13 +1,13 @@
 # Protect Credentials and Script URLs — Design
 
-**Status:** Approved (2026-10-22); M1.1/M1.2 implemented and verified. Settings integration and URL redaction remain pending.
+**Status:** Approved (2026-10-22); M1-M3 implemented and automatically verified, including full solution tests. M2.7 atomic writes were implemented alongside M2.6. Final documentation/review and manual verification remain pending.
 **Affected projects:** HandySync, Common logging if required, HandySync tests, user documentation.
 
 ## Goal
 
 Reduce exposure of the Handy connection key and temporary hosted-script URL in local files, logs, and error paths without changing the Handy API flow or silently losing saved settings.
 
-## Current Behavior
+## Original Behavior (before this work)
 
 - `HandySync.AppSettings` stores `ConnectionKey` in plaintext in `%APPDATA%\ScriptSyncPilot.HandySync\settings.json`.
 - The connection key is also held in the UI and sent in the `X-Connection-Key` header to Handy REST API v3.
@@ -39,10 +39,70 @@ Reduce exposure of the Handy connection key and temporary hosted-script URL in l
 - Null/blank inputs are rejected explicitly. Malformed Base64, DPAPI errors, and invalid UTF-8 propagate as exceptions; a decrypted blank key is also rejected. There is no empty/default-key fallback and exception messages do not interpolate the supplied plaintext or ciphertext. M2 must convert failures into secret-free user-facing settings errors and block connection/save without losing the source file.
 - Temporary plaintext byte buffers are cleared in `finally` blocks. Managed input/output strings cannot be reliably erased; this does not promise protection against same-user process/memory access.
 - Tests use synthetic keys in memory only and exercise actual CurrentUser DPAPI, interoperability with the framework API, corrupted ciphertext, malformed Base64, and empty input/decrypted values. Different-account/profile rejection remains a manual check; same-account tests cannot establish it.
-- This boundary is not yet called by `AppSettings` or the form. Completing M1.2 does not change the current plaintext settings behavior or complete M2.
+- At M1.2 this boundary was not called by `AppSettings` or the form; the integration is now implemented in M2.2 below.
+
+### Versioned entry representation (M2.1)
+
+- Internal immutable `HandySync.ProtectedConnectionKey` defines the serialized entry: `Id` (non-empty GUID), `Label` (non-blank string), `Version` (integer), and `ProtectedValue` (non-blank Base64 ciphertext). There is no plaintext-key member or generated record `ToString` exposing the payload.
+- Version `1` means strict UTF-8 protected using Windows DPAPI `CurrentUser` with no additional entropy, then Base64-encoded, as implemented by the M1.2 protector. Versioning is per entry so future formats can be distinguished without guessing or reinterpreting ciphertext.
+- A JSON constructor validates both direct construction and deserialization. Missing required values, empty identifiers/labels, unsupported versions, and malformed Base64 fail explicitly with payload-free `JsonException` messages. Syntactically valid Base64 is not evidence of valid DPAPI data; authentication/decryption remains the protector's responsibility.
+- IDs are supplied when creating entries and preserved during serialization/deserialization, never regenerated on load. An ordered JSON array holds multiple entries; collection-level uniqueness and add/update/delete operations belong to the later storage integration.
+
+Example entry (illustrative ID; `AQID` is only a Base64 shape placeholder, not a usable DPAPI key):
+
+```json
+{
+  "Id": "90c219cc-1754-42ed-b21c-2fb74185a526",
+  "Label": "Default",
+  "Version": 1,
+  "ProtectedValue": "AQID"
+}
+```
+
+M2.1 introduced and verified the representation independently, without changing runtime settings. M2.2 below now integrates it into save/load; collection operations and atomic writes remain tracked separately.
+
+### Protected settings integration (M2.2)
+
+- `AppSettings` now serializes a separate private settings DTO with an ordered `ConnectionKeys` array and the existing non-secret fields. The runtime `ConnectionKey` is excluded from public JSON serialization as well. Missing collections default to empty for legacy files; explicit null collections, null entries, duplicate IDs, unsupported versions, and decryption failures are rejected.
+- Loading decrypts every entry before returning any usable settings, and exposes the first key to the existing form. No entry is skipped on failure. Protected entries retain IDs, labels, order, and ciphertext for subsequent saves.
+- Saving protects the form's runtime key into a `Default` first entry when empty, or replaces the first entry while retaining its ID/label and preserving later entries. A blank runtime key cannot silently remove an existing saved entry; explicit deletion operations remain M2.3.
+- Legacy `ConnectionKey` JSON is ignored rather than migrated. The form prompts for re-entry when legacy settings have no protected entries. Re-entry persists only protected data and preserves non-secret fields. Connection attempts with blank keys are rejected before creating a client.
+- Internal path/protector overloads permit isolated file tests and simulated cryptographic failures. Expected format/cryptographic/I/O errors become payload-free `SettingsException` messages without retaining unsafe inner exceptions. Missing files retain default behavior; malformed files no longer silently become defaults. The existing root JSON `null` default behavior and discarded legacy `OffsetMs` behavior are preserved.
+- Startup reports a settings error and exits without constructing a usable form after failed loading; this avoids an automatic default save over corrupt/unreadable credentials. Save failures are logged and shown, cancel closing, and leave the form available for retry.
+- At M2.2, protection/serialization finished before the destination was opened, but writes were non-atomic. M2.6/M2.7 below now replace that direct-write path. No key-management UI/API or Common changes were included in M2.2.
+
+### Ordered collection operations (M2.3)
+
+- Internal `AppSettings.AddConnectionKey(label, connectionKey)` validates non-blank arguments, protects the supplied key before mutating state, appends the entry, and returns its new stable GUID. Labels need not be unique; identity is by GUID. Adding the first entry updates the runtime key and clears the legacy re-entry flag. Adding later entries leaves the active first key unchanged.
+- `GetFirstConnectionKey()` decrypts the first protected entry through the same helper as settings loading, returning null only when the collection is empty. It never substitutes an empty key on decryption failure. The runtime `ConnectionKey` property remains the form's editable value; unsaved edits are committed to the first entry by serialization, not by retrieval.
+- `DeleteConnectionKey(id)` removes only the matching entry. Removing the first decrypts the successor before any mutation and updates the runtime key, preventing the old key from overwriting the promoted entry on save. Removing the last clears the runtime key, so a later save cannot recreate it. Removing a non-first entry preserves the runtime key and survivor order.
+- Empty/unknown deletion IDs raise explicit argument/not-found exceptions. Protection/decryption failures raise payload-free `SettingsException` without changing the collection or active key. `ConnectionKeys` exposes a read-only view of immutable protected entries for future in-app management, not a mutable list or plaintext-key collection.
+- Operations change in-memory settings only; call `Save` to persist. There are still no selection, label-editing, or deletion controls in the UI. These APIs belong solely to HandySync, not Common.
+
+### First-key form connection (M2.5)
+
+- The public form constructor loads settings and uses the normal Handy client. An internal constructor accepts settings and a client factory so form connection behavior can be tested without user files, network, or device access.
+- Initialization explicitly calls `GetFirstConnectionKey`; only an empty collection falls back to the runtime/manual value. Decryption errors still propagate rather than silently selecting another key.
+- The existing textbox remains editable: connection uses its trimmed contents, preserving key re-entry and intentional changes rather than rereading stored ciphertext and ignoring user edits. Closing still saves that input into the first entry. No selection/deletion controls are introduced.
+- STA form tests capture the actual `X-Connection-Key` header on the initial connectivity request. A fake disconnected response deliberately stops setup before firmware, clock sampling, uploads, or device actions. Tests cover the first of multiple saved keys, promoted-key reload, edited/manual input, and empty input after deleting the last key. Settings assertions additionally verify first-entry update does not change the second key.
+
+### Failure preservation and atomic writes (M2.6/M2.7)
+
+- File-write preservation requires the atomic-write milestone, so both are implemented together. Save builds JSON and candidate protected entries without committing them to the in-memory collection. Protection failure therefore starts no file I/O and leaves entries unchanged.
+- A uniquely named `.settings-<GUID>.tmp` file is created with `CreateNew` in the destination directory, written as UTF-8 without BOM, flushed to disk, and closed. Only then does `File.Replace` replace an existing destination; a first save uses `File.Move` without overwrite. No delete-first, truncate-in-place, cross-directory staging, or direct-write fallback exists.
+- Only successful replacement/move commits candidate entries and clears the legacy re-entry flag. Failed writes preserve prior protected entries while keeping the user's editable values for retry. Existing files remain unchanged during staged writes; replacement denied by Windows file sharing is reported without replacing them.
+- Expected write/access/path errors produce a secret-free `SettingsException`; underlying exception details are not retained. Owned staging files are removed on handled failure. Cleanup failures are explicitly logged without paths or contents. No automatic cleanup of unknown/other processes' temporary files is attempted.
+- A process crash before replacement can leave a protected temporary file, but does not truncate the destination. Atomic replacement is not a guarantee against every filesystem/hardware/power-loss failure; destructive crash/power-loss tests remain manual follow-up.
+- Internal form save/error-display delegates enable testing the real close handler without modal dialogs or user settings access. Production defaults still save settings and display the standard error dialog. Failure cancels closing, resets `_isClosing`, and leaves lifetime cancellation/teardown untouched so the user can retry.
 
 ### Temporary hosted-script URL and logging
 
+- Implemented in M3: the hosted URL exists only in the upload result/local setup flow and outgoing HSSP payload, never in the upload-completion log. Actual UI and persistent-log tests cover initial installation and replacement success/failure.
+- Upload failures report numeric HTTP status without reading/logging failure bodies. Missing/blank URL or malformed/incorrectly typed JSON raises an explicit payload-free `HandyApiException`; no parser/transport inner exception is retained.
+- All Handy HTTP sends and body reads replace transport/I/O/cancellation exception text with operation-specific diagnostics. HTTP exceptions retain numeric status when available; cancellation remains `TaskCanceledException` with the caller token and no unsafe inner exception.
+- Shared device error handling retains numeric codes but deliberately omits server-supplied error names as well as descriptions. `HandyApiException.Name` remains for API compatibility but parsed device errors no longer populate it. Arbitrary names/reason phrases cannot be safely treated as diagnostics: they may contain a URL, credential, or body fragment. No speculative name allowlist or regex-based secret guessing is used.
+- Malformed nonempty PUT JSON or an invalid root shape now reports an explicit error instead of silently treating malformed setup/stop/sync responses as success. Existing empty successful responses remain supported.
+- Clock sampling/connectivity JSON errors also use safe parse diagnostics; missing server-time responses no longer echo the body. The request payloads, endpoints, upload URL passed into setup, and success flow are unchanged.
 - Treat the URL as a bearer capability: possession may allow downloading the uploaded script until the service expires it.
 - Remove the full-URL log entry. Replace it with a non-sensitive status message such as “Script upload complete; configuring HSSP.”
 - Do not display the URL in the visible log, persist it in settings, include it in exception messages, or include it in diagnostic/support instructions.

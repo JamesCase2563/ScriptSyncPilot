@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace ScriptSyncPilot.HandySync;
 
@@ -45,17 +46,17 @@ public sealed class HandyApiClient : IDisposable
     public async Task<bool> IsConnectedAsync(CancellationToken ct)
     {
         using var resp = await GetAsync("connected", ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
-        var parsed = System.Text.Json.JsonSerializer.Deserialize<DeviceResponse<ConnectedResult>>(body);
+        var body = await ReadBodyAsync("connected", resp, ct);
+        var parsed = ParseResponse<DeviceResponse<ConnectedResult>>("connected", body);
         return parsed?.Result?.Connected ?? false;
     }
 
     public async Task<long> GetServerTimeMsAsync(CancellationToken ct)
     {
         using var resp = await GetAsync("servertime", ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
-        var parsed = System.Text.Json.JsonSerializer.Deserialize<ServerTimeResponse>(body);
-        return parsed?.ServerTime ?? throw new HandyApiException($"servertime: empty response ({body})");
+        var body = await ReadBodyAsync("servertime", resp, ct);
+        var parsed = ParseResponse<ServerTimeResponse>("servertime", body);
+        return parsed?.ServerTime ?? throw new HandyApiException("servertime: empty response.");
     }
 
     /// <summary>
@@ -111,13 +112,16 @@ public sealed class HandyApiClient : IDisposable
         fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
         content.Add(fileContent, "file", "script.csv");
 
-        using var resp = await _hostingHttp.PostAsync(HostingUploadUrl, content, ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, HostingUploadUrl) { Content = content };
+        using var resp = await SendAsync(_hostingHttp, "script upload", request, ct);
         if (!resp.IsSuccessStatusCode)
-            throw new HandyApiException($"script upload failed: {(int)resp.StatusCode} {body}");
+            throw new HandyApiException($"script upload failed: {(int)resp.StatusCode}.");
 
-        var parsed = System.Text.Json.JsonSerializer.Deserialize<UploadResponse>(body);
-        return parsed?.Url ?? throw new HandyApiException($"script upload: no url in response ({body})");
+        var body = await ReadBodyAsync("script upload", resp, ct);
+        var parsed = ParseResponse<UploadResponse>("script upload", body);
+        if (string.IsNullOrWhiteSpace(parsed?.Url))
+            throw new HandyApiException("script upload: no url in response.");
+        return parsed.Url;
     }
 
     /// <summary>Device mode: 0=HAMP, 1=HSSP, 2=HDSP, 4=HSP, ...</summary>
@@ -141,7 +145,7 @@ public sealed class HandyApiClient : IDisposable
     {
         using var req = new HttpRequestMessage(HttpMethod.Put, path);
         if (body != null) req.Content = JsonContent.Create(body);
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendAsync(_http, path, req, ct);
         await EnsureSuccessAsync(path, resp, ct);
         await EnsureNoDeviceErrorAsync(path, resp, ct);
     }
@@ -149,14 +153,15 @@ public sealed class HandyApiClient : IDisposable
     private async Task<T> PutResultAsync<T>(string path, object body, CancellationToken ct) where T : class
     {
         using var req = new HttpRequestMessage(HttpMethod.Put, path) { Content = JsonContent.Create(body) };
-        using var resp = await _http.SendAsync(req, ct);
+        using var resp = await SendAsync(_http, path, req, ct);
         await EnsureSuccessAsync(path, resp, ct);
         return await ReadResultAsync<T>(path, resp, ct);
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, CancellationToken ct)
     {
-        var resp = await _http.GetAsync(path, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        var resp = await SendAsync(_http, path, request, ct);
         await EnsureSuccessAsync(path, resp, ct);
         return resp;
     }
@@ -169,7 +174,7 @@ public sealed class HandyApiClient : IDisposable
 
     private static async Task<T> ReadResultAsync<T>(string path, HttpResponseMessage response, CancellationToken ct) where T : class
     {
-        var body = await response.Content.ReadAsStringAsync(ct);
+        var body = await ReadBodyAsync(path, response, ct);
         DeviceResponse<T>? parsed;
         try { parsed = System.Text.Json.JsonSerializer.Deserialize<DeviceResponse<T>>(body); }
         catch (System.Text.Json.JsonException)
@@ -178,13 +183,7 @@ public sealed class HandyApiClient : IDisposable
         }
         if (parsed?.Error is { ValueKind: System.Text.Json.JsonValueKind.Object } error)
         {
-            var code = error.TryGetProperty("code", out var codeValue) && codeValue.TryGetInt32(out var parsedCode)
-                ? parsedCode
-                : (int?)null;
-            var name = error.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
-            var description = code is null ? "device error" : $"device error {code}";
-            if (!string.IsNullOrWhiteSpace(name)) description += $" ({name})";
-            throw new HandyApiException($"{path}: {description}.", code, name);
+            throw DeviceError(path, error);
         }
 
         return parsed?.Result ?? throw new HandyApiException($"{path}: response did not contain a result.");
@@ -192,25 +191,24 @@ public sealed class HandyApiClient : IDisposable
 
     private static async Task EnsureNoDeviceErrorAsync(string path, HttpResponseMessage response, CancellationToken ct)
     {
-        var body = await response.Content.ReadAsStringAsync(ct);
+        var body = await ReadBodyAsync(path, response, ct);
         if (string.IsNullOrWhiteSpace(body)) return;
 
         System.Text.Json.JsonDocument document;
         try { document = System.Text.Json.JsonDocument.Parse(body); }
-        catch (System.Text.Json.JsonException) { return; }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new HandyApiException($"{path}: invalid JSON response.");
+        }
         using (document)
         {
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new HandyApiException($"{path}: invalid response shape.");
             if (!document.RootElement.TryGetProperty("error", out var error)
                 || error.ValueKind != System.Text.Json.JsonValueKind.Object)
                 return;
 
-            var code = error.TryGetProperty("code", out var codeValue) && codeValue.TryGetInt32(out var parsedCode)
-                ? parsedCode
-                : (int?)null;
-            var name = error.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
-            var description = code is null ? "device error" : $"device error {code}";
-            if (!string.IsNullOrWhiteSpace(name)) description += $" ({name})";
-            throw new HandyApiException($"{path}: {description}.", code, name);
+            throw DeviceError(path, error);
         }
     }
 
@@ -219,9 +217,49 @@ public sealed class HandyApiClient : IDisposable
         if (response.IsSuccessStatusCode) return;
 
         var statusCode = (int)response.StatusCode;
-        var reason = response.ReasonPhrase;
         response.Dispose();
-        throw new HandyApiException($"{path} failed: {statusCode} {reason}.");
+        throw new HandyApiException($"{path} failed: {statusCode}.");
+    }
+
+    private static HandyApiException DeviceError(string path, JsonElement error)
+    {
+        var code = error.TryGetProperty("code", out var value) && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number) ? number : (int?)null;
+        return new HandyApiException(code is null ? $"{path}: device error." : $"{path}: device error {code}.", code);
+    }
+
+    private static T? ParseResponse<T>(string operation, string body)
+    {
+        try { return JsonSerializer.Deserialize<T>(body); }
+        catch (JsonException) { throw new HandyApiException($"{operation}: invalid JSON response."); }
+    }
+
+    private static async Task<HttpResponseMessage> SendAsync(
+        HttpClient client, string operation, HttpRequestMessage request, CancellationToken ct)
+    {
+        try { return await client.SendAsync(request, ct); }
+        catch (HttpRequestException ex)
+        {
+            throw new HandyApiException(ex.StatusCode is { } status
+                ? $"{operation}: HTTP transport failed ({(int)status})."
+                : $"{operation}: HTTP transport failed.");
+        }
+        catch (IOException) { throw new HandyApiException($"{operation}: transport I/O failed."); }
+        catch (OperationCanceledException)
+        {
+            throw new TaskCanceledException($"{operation}: request canceled or timed out.", null, ct);
+        }
+    }
+
+    private static async Task<string> ReadBodyAsync(string operation, HttpResponseMessage response, CancellationToken ct)
+    {
+        try { return await response.Content.ReadAsStringAsync(ct); }
+        catch (HttpRequestException) { throw new HandyApiException($"{operation}: response read failed."); }
+        catch (IOException) { throw new HandyApiException($"{operation}: response I/O failed."); }
+        catch (OperationCanceledException)
+        {
+            throw new TaskCanceledException($"{operation}: response read canceled or timed out.", null, ct);
+        }
     }
 
     public void Dispose()

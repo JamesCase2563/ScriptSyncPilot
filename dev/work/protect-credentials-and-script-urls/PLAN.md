@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Plan
 
-**Status:** In progress; design approved (2026-10-22), M1.1 and M1.2 implemented and verified. M2 settings integration is next.
+**Status:** In progress; design approved (2026-10-22), M1-M3 implemented and automatically verified; M4.1 user documentation complete. M2.7 atomic writes were implemented with M2.6. Full solution tests pass (238/238); M4.2/M4.3 final validation/review and manual Windows/device checks remain.
 **Affected projects:** HandySync, Common logging if needed, HandySync tests, documentation.
 
 ## Goal
@@ -27,6 +27,7 @@ Out of scope: Handy API behavior, remote data retention, wholesale log-retention
 - Treat temporary upload URLs as bearer secrets and omit them from all user-visible/persistent diagnostics.
 - Preserve other setting values and keep unrelated log messages useful.
 - Dropdown, key-management dialogs, and other GUI changes are deferred; current runtime behavior selects the first saved key.
+- Keep Handy-specific protection, key representation, and persistence in HandySync. Common stays device- and format-independent; no shared abstraction is needed for the local editor.
 
 ## Milestones
 
@@ -37,23 +38,25 @@ Out of scope: Handy API behavior, remote data retention, wholesale log-retention
 
 ### 2. Protect persisted connection key
 
-- [ ] Introduce a versioned protected-key setting representation.
-- [ ] Implement protected save and protected load using CurrentUser DPAPI.
-- [ ] Store multiple labeled entries in a stable order and expose add, first-key retrieval, and delete-by-ID operations.
-- [ ] Confirm a legacy plaintext key is not used or migrated; allow the user to re-enter it and save it in protected form without changing unrelated settings.
-- [ ] Keep the current connection behavior on the first stored key; leave selection and deletion controls for a future GUI item.
-- [ ] Make corrupt/unavailable protected-key, encryption, and file-write failures explicit; preserve the original settings file.
-- [ ] Use atomic settings-file replacement so an interrupted save cannot truncate the only copy.
+- [x] Introduce a versioned protected-key setting representation. Immutable HandySync entry with stable GUID, label, version 1, and Base64 protected value; explicit malformed/unsupported-entry rejection. Fourteen representation cases pass; see [design](DESIGN.md#versioned-entry-representation-m21) and [verification](VERIFICATION.md). Runtime settings integration remains M2.2.
+- [x] Implement protected save and protected load using CurrentUser DPAPI. Settings now write `ConnectionKeys`, never the runtime plaintext field; validate/decrypt all entries on load and use the first. Injected protection failures and real DPAPI file round-trips are verified; combined focused suite 68/68. See [verification](VERIFICATION.md).
+- [x] Store multiple labeled entries in a stable order and expose add, first-key retrieval, and delete-by-ID operations. Internal HandySync settings API adds independently protected entries with stable IDs, retrieves the first or returns null when empty, and deletes by ID with first-key promotion/last-key clearing. Thirteen new cases; combined focused suite 81/81. No key-management UI added. See [verification](VERIFICATION.md).
+- [x] Confirm a legacy plaintext key is not used or migrated; allow the user to re-enter it and save it in protected form without changing unrelated settings. Implemented alongside M2.2 to avoid plaintext migration in the new serializer. Startup prompts for re-entry; automated persistence tests pass, manual UI check remains pending.
+- [x] Keep the current connection behavior on the first stored key; leave selection and deletion controls for a future GUI item. Form initialization explicitly retrieves the first protected entry; existing editable input remains the connection source. Five STA form tests verify first/promoted-key request headers, manual edits/entry, and an empty input after last-key removal; combined focused suite 86/86. No key-management controls added.
+- [x] Make corrupt/unavailable protected-key, encryption, and file-write failures explicit; preserve the original settings file. Payload-free errors, no default-settings fallback on load failure, no committed entry updates on failed save, partial-write/locked-file preservation, and close-cancellation/retry verified. Eight new cases; combined focused suite 94/94. See [verification](VERIFICATION.md).
+- [x] Use atomic settings-file replacement so an interrupted save cannot truncate the only copy. Implemented as the prerequisite for M2.6: same-directory create-new staging file, flush to disk, replace existing file or move for first save, cleanup on handled failure. No direct-write fallback. Abrupt power-loss/process-kill recovery is not manually tested.
+
+M2.2 surfaces secret-free settings errors, aborts startup on load failure, and keeps the form open on save failure. M2.6/M2.7 now stage writes without opening/truncating the destination and commit protected-entry state only after successful replacement. Manual cross-account, crash/power-loss, and full application checks remain release-verification work.
 
 ### 3. Remove temporary URL disclosure
 
-- [ ] Replace the URL log line with a non-sensitive upload/setup status.
-- [ ] Remove raw response bodies and secret-bearing URLs from upload/setup exception messages and logs while retaining status/code diagnostics.
-- [ ] Audit HandySync exception wrapping and visible/persistent logging around script upload, setup, and resynchronization.
+- [x] Replace the URL log line with a non-sensitive upload/setup status. Both logging surfaces now receive "Script upload complete; configuring HSSP."
+- [x] Remove raw response bodies and secret-bearing URLs from upload/setup exception messages and logs while retaining status/code diagnostics. Upload JSON/errors, transport/read failures, HTTP reason phrases, and device error text are handled without echoing untrusted values or retaining unsafe inner exceptions.
+- [x] Audit HandySync exception wrapping and visible/persistent logging around script upload, setup, and resynchronization. All Handy HTTP sends use the safe transport boundary; setup/play/stop/synctime share safe status/device error handling. Actual replacement success/failure logs tested on both surfaces; 18 new diagnostic cases, full solution 238/238. See [verification](VERIFICATION.md).
 
 ### 4. Document and verify
 
-- [ ] Document local key protection, the need to re-enter the key after upgrading from plaintext storage, DPAPI limitations/account binding, and settings/log locations.
+- [x] Document local key protection, the need to re-enter the key after upgrading from plaintext storage, DPAPI limitations/account binding, and settings/log locations. [User guidance](../../../docs/online-security.md#scriptsyncpilot-local-protection-and-diagnostics) covers re-entry, saving on successful close, first-key behavior, unmasked input, error recovery, protected-file limitations, old plaintext backups/logs, and exact local paths.
 - [ ] Run focused HandySync tests, then the full relevant test suite/build.
 - [ ] Complete [verification](VERIFICATION.md), review the diff for accidental secret values, and update permanent architecture documentation if behavior warrants it.
 

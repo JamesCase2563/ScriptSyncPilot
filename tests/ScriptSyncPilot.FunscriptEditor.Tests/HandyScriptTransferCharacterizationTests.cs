@@ -49,7 +49,7 @@ public sealed class HandyScriptTransferCharacterizationTests
     }
 
     [TestMethod]
-    public async Task FailedUpload_CurrentlyIncludesStatusAndRawBody()
+    public async Task FailedUpload_PreservesStatusWithoutRawBody()
     {
         var body = $"synthetic upload failure {ScriptUrl}";
         using var hosting = RespondWith(HttpStatusCode.BadGateway, body);
@@ -60,12 +60,12 @@ public sealed class HandyScriptTransferCharacterizationTests
             () => client.UploadScriptCsvAsync("0,0", CancellationToken.None));
 
         StringAssert.Contains(error.Message, "script upload failed: 502");
-        StringAssert.Contains(error.Message, body);
+        Assert.IsFalse(error.ToString().Contains(body, StringComparison.Ordinal));
         Assert.AreEqual(0, device.RequestCount);
     }
 
     [TestMethod]
-    public async Task UploadWithoutUrl_CurrentlyIncludesRawBody()
+    public async Task UploadWithoutUrl_DoesNotIncludeRawBody()
     {
         var body = JsonSerializer.Serialize(new { detail = ScriptUrl });
         using var hosting = RespondWith(HttpStatusCode.OK, body);
@@ -76,17 +76,17 @@ public sealed class HandyScriptTransferCharacterizationTests
             () => client.UploadScriptCsvAsync("0,0", CancellationToken.None));
 
         StringAssert.Contains(error.Message, "no url in response");
-        StringAssert.Contains(error.Message, body);
+        Assert.IsFalse(error.ToString().Contains(ScriptUrl, StringComparison.Ordinal));
     }
 
     [TestMethod]
-    public async Task MalformedUploadResponse_ThrowsJsonException()
+    public async Task MalformedUploadResponse_ThrowsSafeApiException()
     {
         using var hosting = RespondWith(HttpStatusCode.OK, "{");
         using var device = RespondWith(HttpStatusCode.OK, "{}");
         using var client = CreateClient(device, hosting);
 
-        await Assert.ThrowsExceptionAsync<JsonException>(
+        await Assert.ThrowsExceptionAsync<HandyApiException>(
             () => client.UploadScriptCsvAsync("0,0", CancellationToken.None));
     }
 
@@ -106,7 +106,7 @@ public sealed class HandyScriptTransferCharacterizationTests
     }
 
     [TestMethod]
-    public async Task SetupDeviceError_PreservesCodeAndNameWithoutMessageDetails()
+    public async Task SetupDeviceError_PreservesCodeWithoutUntrustedText()
     {
         var body = JsonSerializer.Serialize(new
         {
@@ -120,7 +120,7 @@ public sealed class HandyScriptTransferCharacterizationTests
             () => client.HsspSetupAsync(ScriptUrl, CancellationToken.None));
 
         Assert.AreEqual(1002, error.Code);
-        Assert.AreEqual("DeviceTimeout", error.Name);
+        Assert.IsNull(error.Name);
         StringAssert.Contains(error.Message, "hssp/setup");
         Assert.IsFalse(error.Message.Contains(ScriptUrl, StringComparison.Ordinal));
         Assert.IsFalse(error.Message.Contains(ConnectionKey, StringComparison.Ordinal));

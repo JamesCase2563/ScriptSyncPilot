@@ -79,7 +79,7 @@ public sealed class HandyApiDeviceControlTests
             () => client.SetOffsetAsync(100, CancellationToken.None));
 
         Assert.AreEqual(1002, exception.Code);
-        Assert.AreEqual("DeviceTimeout", exception.Name);
+        Assert.IsNull(exception.Name);
         Assert.IsFalse(exception.Message.Contains("connection secret", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(exception.Message.Contains("sensitive-connection-key", StringComparison.Ordinal));
     }

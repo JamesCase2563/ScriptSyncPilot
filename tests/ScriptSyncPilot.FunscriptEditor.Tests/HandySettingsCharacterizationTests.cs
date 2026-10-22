@@ -42,7 +42,7 @@ public sealed class HandySettingsCharacterizationTests
     }
 
     [TestMethod]
-    public void LegacyPlaintextKey_CurrentlyLoadsAndSerializesWithOtherSettings()
+    public void LegacyPlaintextKey_IsIgnoredAndOmittedWithoutChangingOtherSettings()
     {
         var settings = AppSettings.Deserialize("""
             {
@@ -55,21 +55,21 @@ public sealed class HandySettingsCharacterizationTests
             }
             """, _ => { });
 
-        Assert.AreEqual("synthetic-legacy-key", settings.ConnectionKey);
+        Assert.AreEqual("", settings.ConnectionKey);
         Assert.AreEqual(125, settings.DeviceOffsetMs);
         Assert.AreEqual(20, settings.StrokeMinPercent);
         Assert.AreEqual(90, settings.StrokeMaxPercent);
         Assert.AreEqual("sample.funscript", settings.LastScriptPath);
         using var document = JsonDocument.Parse(settings.Serialize());
-        Assert.AreEqual("synthetic-legacy-key",
-            document.RootElement.GetProperty("ConnectionKey").GetString());
+        Assert.IsFalse(document.RootElement.TryGetProperty("ConnectionKey", out _));
+        Assert.AreEqual(0, document.RootElement.GetProperty("ConnectionKeys").GetArrayLength());
     }
 
     [DataTestMethod]
     [DataRow("{")]
     [DataRow("""{"DeviceOffsetMs":"invalid"}""")]
-    public void InvalidSettings_DeserializeThrowsJsonException(string json)
+    public void InvalidSettings_DeserializeThrowsSettingsException(string json)
     {
-        Assert.ThrowsException<JsonException>(() => AppSettings.Deserialize(json, _ => { }));
+        Assert.ThrowsException<SettingsException>(() => AppSettings.Deserialize(json, _ => { }));
     }
 }

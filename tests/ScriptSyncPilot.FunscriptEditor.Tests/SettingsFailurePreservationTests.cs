@@ -162,14 +162,23 @@ public sealed class SettingsFailurePreservationTests
     {
         var errors = new List<string>();
         var saves = 0;
+        Action<string> showError = errors.Add;
         using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings(),
             _ => throw new AssertFailedException("No client expected."),
             _ =>
             {
                 saves++;
                 throw new SettingsException("Synthetic safe save failure.");
-            }, errors.Add);
+            }, message => showError(message));
         _ = form.Handle;
+        showError = message =>
+        {
+            Assert.IsFalse(GetField<bool>(form, "_isClosing"),
+                "Closing must be cancelled before the error dialog can pump messages.");
+            Assert.IsFalse(GetField<CancellationTokenSource>(form, "_lifetimeCts").IsCancellationRequested);
+            errors.Add(message);
+            Application.DoEvents();
+        };
 
         for (var attempt = 1; attempt <= 2; attempt++)
         {

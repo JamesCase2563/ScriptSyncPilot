@@ -234,8 +234,8 @@ public sealed class MainForm : Form
             catch (SettingsException ex)
             {
                 Log(ex.Message);
-                _showSettingsError(ex.Message);
                 _isClosing = false;
+                _showSettingsError(ex.Message);
                 return;
             }
 

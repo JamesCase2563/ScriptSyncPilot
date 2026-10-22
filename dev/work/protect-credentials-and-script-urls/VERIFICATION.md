@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Verification
 
-**Status:** M1-M3 automatically verified (2026-10-22), including full solution tests (238/238); M4.1 user documentation complete. Final validation/review and manual Windows/device checks remain pending.
+**Status:** M1-M3 automatically verified (2026-10-22); M4.1/M4.2 complete. Final focused tests (112/112), non-incremental solution build (zero warnings/errors), and full solution tests (238/238) pass. M4.3 final review and manual Windows/device checks remain pending.
 
 ## M1.1 Characterization Baseline
 
@@ -144,6 +144,24 @@ No real network/device or real secret was used in the new diagnostic cases. Hist
 - Confirmed settings/log paths against `AppSettings.FilePath`, `Program` logger initialization, and `AppLog.BuildPath`. Documented non-encrypted metadata, protected staging-file limitations, sensitive legacy backups, and historical logs that are not sanitized.
 - Distinguished application-maintained guidance from the vendor-background attribution. No code changes or new tests were needed for this documentation-only step; no manual device/Windows acceptance is claimed.
 
+## M4.2 Final Focused Tests, Solution Build, and Regression Suite
+
+Validated on 2026-10-22 with .NET SDK 10.0.401, MSTest 3.6.4 and VSTest (`Microsoft.NET.Test.Sdk` 17.12.0). No `global.json`, `Directory.Build.props`, `Directory.Packages.props`, or VS Code task overrides were present in the repository root/task location. No dependency changes or restores were needed.
+
+Executed in order:
+
+```powershell
+dotnet test tests\ScriptSyncPilot.FunscriptEditor.Tests\ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\artifacts\credential-m42-verification\bin\ --filter "FullyQualifiedName~SettingsFailurePreservationTests|FullyQualifiedName~FirstKeyConnectionTests|FullyQualifiedName~ConnectionKeyCollectionTests|FullyQualifiedName~ProtectedSettingsTests|FullyQualifiedName~ProtectedConnectionKeyTests|FullyQualifiedName~ConnectionKeyProtectorTests|FullyQualifiedName~HandySettingsCharacterizationTests|FullyQualifiedName~HandyScriptTransferCharacterizationTests|FullyQualifiedName~HandyApiDeviceControlTests|FullyQualifiedName~DeviceSliderControlTests|FullyQualifiedName~ScriptDiagnosticsTests" --verbosity minimal
+dotnet build ScriptSyncPilot.slnx --no-restore --no-incremental -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\artifacts\credential-m42-verification\bin\ --verbosity minimal
+dotnet test ScriptSyncPilot.slnx --no-build --no-restore -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\artifacts\credential-m42-verification\bin\ --verbosity minimal
+```
+
+- Focused HandySync tests: **112 passed, 0 failed, 0 skipped**.
+- Non-incremental full solution build: **succeeded, 0 warnings, 0 errors**, compiling both apps, Common, and both test projects.
+- Full suite against those rebuilt assemblies: **238 passed, 0 failed, 0 skipped** (88 Common and 150 Windows/editor/HandySync).
+- Isolated output avoids running-application file locks. Existing restored assets/intermediate directories were reused; this is a non-incremental compilation, not a fresh-machine dependency-restore test.
+- No application processes were stopped, no real device acceptance was performed, and no manual Windows/cross-account checks are implied.
+
 ## Automated
 
 - [x] Protected connection-key serialization does not contain the plaintext key.
@@ -161,7 +179,7 @@ No real network/device or real secret was used in the new diagnostic cases. Hist
 
 ## Build and Tests
 
-- [ ] `dotnet build ScriptSyncPilot.slnx`
+- [x] `dotnet build ScriptSyncPilot.slnx` (M4.2: non-incremental, isolated output, zero warnings/errors).
 - [x] Run the focused HandySync tests in `tests/ScriptSyncPilot.FunscriptEditor.Tests`.
 - [x] Run all relevant tests after focused verification.
 
@@ -187,8 +205,9 @@ No real network/device or real secret was used in the new diagnostic cases. Hist
 | M3 diagnostics | Passed | 18 new diagnostic cases; actual UI/persistent logs checked |
 | Full solution tests | Passed | 238/238 (88 Common, 150 Windows) |
 | M4.1 user documentation | Complete | Upgrade, protection limits, recovery, local paths, and legacy copies/logs documented |
-| Remaining verification | Pending | Final review, explicit solution-build check, and manual device/Windows acceptance |
-| Build | Solution test build passed | Both apps, Common and test projects compile; separate build checklist remains |
+| M4.2 final focused tests | Passed | 112/112 before solution rebuild |
+| Remaining verification | Pending | M4.3 final review and manual device/Windows acceptance |
+| Build | Passed | M4.2 non-incremental solution build, zero warnings/errors; full suite 238/238 against rebuilt assemblies |
 | Manual key re-entry | Not run | Pending implementation |
 | Manual log/error review | Not run | Pending implementation |
 

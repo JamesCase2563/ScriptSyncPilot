@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Plan
 
-**Status:** In progress; design approved (2026-10-22), M1-M3 implemented and automatically verified; M4.1 user documentation complete. M2.7 atomic writes were implemented with M2.6. Full solution tests pass (238/238); M4.2/M4.3 final validation/review and manual Windows/device checks remain.
+**Status:** In progress; design approved (2026-10-22), M1-M3 implemented and automatically verified; M4.1/M4.2 complete. M2.7 atomic writes were implemented with M2.6. Final focused tests pass (112/112), non-incremental solution build has zero warnings/errors, and full solution tests pass (238/238). M4.3 final review and manual Windows/device checks remain.
 **Affected projects:** HandySync, Common logging if needed, HandySync tests, documentation.
 
 ## Goal
@@ -57,7 +57,7 @@ M2.2 surfaces secret-free settings errors, aborts startup on load failure, and k
 ### 4. Document and verify
 
 - [x] Document local key protection, the need to re-enter the key after upgrading from plaintext storage, DPAPI limitations/account binding, and settings/log locations. [User guidance](../../../docs/online-security.md#scriptsyncpilot-local-protection-and-diagnostics) covers re-entry, saving on successful close, first-key behavior, unmasked input, error recovery, protected-file limitations, old plaintext backups/logs, and exact local paths.
-- [ ] Run focused HandySync tests, then the full relevant test suite/build.
+- [x] Run focused HandySync tests, then the full relevant test suite/build. M4.2 rerun: 112/112 focused cases, non-incremental full solution build with zero warnings/errors, then 238/238 tests against the freshly rebuilt assemblies. Used isolated output without changing running applications; see [verification](VERIFICATION.md#m42-final-focused-tests-solution-build-and-regression-suite).
 - [ ] Complete [verification](VERIFICATION.md), review the diff for accidental secret values, and update permanent architecture documentation if behavior warrants it.
 
 ## Verification Targets

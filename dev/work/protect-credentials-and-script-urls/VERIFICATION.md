@@ -195,11 +195,14 @@ Result: **20 passed, 0 failed, 0 skipped**, including the new end-to-end case. V
 
 ## Manual Windows Checks
 
-- [ ] Back up a legacy plaintext settings file, launch HandySync, confirm the key is not prefilled, re-enter it, save settings, and verify the saved key is protected rather than plaintext.
-- [ ] Relaunch under the same Windows account and confirm the saved key works.
-- [ ] Confirm decryption failure under an unsupported user/profile results in a clear error and does not replace the original settings file.
-- [ ] Exercise a successful script upload and an upload/setup failure; inspect the visible log and persistent log for URL, connection key, or raw response-body disclosure.
-- [ ] Confirm HandySync still allows the user to update settings and connect normally after re-entering the key.
+User confirmation (2026-10-22): both the legacy backup/re-entry/protected-save check and the same-account relaunch/saved-key functionality check pass. Results are user-verified; the attached real settings/backup files were deliberately not opened or copied into diagnostics.
+
+- [x] Back up a legacy plaintext settings file, launch HandySync, confirm the key is not prefilled, re-enter it, save settings, and verify the saved key is protected rather than plaintext. User-confirmed (2026-10-22).
+- [x] Relaunch under the same Windows account and confirm the saved key works. User-confirmed (2026-10-22).
+- [x] Confirm decryption failure under an unsupported user/profile results in a clear error and does not replace the original settings file. User tested the protected settings on another Windows machine (2026-10-22): the supplied screenshot shows a clear decryption error; user confirms the main window does not open and the settings remain unchanged. This is cross-machine/profile evidence, not a separate-account test on the original machine.
+- [x] Exercise a successful script upload and inspect the visible log and persistent log for URL, connection key, or raw response-body disclosure. User-confirmed (2026-10-22).
+- Upload/setup failure logging: **automatically verified; manual failure not exercised**. User agreed (2026-10-22) to rely on the automated failure tests of both actual log surfaces rather than deliberately disrupting the device/network. This is not a manual failure-test pass.
+- [x] Confirm HandySync still allows the user to update settings and connect normally after re-entering the key. User-confirmed (2026-10-22).
 
 ## Results
 
@@ -216,13 +219,16 @@ Result: **20 passed, 0 failed, 0 skipped**, including the new end-to-end case. V
 | Full solution tests | Passed | 238/238 (88 Common, 150 Windows) |
 | M4.1 user documentation | Complete | Upgrade, protection limits, recovery, local paths, and legacy copies/logs documented |
 | M4.2 final focused tests | Passed | 112/112 before solution rebuild |
-| Remaining verification | Pending | M4.3 final review and manual device/Windows acceptance |
+| Remaining verification | Pending | M4.3 final review; manual upload/setup failure not exercised by agreement, covered by automated tests |
 | Build | Passed | M4.2 non-incremental solution build, zero warnings/errors; full suite 238/238 against rebuilt assemblies |
-| Manual key re-entry | Not run | Pending implementation |
-| Manual log/error review | Not run | Pending implementation |
+| Manual key re-entry / protected save / relaunch | Passed (user-confirmed) | Both full manual checks confirmed on 2026-10-22; real credential files not opened by the assistant. |
+| Manual cross-machine decryption failure | Passed (user-confirmed) | Clear decryption error shown; main window does not open; copied settings unchanged (2026-10-22). No credential values copied into this record. |
+| Log/error verification | Success manually passed; failures automatically verified | User confirms secret-free visible and persistent success logs (2026-10-22). Supplied persistent-log excerpt also reviewed. Manual upload/setup failure not exercised by agreement; automated tests verify both actual log surfaces for failures. |
+| Manual settings update / connection after re-entry | Passed (user-confirmed) | User confirms settings updates and normal connection after key re-entry (2026-10-22). |
 
 ## Limitations and Follow-up
 
 - DPAPI CurrentUser does not protect against malware or processes running as the same user, administrators, or access to an unlocked session.
 - The Handy Hosting API's URL expiration/retention behavior is controlled by Handy and is not changed by this work.
+- Manual upload/setup failure was not exercised; relying on passing automated failure-log tests was explicitly accepted by the user (2026-10-22).
 - Record any unresolved settings-backup, log-retention, or privacy issues here before closing the work item.

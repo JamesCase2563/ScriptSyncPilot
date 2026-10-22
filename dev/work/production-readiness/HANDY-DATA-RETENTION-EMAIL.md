@@ -11,18 +11,18 @@ I maintain ScriptSyncPilot, a free, open-source Windows application that synchro
 
 To set up HSSP, the application uploads a CSV file to `POST /api/hosting/v2/upload`. The CSV contains only the funscript action timestamps and positions. The Hosting API returns a temporary download URL, which the application passes to HSSP setup. The device then uses that URL to retrieve the script. The application does not upload the associated video.
 
-The Hosting API documentation describes the returned URL as temporary, but I could not find the upload's retention period. The Handy privacy policy says session data for online third-party synchronization is deleted within one hour after logoff and that a script stored on the device remains until overwritten. I could not determine whether those statements cover the uploaded CSV itself.
+The Hosting API documentation describes the returned URL as temporary, but I could not find a stated retention period for the uploaded file itself or a validity period for the URL. The Handy privacy policy says session data for online third-party synchronization is deleted within one hour after logoff and that a script stored on the device remains until overwritten. I could not determine whether those statements also cover the Hosting API upload and its generated download URL.
 
 Could you please clarify:
 
-1. How long is an uploaded CSV retained and downloadable, and what event causes it to expire or be deleted?
-2. Is the uploaded file deleted when the associated HSSP session ends, or does it have a separate retention period?
-3. Does the privacy policy's one-hour session-data deletion statement apply to the Hosting API upload and its generated download URL?
-4. What request or usage data does Handy retain for this flow (for example, uploader IP address, upload time, script/download identifier, or download/access logs), and for how long?
-5. Is there a supported way for an application or user to invalidate/delete an uploaded script before its normal expiry?
-6. Is there a specific privacy notice, attribution, or other guidance you recommend third-party application maintainers provide when using these APIs?
+1. **File retention:** How long is an uploaded CSV stored, including after it is no longer downloadable, and what event triggers its deletion?
+2. **URL validity:** How long does the generated download URL remain usable, and can that period differ from the retention period of the underlying file?
+3. **Session cleanup:** Does the privacy policy's one-hour session-data deletion statement apply to the uploaded file, the generated URL, or both? Does ending an HSSP session trigger either file deletion or URL invalidation?
+4. **Logging and metadata:** What metadata is stored as part of the upload, and what operational or access logs are retained for this flow (for example, uploader IP address, upload time, script/download identifier, or download/access logs)? How long is each retained, including by any third-party hosting or delivery providers involved?
+5. **Early deletion:** Is there a supported way for an application or user to invalidate the download URL or delete the uploaded file before its normal expiry?
+6. **Application guidance:** Are there recommended privacy disclosures, attribution requirements, or other usage requirements that third-party application maintainers should follow when using these APIs?
 
-We are documenting the application's data flows and want to describe Handy's handling accurately. I have not included any user connection key, script, or generated URL in this message.
+We are documenting the application's data flows and want to describe Handy's handling of uploaded scripts and associated metadata accurately. I have not included any user connection key, script, or generated URL in this message.
 
 Thank you,
 

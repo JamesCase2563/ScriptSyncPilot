@@ -7,6 +7,7 @@
 - [Markers and Snapping](#markers-and-snapping)
 - [Video Playback Speed](#video-playback-speed)
 - [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
+- [Author-Guided Video Motion Detection](#author-guided-video-motion-detection)
 - [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
 	- [Track Types](#track-types)
@@ -75,6 +76,20 @@ With the timeline focused, physical top-row `1` through `9` insert 10-90% at the
 Archived documents: [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [design](../archive/2026-10-numeric-position-entry/DESIGN.md), and [verification](../archive/2026-10-numeric-position-entry/VERIFICATION.md).
 
 This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
+
+## Author-Guided Video Motion Detection
+
+**Priority:** To be decided. **Status:** Idea for exploration; not selected for implementation.
+
+Explore reducing manual tempo tapping by letting the author identify the actionable movement in a movie. Start with a short, author-selected continuous shot: select a tracking region, indicate the movement axis, and optionally select a reference feature to distinguish relevant movement from camera or whole-subject motion.
+
+- First milestone to evaluate: propose full-cycle boundary taps for review and use with the existing [scripting workflow](../../docs/scripting-workflow.md) and pattern insertion tool.
+- Possible later extension: calibrate the two movement extremes to script minimum/maximum and propose position curves, including changing stroke lengths. Screen displacement does not necessarily represent the desired script depth.
+- Keep results as editable suggestions with preview, explicit acceptance, existing conflict handling, and undo. Do not automatically overwrite authored work or send unreviewed output to a device.
+- Flag tracking loss and uncertain intervals for correction/reinitialization rather than inventing movement. Evaluate cuts, occlusion, blur, perspective changes, and features leaving the frame.
+- Investigate timestamp-preserving frame decoding and conventional feature tracking, optical flow, or template matching; FFmpeg and an OpenCV .NET wrapper are candidates, not selected dependencies. The current mpv IPC integration supplies playback state/control, not image frames.
+- For VR, evaluate a stable projection, fixed viewport, or single-eye view so head movement does not become scripted movement.
+- Before committing to implementation, test representative clips and define measurable timing accuracy, tracking reliability, correction effort, and processing-performance targets. Decide whether assisted tempo detection is useful enough before extending to calibrated positions.
 
 ## Live Pattern Recording
 

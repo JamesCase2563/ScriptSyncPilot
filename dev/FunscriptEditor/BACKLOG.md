@@ -7,6 +7,9 @@
 - [Markers and Snapping](#markers-and-snapping)
 - [Video Playback Speed](#video-playback-speed)
 - [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
+- [Tap-Based Pattern Generation](#tap-based-pattern-generation)
+- [Editable Pattern Preview](#editable-pattern-preview)
+- [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
 - [Author-Guided Video Motion Detection](#author-guided-video-motion-detection)
 - [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
@@ -76,6 +79,41 @@ With the timeline focused, physical top-row `1` through `9` insert 10-90% at the
 Archived documents: [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [design](../archive/2026-10-numeric-position-entry/DESIGN.md), and [verification](../archive/2026-10-numeric-position-entry/VERIFICATION.md).
 
 This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
+
+## Tap-Based Pattern Generation
+
+**Priority:** To be decided; suggested before editable previews and controlled variation. **Status:** Proposed.
+
+Generate patterns from author-recorded taps, including taps entered during reduced-speed playback. Preserve their video-time timestamps by default instead of replacing them with evenly spaced cycles. This extends the manual tapping [workflow](../../docs/scripting-workflow.md) without changing the existing interval-and-cycle-count insertion mode.
+
+- Support an explicit choice between one tap per full cycle at the same phase (generate the intermediate turning point using the chosen profile) and one tap per turning point (alternating bottom/top, preserving unequal outward and return durations).
+- Offer consistent-range mode: keep the selected minimum/maximum positions, so longer intervals produce slower movement.
+- Explore consistent-average-speed mode: longer intervals produce greater movement distance. For a full out-and-back cycle, average speed is approximately `2 * strokeRange / cycleDuration`; require a reference speed or a calibrated cycle because timing alone cannot determine absolute range. Define range anchoring and report infeasible ranges rather than silently clamping or distorting them.
+- Make smoothing or timing regularization explicit and optional. Define tap selection, phase, incomplete-cycle handling, and invalid-input feedback before implementation; distinguish taps from ordinary script points and structure markers.
+- Preview the output, preserve content outside the selected section, and reuse existing conflict handling and coherent undo. Verify exact preservation of tap timestamps at different playback rates and both interpretations of interval length.
+
+## Editable Pattern Preview
+
+**Priority:** To be decided; suggested after tap-based generation. **Status:** Proposed.
+
+Treat generated output as a temporary editable draft before insertion. Let the author drag meaningful turning points in time and position and add/remove points without having to manipulate every sample used to approximate an eased curve.
+
+- Apply the edited draft as one coherent undoable operation; cancellation leaves the script, dirty state, and committed undo/redo history unchanged.
+- Apply exactly the reviewed draft rather than unconditionally regenerating and losing manual adjustments. Recheck conflicts against the current destination script and preserve existing boundary/conflict rules.
+- Define how generator-setting changes interact with manual draft edits; do not silently discard edits. Keep draft operations separate from committed-script history.
+- Verify that preview edits survive application, cancellation has no committed effects, and destination edits made after preview are handled explicitly.
+
+## Expressive Patterns and Controlled Variation
+
+**Priority:** To be decided; suggested after evaluating tap-based generation and editable previews. **Status:** Proposed; randomization is optional, not a default.
+
+Reduce mechanical repetition through intentional variation before adding randomness: preserve observed tap timing, allow gradual changes in depth and rise/return balance, and support editable turning points and suitable easing. Compare the generated curve with actual device playback to distinguish generator limitations from device behavior.
+
+- Evaluate small, smoothly changing variation across cycles rather than independent jitter on every sample. Timing and position variation must be opt-in and bounded.
+- Keep author-tapped timing anchors fixed by default and preserve section boundaries, strictly ordered timestamps, and the author's position range.
+- Prevent accidental extra reversals and excessively short movements; define measurable interval and movement-rate limits rather than assuming editor limits guarantee device safety.
+- Use repeatable seeded generation and apply the exact reviewed output so preview and insertion cannot differ through rerandomization.
+- Verify bounds, timestamp ordering, anchor preservation, repeatability, and transitions to surrounding content. Evaluate usefulness on representative sections before committing to randomization.
 
 ## Author-Guided Video Motion Detection
 

@@ -162,6 +162,16 @@ dotnet test ScriptSyncPilot.slnx --no-build --no-restore -p:BaseOutputPath=F:\Us
 - Isolated output avoids running-application file locks. Existing restored assets/intermediate directories were reused; this is a non-incremental compilation, not a fresh-machine dependency-restore test.
 - No application processes were stopped, no real device acceptance was performed, and no manual Windows/cross-account checks are implied.
 
+### Legacy Non-Secret Field Preservation Follow-up
+
+Added `ProtectedSettingsTests.LegacyFile_KeyReentryPreservesAllNonSecretSettingsThroughSaveAndReload` to verify the exact outstanding criterion with a temporary on-disk legacy file. It checks every current non-secret field (`MpvIpcPipe`, `DeviceOffsetMs`, `StrokeMinPercent`, `StrokeMaxPercent`, `LastScriptPath`) against the saved JSON and reloads their non-default values. It also verifies load does not alter the legacy file, the legacy key is ignored, re-entry produces one protected entry, neither plaintext key appears in saved JSON, and the re-entered key decrypts on reload.
+
+```powershell
+dotnet test tests\ScriptSyncPilot.FunscriptEditor.Tests\ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\artifacts\credential-m42-verification\bin\ --filter "FullyQualifiedName~ProtectedSettingsTests|FullyQualifiedName~HandySettingsCharacterizationTests" --verbosity minimal
+```
+
+Result: **20 passed, 0 failed, 0 skipped**, including the new end-to-end case. VS Code test discovery returned no tests; validation used `dotnet test`. This is a targeted follow-up after M4.2, not a new full-solution run. Unknown future fields and obsolete `OffsetMs` are not current non-secret settings; the latter remains intentionally discarded.
+
 ## Automated
 
 - [x] Protected connection-key serialization does not contain the plaintext key.
@@ -172,7 +182,7 @@ dotnet test ScriptSyncPilot.slnx --no-build --no-restore -p:BaseOutputPath=F:\Us
 - [x] Legacy plaintext `ConnectionKey` values are not loaded or migrated; the user can re-enter the key and save it in protected storage.
 - [x] Decryption failure is reported explicitly and does not return an empty/default key or overwrite the original settings.
 - [x] Protection or settings-write failure is reported and does not truncate the prior valid settings.
-- [ ] All non-secret settings retain their values when loading a legacy settings file and saving after key re-entry.
+- [x] All non-secret settings retain their values when loading a legacy settings file and saving after key re-entry. Exact temporary-file load/re-entry/save/reload case passes for all five current fields; see follow-up above.
 - [x] Successful upload/setup logging does not include the returned hosted URL.
 - [x] Failed upload, malformed upload response, and HSSP setup errors do not expose the URL or raw response body in exception messages or log output.
 - [x] Existing Handy API error diagnostics remain actionable without exposing credentials. Operation/status/code retained; remote error names intentionally omitted.

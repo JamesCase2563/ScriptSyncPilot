@@ -50,6 +50,54 @@ public sealed class ProtectedSettingsTests
     }
 
     [TestMethod]
+    public void LegacyFile_KeyReentryPreservesAllNonSecretSettingsThroughSaveAndReload()
+    {
+        WithTemporaryPath(path =>
+        {
+            const string legacyJson = """
+                {
+                  "ConnectionKey": "synthetic-legacy-key",
+                  "MpvIpcPipe": "\\\\.\\pipe\\legacy-test-player",
+                  "DeviceOffsetMs": -375,
+                  "StrokeMinPercent": 15,
+                  "StrokeMaxPercent": 85,
+                  "LastScriptPath": "C:\\test scripts\\legacy movie.funscript"
+                }
+                """;
+            File.WriteAllText(path, legacyJson);
+            var settings = AppSettings.Load(path);
+            Assert.AreEqual("", settings.ConnectionKey);
+            Assert.IsTrue(settings.RequiresKeyReentry);
+            Assert.AreEqual(legacyJson, File.ReadAllText(path));
+
+            settings.ConnectionKey = "synthetic-reentered-key";
+            settings.Save(path);
+            var savedJson = File.ReadAllText(path);
+            using var original = JsonDocument.Parse(legacyJson);
+            using var saved = JsonDocument.Parse(savedJson);
+            foreach (var field in original.RootElement.EnumerateObject())
+            {
+                if (field.Name == "ConnectionKey") continue;
+                Assert.AreEqual(field.Value.GetRawText(),
+                    saved.RootElement.GetProperty(field.Name).GetRawText(), field.Name);
+            }
+            Assert.IsFalse(saved.RootElement.TryGetProperty("ConnectionKey", out _));
+            Assert.IsFalse(savedJson.Contains("synthetic-legacy-key", StringComparison.Ordinal));
+            Assert.IsFalse(savedJson.Contains("synthetic-reentered-key", StringComparison.Ordinal));
+            Assert.AreEqual(1, saved.RootElement.GetProperty("ConnectionKeys").GetArrayLength());
+
+            var restored = AppSettings.Load(path);
+            Assert.AreEqual("synthetic-reentered-key", restored.GetFirstConnectionKey());
+            Assert.IsFalse(restored.RequiresKeyReentry);
+            Assert.AreEqual(@"\\.\pipe\legacy-test-player", restored.MpvIpcPipe);
+            Assert.AreEqual(-375, restored.DeviceOffsetMs);
+            Assert.AreEqual(15, restored.StrokeMinPercent);
+            Assert.AreEqual(85, restored.StrokeMaxPercent);
+            Assert.AreEqual(@"C:\test scripts\legacy movie.funscript", restored.LastScriptPath);
+        });
+    }
+
+    [TestMethod]
     public void LegacyKey_IsNotPassedToProtectorAndReentrySavesProtectedKey()
     {
         var protector = new FailingProtector();

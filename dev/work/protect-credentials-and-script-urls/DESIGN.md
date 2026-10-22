@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Design
 
-**Status:** Proposed; implementation not started.
+**Status:** Approved (2026-10-22); M1.1/M1.2 implemented and verified. Settings integration and URL redaction remain pending.
 **Affected projects:** HandySync, Common logging if required, HandySync tests, user documentation.
 
 ## Goal
@@ -30,6 +30,16 @@ Reduce exposure of the Handy connection key and temporary hosted-script URL in l
 - Explain that DPAPI CurrentUser protects against casual access by other Windows accounts and offline copying, but not malware or processes running as the same Windows user, administrators, or an already-unlocked user session. Copying the protected settings file to a different Windows user/machine is not a supported migration method.
 - Verify the selected .NET/Windows API availability and required framework/package references before implementation; do not add a package if the framework provides the needed API.
 - Do not add the dropdown, key labels editor, or key deletion controls to the UI in this work item. The existing form continues to use the first stored key; a future UI change can expose selection and deletion through the storage/API operations above.
+
+### Verified protection boundary (M1.2)
+
+- `System.Security.Cryptography.ProtectedData` is available through the existing `Microsoft.WindowsDesktop.App` framework reference (`net9.0-windows`, `UseWindowsForms=true`). Compilation and real Windows DPAPI tests succeed without adding a package, reference, or native interop.
+- Internal `IConnectionKeyProtector` exposes `Protect(string connectionKey)` and `Unprotect(string protectedValue)`. `DpapiConnectionKeyProtector` implements it with strict UTF-8, DPAPI `CurrentUser`, no additional entropy, and Base64-encoded ciphertext. Base64 is an encoding of the DPAPI blob, not the protection itself.
+- The boundary protects one key independently and has no logging, file access, UI, or settings dependencies. M2 will inject it into storage so tests can substitute deterministic protection and simulated protection/decryption failures. Collection order, IDs, labels, format versioning, and atomic writes belong to settings/storage, not this primitive.
+- Null/blank inputs are rejected explicitly. Malformed Base64, DPAPI errors, and invalid UTF-8 propagate as exceptions; a decrypted blank key is also rejected. There is no empty/default-key fallback and exception messages do not interpolate the supplied plaintext or ciphertext. M2 must convert failures into secret-free user-facing settings errors and block connection/save without losing the source file.
+- Temporary plaintext byte buffers are cleared in `finally` blocks. Managed input/output strings cannot be reliably erased; this does not promise protection against same-user process/memory access.
+- Tests use synthetic keys in memory only and exercise actual CurrentUser DPAPI, interoperability with the framework API, corrupted ciphertext, malformed Base64, and empty input/decrypted values. Different-account/profile rejection remains a manual check; same-account tests cannot establish it.
+- This boundary is not yet called by `AppSettings` or the form. Completing M1.2 does not change the current plaintext settings behavior or complete M2.
 
 ### Temporary hosted-script URL and logging
 

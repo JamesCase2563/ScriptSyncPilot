@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Plan
 
-**Status:** Proposed; implementation not started.
+**Status:** In progress; design approved (2026-10-22), M1.1 and M1.2 implemented and verified. M2 settings integration is next.
 **Affected projects:** HandySync, Common logging if needed, HandySync tests, documentation.
 
 ## Goal
@@ -32,8 +32,8 @@ Out of scope: Handy API behavior, remote data retention, wholesale log-retention
 
 ### 1. Characterize existing behavior
 
-- [ ] Add focused tests around current settings serialization/loading and Handy upload/setup error paths as needed.
-- [ ] Confirm DPAPI API availability for the target framework and define a testable protection boundary without exposing secret values.
+- [x] Add focused tests around current settings serialization/loading and Handy upload/setup error paths as needed. Twelve characterization cases plus two existing API regression tests pass; see [verification](VERIFICATION.md). Unsafe baseline assertions will be replaced in M2/M3.
+- [x] Confirm DPAPI API availability for the target framework and define a testable protection boundary without exposing secret values. Existing Windows desktop framework supplies `ProtectedData`; added internal per-key protector interface/DPAPI implementation with nine passing cases. No dependency changes; storage integration remains M2. See [design](DESIGN.md#verified-protection-boundary-m12) and [verification](VERIFICATION.md).
 
 ### 2. Protect persisted connection key
 

@@ -25,15 +25,17 @@ public sealed class HandyApiClient : IDisposable
     private const string HostingUploadUrl = "https://www.handyfeeling.com/api/hosting/v2/upload";
 
     private readonly HttpClient _http;
-    private readonly HttpClient _hostingHttp = new();
+    private readonly HttpClient _hostingHttp;
 
     public HandyApiClient(string connectionKey)
         : this(connectionKey, new HttpClientHandler(), new Uri(BaseUrl))
     {
     }
 
-    internal HandyApiClient(string connectionKey, HttpMessageHandler handler, Uri? baseUri = null)
+    internal HandyApiClient(string connectionKey, HttpMessageHandler handler, Uri? baseUri = null,
+        HttpMessageHandler? hostingHandler = null)
     {
+        _hostingHttp = hostingHandler is null ? new HttpClient() : new HttpClient(hostingHandler);
         _http = new HttpClient(handler) { BaseAddress = baseUri ?? new Uri(BaseUrl) };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         _http.DefaultRequestHeaders.Add("X-Api-Key", ApplicationId);

@@ -20,11 +20,11 @@ Intermittent Handy disconnects have also been observed with other services. Wi-F
 
 ## Multiple Saved Connection Keys
 
-**Priority:** Low. **Status:** Proposed; storage support is planned in [credential and script-URL protection](../work/protect-credentials-and-script-urls/DESIGN.md).
+**Priority:** Low. **Status:** Key-management UI proposed; protected multi-key storage implemented as part of [credential and script-URL protection](../work/protect-credentials-and-script-urls/DESIGN.md).
 
-Add a HandySync UI for managing multiple saved connection keys. Let users assign a label to each saved key, choose the active key from a dropdown, add keys, and delete unused keys with clear confirmation. Do not display the key value after it has been saved. Until this UI is implemented, HandySync uses the first key in the protected saved-key collection; the storage design preserves order and supports adding, retrieving, and deleting entries.
+Add a HandySync UI for managing multiple saved connection keys. Let users assign a label to each saved key, choose the active key from a dropdown, add keys, and delete unused keys with clear confirmation. Do not display the key value after it has been saved. Until this UI is implemented, HandySync uses the first key in the protected saved-key collection; the implemented storage preserves order and supports adding, retrieving, and deleting entries.
 
-The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [design](../work/protect-credentials-and-script-urls/DESIGN.md) for the planned storage behavior and security constraints.
+The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [design](../work/protect-credentials-and-script-urls/DESIGN.md) for the implemented storage behavior and security constraints.
 
 ## Reconnect and HSSP Recovery
 

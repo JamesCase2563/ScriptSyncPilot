@@ -1,6 +1,6 @@
 # Handy Hosting Data-Retention Question
 
-**Status:** Draft only; not sent.  
+**Status:** Sent on 2026-10-22 (confirmed by maintainer); awaiting reply.  
 **Suggested recipient:** `lars@sweettech.no` — listed as the contact in the official [Handy Hosting API v2 OpenAPI specification](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml). The [Handy REST API v3 specification](https://www.handyfeeling.com/api/handy-rest/v3/docs/spec.yaml) separately lists `lars@ohdoki.com` as its API contact. If the Hosting API contact is not the right person, ask them to forward this to the privacy/data-retention contact.
 
 **Subject:** Data retention for scripts uploaded through Handy Hosting API v2
@@ -29,7 +29,7 @@ Thank you,
 Frank Yong  
 ScriptSyncPilot maintainer
 
-## References checked
+## References
 
 - [Handy Hosting API v2 OpenAPI specification](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml): calls uploads temporary and identifies the Hosting API contact above; no exact expiry period is specified.
 - [Handy REST API v3 OpenAPI specification](https://www.handyfeeling.com/api/handy-rest/v3/docs/spec.yaml): lists `lars@ohdoki.com` as a separate API contact.

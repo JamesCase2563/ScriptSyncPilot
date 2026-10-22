@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Verification
 
-**Status:** M1-M3 automatically verified (2026-10-22); M4.1/M4.2 complete. Final focused tests (112/112), non-incremental solution build (zero warnings/errors), and full solution tests (238/238) pass. M4.3 final review and manual Windows/device checks remain pending.
+**Status:** M1-M3 automatically verified (2026-10-22); M4.1/M4.2 complete. Final focused tests (112/112), non-incremental solution build (zero warnings/errors), and full solution tests (238/238) pass. Manual Windows/device checks are recorded below as completed on 2026-10-22, except the upload/setup failure case, which is automatically verified but was not exercised manually. M4.3 final review remains pending.
 
 ## M1.1 Characterization Baseline
 

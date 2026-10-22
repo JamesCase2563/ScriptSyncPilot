@@ -113,6 +113,7 @@ M2.1 introduced and verified the representation independently, without changing 
 
 - Persist settings atomically (write a temporary file in the same directory, then replace/move) so an interrupted save cannot truncate the settings file or leave a partially updated configuration.
 - Keep the existing non-secret setting fields and their semantics unchanged. When saving after a user re-enters a legacy key, replace the plaintext `ConnectionKey` field with the protected collection.
+- Reject explicit JSON `null` for `MpvIpcPipe` and `LastScriptPath` with a `SettingsException` before constructing runtime settings; omitted fields retain their defaults and empty strings remain allowed.
 - Surface inability to protect/write the key explicitly in the UI and prevent a false-success save/connection state. Do not broadly catch and silently default when key protection or unprotection fails.
 - Add a short user-facing note in HandySync documentation describing local key protection, that users must re-enter their key after upgrading from plaintext storage, account/machine-bound behavior, and where settings/logs live. Do not promise protection against malware or same-user access.
 

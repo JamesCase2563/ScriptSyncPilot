@@ -227,6 +227,38 @@ public sealed class ProtectedSettingsTests
         });
     }
 
+    [DataTestMethod]
+    [DataRow("MpvIpcPipe")]
+    [DataRow("LastScriptPath")]
+    public void NullNonSecretTextField_IsRejectedWithoutChangingFile(string field)
+    {
+        WithTemporaryPath(path =>
+        {
+            var json = "{\"" + field + "\":null}";
+            File.WriteAllText(path, json);
+            Assert.ThrowsException<SettingsException>(() => AppSettings.Load(path));
+            Assert.AreEqual(json, File.ReadAllText(path));
+        });
+    }
+
+    [TestMethod]
+    public void OmittedNonSecretTextFields_UseDefaults()
+    {
+        var defaults = new AppSettings();
+        var settings = AppSettings.Deserialize("{}", _ => { });
+        Assert.AreEqual(defaults.MpvIpcPipe, settings.MpvIpcPipe);
+        Assert.AreEqual(defaults.LastScriptPath, settings.LastScriptPath);
+    }
+
+    [TestMethod]
+    public void EmptyNonSecretTextFields_ArePreserved()
+    {
+        var settings = AppSettings.Deserialize(
+            """{"MpvIpcPipe":"","LastScriptPath":""}""", _ => { });
+        Assert.AreEqual("", settings.MpvIpcPipe);
+        Assert.AreEqual("", settings.LastScriptPath);
+    }
+
     [TestMethod]
     public void UnwritableDestination_ReportsFailure()
     {

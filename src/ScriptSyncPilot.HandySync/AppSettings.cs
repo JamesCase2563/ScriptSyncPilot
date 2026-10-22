@@ -117,6 +117,8 @@ public sealed class AppSettings
         try
         {
             var stored = JsonSerializer.Deserialize<StoredSettings>(json) ?? new StoredSettings();
+            if (stored.MpvIpcPipe is null || stored.LastScriptPath is null)
+                throw new JsonException("Settings text fields must not be null.");
             var keys = stored.ConnectionKeys
                 ?? throw new JsonException("Connection keys must be an array.");
             var settings = new AppSettings(protector ?? new DpapiConnectionKeyProtector())

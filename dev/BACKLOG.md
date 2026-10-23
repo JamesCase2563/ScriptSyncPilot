@@ -6,16 +6,18 @@
 - [UI and Session Logic Boundaries](#ui-and-session-logic-boundaries)
 - [GUI Usability and Visual Polish](#gui-usability-and-visual-polish)
 - [Privacy and Operational Guidance](#privacy-and-operational-guidance)
+- [Completed](#completed)
 
 Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md) or [editor backlog](FunscriptEditor/BACKLOG.md).
 
+Active entries describe remaining work. Implemented baselines are summarized under [Completed](#completed); partial delivery does not mark the broader item complete.
+
 ## Automated Tests and CI
 
-**Priority:** High. **Status:** Initial Common unit-test suite implemented; broader coverage and CI proposed.
+**Priority:** High. **Status:** Broader coverage and CI proposed; initial Common suite implemented (see [Completed](#completed)).
 
 Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 
-- Implemented baseline: Funscript action edits, round-trips, lowercase JSON fields, metadata preservation, sorted loading, empty documents, invalid JSON, and CSV export in `tests/ScriptSyncPilot.Common.Tests` (MSTest/VSTest).
 - mpv attachment failures, cancellation, observations, and disposal using a controlled local pipe server.
 - Session replacement and stale queued notifications in both applications.
 - Handy ordering, script selection during setup, draining requests, and stop-before-dispose with fake HTTP transport rather than hardware.
@@ -35,6 +37,13 @@ Evaluate the FunscriptEditor and HandySync interfaces as a distinct product-impr
 
 ## Privacy and Operational Guidance
 
-**Priority:** Medium. **Status:** Proposed.
+**Priority:** Medium. **Status:** Partially implemented; remaining guidance gaps and provider retention clarification remain.
 
-Add quickstart/troubleshooting guidance for launchers, mpv pipes, device firmware, connection failures, and log locations. Review credential persistence and logging; diagnostics must not expose connection or application keys. Do not introduce remote APIs merely to satisfy the superseded controller plan.
+Review and fill remaining quickstart/troubleshooting gaps for launchers, mpv pipes, device firmware, connection failures, and log locations rather than duplicating existing guidance. Local credential protection, script-URL diagnostics, and related user documentation are complete; see the [archived credential-protection plan](archive/2026-10-protect-credentials-and-script-urls/PLAN.md). The upload/setup failure case is automatically verified but was not exercised manually; preserve that distinction.
+
+Clarify provider-side script retention and URL expiry when Handy replies to the [sent inquiry](work/production-readiness/HANDY-DATA-RETENTION-EMAIL.md), then update disclosures with confirmed facts. Diagnostics must not expose connection or application keys. Do not introduce remote APIs merely to satisfy the superseded controller plan.
+
+## Completed
+
+- **Initial Common unit-test suite:** Funscript action edits, round-trips, lowercase JSON fields, metadata preservation, sorted loading, empty documents, invalid JSON, and CSV export in [the Common test project](../tests/ScriptSyncPilot.Common.Tests). Broader coverage and CI remain above.
+- **Local credential/privacy baseline:** protected HandySync key persistence, sanitized hosted-script URL diagnostics, and settings/log/recovery guidance in [online security](../docs/online-security.md). Task closed by the maintainer on 2026-10-23; implementation, verification results, and limitations are recorded in the archived [credential-protection design](archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) and [verification](archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md).

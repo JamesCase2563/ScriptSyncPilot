@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Design
 
-**Status:** Approved (2026-10-22); M1-M3 implemented and automatically verified, including full solution tests. M2.7 atomic writes were implemented alongside M2.6. M4.1/M4.2 complete. Manual Windows/device checks are recorded in [VERIFICATION.md](VERIFICATION.md) as completed except the upload/setup failure case, which is automatically verified but was not exercised manually. M4.3 final review remains pending.
+**Status:** Complete and archived on 2026-10-23, as confirmed by the maintainer; design approved (2026-10-22). M1-M3 implemented and automatically verified, including full solution tests. M2.7 atomic writes were implemented alongside M2.6; M4.1/M4.2 complete. Manual Windows/device results and accepted verification limitations are preserved in [VERIFICATION.md](VERIFICATION.md).
 **Affected projects:** HandySync, Common logging if required, HandySync tests, user documentation.
 
 ## Goal

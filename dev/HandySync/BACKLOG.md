@@ -13,6 +13,7 @@
 - [Playback Speed Sync](#playback-speed-sync)
 - [Local Buttplug/Intiface Output](#local-buttplugintiface-output)
 - [Verification and Order](#verification-and-order)
+- [Completed](#completed)
 
 Entries below track future work; status notes call out partial implementations. Implemented command serialization, version-aware setup, session checks, awaited teardown, and main-form device controls are described in [architecture](ARCHITECTURE.md), not listed as wholly unfinished features.
 
@@ -20,11 +21,11 @@ Intermittent Handy disconnects have also been observed with other services. Wi-F
 
 ## Multiple Saved Connection Keys
 
-**Priority:** Low. **Status:** Key-management UI proposed; protected multi-key storage implemented as part of [credential and script-URL protection](../work/protect-credentials-and-script-urls/DESIGN.md).
+**Priority:** Low. **Status:** Key-management UI proposed; storage implementation is recorded under [Completed](#completed).
 
 Add a HandySync UI for managing multiple saved connection keys. Let users assign a label to each saved key, choose the active key from a dropdown, add keys, and delete unused keys with clear confirmation. Do not display the key value after it has been saved. Until this UI is implemented, HandySync uses the first key in the protected saved-key collection; the implemented storage preserves order and supports adding, retrieving, and deleting entries.
 
-The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [design](../work/protect-credentials-and-script-urls/DESIGN.md) for the implemented storage behavior and security constraints.
+The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [archived design](../archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) for the implemented storage behavior and security constraints.
 
 ## Reconnect and HSSP Recovery
 
@@ -69,7 +70,7 @@ Feed device warnings into the main-form device status area from [main-form devic
 
 ## Firmware and Capabilities
 
-**Priority:** Medium. **Status:** Partially implemented for main-form device controls.
+**Priority:** Medium. **Status:** Broader setup validation and additional model-specific capabilities remain; control-specific gates are implemented.
 
 The main-form offset/stroke controls call `/info` and are enabled only for firmware 4+ with `fw_status` other than update-required. `/capabilities` is read on connect; stroke controls are disabled and stroke requests are suppressed when `slider` is zero. This is a control-specific gate, not a gate on the rest of HSSP setup. Remaining work is broader firmware/capability validation before setup, if required, and handling additional model-specific capabilities. Vendor documentation requires firmware 4 or newer for API v3. Script loading stays independent of device availability.
 
@@ -119,3 +120,9 @@ This avoids cloud hosting, application-key dependency, and server-time sync. It 
 Use the [shared test backlog](../BACKLOG.md) for fake-transport ordering, replacement, recovery, and idempotent teardown tests. Preserve current lifecycle guarantees when adding SSE/retries; background failures must not escape after close.
 
 Suggested order: explicit recovery state and timeout policy; HSSP recovery; duplicate suppression; SSE/polling; timing diagnostics/offset feedback; optional local backend. This is not a dated delivery commitment.
+
+## Completed
+
+- **Main-form device controls:** offset/stroke controls, external-change polling, firmware/capability gates for those controls, and read-only device status. Archived [design](../archive/2026-10-main-form-device-controls/DESIGN.md). Broader capability validation, offset reset/range changes, and connection events remain in the active entries above.
+- **Protected multi-key storage:** ordered, labeled, per-key DPAPI protection with add, first-key retrieval, and delete operations; atomic persistence and safe failure handling implemented. Key-management UI remains [proposed](#multiple-saved-connection-keys). Task closed by the maintainer on 2026-10-23; archived [design](../archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) and [verification](../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md) preserve results and verification limitations.
+- **Device lifecycle baseline:** command serialization, version-aware setup, session checks, and awaited teardown are implemented; see [architecture](ARCHITECTURE.md). Recovery and command coalescing remain active work, not completed by this baseline.

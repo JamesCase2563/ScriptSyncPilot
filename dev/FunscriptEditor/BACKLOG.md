@@ -2,11 +2,8 @@
 
 ## Table of Contents
 
-- [Pattern Insertion Tool](#pattern-insertion-tool)
-- [Undo and Redo](#undo-and-redo)
+- [Large-Script Performance and History Memory](#large-script-performance-and-history-memory)
 - [Markers and Snapping](#markers-and-snapping)
-- [Video Playback Speed](#video-playback-speed)
-- [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
 - [Tap-Based Pattern Generation](#tap-based-pattern-generation)
 - [Editable Pattern Preview](#editable-pattern-preview)
 - [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
@@ -20,66 +17,27 @@
 	- [Video Chapters](#video-chapters)
 	- [Project Persistence](#project-persistence)
 - [Verification and Boundaries](#verification-and-boundaries)
+- [Completed](#completed)
+	- [Pattern Insertion Tool](#pattern-insertion-tool)
+	- [Undo and Redo](#undo-and-redo)
+	- [Video Playback Speed](#video-playback-speed)
+	- [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
 
-## Pattern Insertion Tool
+Entries above the Completed section track remaining work. Completed feature details and verification records remain in the linked archives.
 
-**Priority:** Selected next. **Status:** Implemented; generator, conflict planner, editor application, and multilevel undo/redo integrated. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
+## Large-Script Performance and History Memory
 
-Archived documents: [plan](../archive/2026-10-pattern-insertion/PLAN.md), [design](../archive/2026-10-pattern-insertion/DESIGN.md), and [verification](../archive/2026-10-pattern-insertion/VERIFICATION.md).
+**Priority:** To be decided. **Status:** Deferred verification; pattern insertion and multilevel undo/redo are implemented.
 
-Insert a repeated movement pattern at the playhead. Users select a profile, set movement range, specify the target section's start/end times, and enter the full-cycle count directly. Show the output cadence implied by those inputs.
+Measure generation/application responsiveness and undo/redo memory use on representative large scripts, including bulk insertion and repeated edits. Record script/action counts, history depth, timings, and memory measurements against explicit acceptance targets before deciding whether optimization or history limits are needed. Preserve delta-based small edits and affected-section bulk history rather than introducing whole-document snapshots.
 
-### Cadence
-
-The output interval and selected full-cycle count determine cycles per minute as `60 * cycleCount / outputDurationSeconds`. Do not require a separate observation interval or infer/round the count from measured cadence. A full cycle is bottom-to-top-to-bottom, distinct from one directional stroke.
-
-### Profiles
-
-Distribute movement time within each cycle to fit the selected count exactly into the output interval. Profiles: triangle wave, configurable asymmetric cycle, and slowing near direction changes.
-
-### Conflict Handling
-
-When a new section conflicts with existing destination values, ask the user to choose:
-
-- Stop: cancel the insertion and leave existing values unchanged.
-- Replace: replace existing values in the destination section with the new values, preserving content outside that section.
-- Merge: combine the new section with existing values.
-
-If there is no conflict, insert the section without asking. Actual interior value-points count as conflicts, not interpolation between outside points. Preserve existing boundary points instead of competing generated endpoints, and preview the resulting transitions. Merge remembers the user's Keep Existing / Use New choice for identical interior timestamps. Apply the same conflict rule to track copying and conversion.
-
-Fit the directly selected whole-cycle count to the output interval; never emit partial endings. Offer Continue Existing / Pattern Start and profile settings suitable for a future pattern editor. Keep all pattern dialog values across application sessions. Initial defaults are 25% rise / 75% return, cosine easing with one-position-unit adaptive sampling, a configurable three-hour section limit, and a 100,000-action generation cap. These are editor safeguards, not verified Handy API limits. See the working design for details.
-
-## Undo and Redo
-
-**Priority:** Selected with pattern insertion. **Status:** Implemented; `TimelineControl` records delta-based edits through `ActionHistory`, with multilevel undo/redo and saved-state checkpoints. Automated and manual verification results are recorded; quantitative large-script memory/performance measurement is deferred.
-
-Support multilevel undo/redo for insertion/deletion, dragging, and pattern generation. Treat a completed drag/generated segment as one coherent history entry. New committed edits after undo clear redo; preview/cancellation do not. This work is included in the [archived pattern-insertion plan](../archive/2026-10-pattern-insertion/PLAN.md), not a temporary one-operation rollback.
-
-Use deltas for small edits and affected-section history for bulk edits, not whole-document snapshots for every operation. No restrictive edit-count limit is planned initially; measure memory during trial.
+See the [pattern-insertion verification record](../archive/2026-10-pattern-insertion/VERIFICATION.md) for completed checks and the deferred quantitative measurements. No restrictive edit-count limit is planned initially.
 
 ## Markers and Snapping
 
 **Priority:** To be decided. **Status:** Proposed.
 
 Evaluate markers and configurable grid/marker snapping for alignment with video, retaining precise unsnapped editing.
-
-## Video Playback Speed
-
-**Priority:** Implemented. **Status:** Implemented and verified (2026-10-11).
-
-Allow changing mpv playback speed from the editor for review and timing work. Show the active rate and provide a clear way to restore normal speed (1x). Define the supported range and increments, whether the rate resets or persists when changing videos, and how speed changes interact with seeking, frame stepping, and the timeline's media-time coordinates.
-
-Archived documents: [plan](../archive/2026-10-video-playback-speed/PLAN.md), [design](../archive/2026-10-video-playback-speed/DESIGN.md), and [verification](../archive/2026-10-video-playback-speed/VERIFICATION.md).
-
-## Keyboard Numeric Position Entry
-
-**Priority:** Selected. **Status:** Implemented and verified; automated tests and user-confirmed manual checks passed. Working documents archived; PR review status is not recorded.
-
-With the timeline focused, physical top-row `1` through `9` insert 10-90% at the current playhead; `0` inserts 100%, and the key left of `1` inserts 0%. Use fixed scan codes on close-to-standard PC keyboards with Latin-like layouts. Shift/Ctrl/Alt combinations and numpad keys do not insert points; editable controls retain native behavior. Ignore held position-key repeats while retaining arrow navigation hold-repeat. Existing timestamps are updated without duplicates, edits are undoable, and identical values preserve dirty state and redo.
-
-Archived documents: [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [design](../archive/2026-10-numeric-position-entry/DESIGN.md), and [verification](../archive/2026-10-numeric-position-entry/VERIFICATION.md).
-
-This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
 
 ## Tap-Based Pattern Generation
 
@@ -196,7 +154,7 @@ Allow copying a selected time range or a whole track to another track, including
 
 Copying between unlike types requires a defined conversion rather than treating their data as interchangeable. In particular, support an audio-to-funscript workflow that derives candidate movement actions from an audio envelope, beats, or other selected analysis. Let the user configure the mapping, timing, and position range, preview the result, and review/edit it before applying it to the destination. A waveform alone does not define the intended movement.
 
-Other candidate conversions include beat markers to repeated movement patterns, analysis signals to movement actions, and chapter boundaries to editor markers. Reject unsupported conversions clearly. Apply the conflict-handling rule above: ask Stop, Replace, or Merge only when destination values conflict; otherwise apply the new section without a prompt.
+Other candidate conversions include beat markers to repeated movement patterns, analysis signals to movement actions, and chapter boundaries to editor markers. Reject unsupported conversions clearly. Reuse the [pattern-insertion conflict rules](../archive/2026-10-pattern-insertion/DESIGN.md): ask Stop, Replace, or Merge only when actual destination values conflict; otherwise apply without a prompt. Preserve content outside the destination section and existing boundary points, preview transitions, and retain the user's Keep Existing / Use New choice for identical interior timestamps.
 
 ### Video Chapters
 
@@ -213,3 +171,21 @@ Preserve standard funscript import/export for individual movement tracks. The ri
 ## Verification and Boundaries
 
 See the [shared backlog](../BACKLOG.md) for interaction tests, persistence round-trips, CI, and service separation. The former controller proposal does not imply a device controller in the editor.
+
+## Completed
+
+### Pattern Insertion Tool
+
+Implemented and automatically/manually verified: interval-and-whole-cycle generation, profiles, preview, conflict handling, and undoable application. Quantitative large-script measurements remain a [separate item](#large-script-performance-and-history-memory). Archived [plan](../archive/2026-10-pattern-insertion/PLAN.md), [design](../archive/2026-10-pattern-insertion/DESIGN.md), and [verification](../archive/2026-10-pattern-insertion/VERIFICATION.md).
+
+### Undo and Redo
+
+Implemented and automatically/manually verified: multilevel delta-based edits, coherent drag/generated-section history, and saved-state checkpoints. Memory measurement remains a [separate item](#large-script-performance-and-history-memory). Included in the archived [pattern-insertion plan](../archive/2026-10-pattern-insertion/PLAN.md), [design](../archive/2026-10-pattern-insertion/DESIGN.md), and [verification](../archive/2026-10-pattern-insertion/VERIFICATION.md).
+
+### Video Playback Speed
+
+Implemented and verified (2026-10-11): editor-controlled mpv playback rate for review and timing work. Archived [plan](../archive/2026-10-video-playback-speed/PLAN.md), [design](../archive/2026-10-video-playback-speed/DESIGN.md), and [verification](../archive/2026-10-video-playback-speed/VERIFICATION.md).
+
+### Keyboard Numeric Position Entry
+
+Implemented and verified with automated tests and user-confirmed manual checks; PR review status is not recorded. Physical position keys insert individual undoable points at video timestamps. Keep this separate from [live recording](#live-pattern-recording) range controls so one keypress cannot do both. Archived [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [design](../archive/2026-10-numeric-position-entry/DESIGN.md), and [verification](../archive/2026-10-numeric-position-entry/VERIFICATION.md).

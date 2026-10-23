@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Verification
 
-**Status:** M1-M3 automatically verified (2026-10-22); M4.1/M4.2 complete. Final focused tests (112/112), non-incremental solution build (zero warnings/errors), and full solution tests (238/238) pass. Manual Windows/device checks are recorded below as completed on 2026-10-22, except the upload/setup failure case, which is automatically verified but was not exercised manually. M4.3 final review remains pending.
+**Status:** Complete and archived on 2026-10-23, as confirmed by the maintainer. M1-M3 automatically verified (2026-10-22); M4.1/M4.2 complete. Recorded M4.2 results: 112/112 focused tests, non-incremental solution build with zero warnings/errors, and 238/238 full solution tests. Manual Windows/device checks are recorded below as completed on 2026-10-22, except the upload/setup failure case, which is automatically verified but was not exercised manually. The previously pending M4.3 final review has no separate execution result recorded; task closure does not assert an additional review or test run.
 
 ## M1.1 Characterization Baseline
 
@@ -219,7 +219,7 @@ User confirmation (2026-10-22): both the legacy backup/re-entry/protected-save c
 | Full solution tests | Passed | 238/238 (88 Common, 150 Windows) |
 | M4.1 user documentation | Complete | Upgrade, protection limits, recovery, local paths, and legacy copies/logs documented |
 | M4.2 final focused tests | Passed | 112/112 before solution rebuild |
-| Remaining verification | Pending | M4.3 final review; manual upload/setup failure not exercised by agreement, covered by automated tests |
+| Closure and verification limitations | Closed by maintainer on 2026-10-23 | No separate M4.3 final-review execution result recorded; manual upload/setup failure not exercised by agreement, covered by automated tests |
 | Build | Passed | M4.2 non-incremental solution build, zero warnings/errors; full suite 238/238 against rebuilt assemblies |
 | Manual key re-entry / protected save / relaunch | Passed (user-confirmed) | Both full manual checks confirmed on 2026-10-22; real credential files not opened by the assistant. |
 | Manual cross-machine decryption failure | Passed (user-confirmed) | Clear decryption error shown; main window does not open; copied settings unchanged (2026-10-22). No credential values copied into this record. |

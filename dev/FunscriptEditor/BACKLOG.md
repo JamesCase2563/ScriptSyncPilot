@@ -10,6 +10,7 @@
 - [Tap-Based Pattern Generation](#tap-based-pattern-generation)
 - [Editable Pattern Preview](#editable-pattern-preview)
 - [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
+- [Movement Speed Indicators](#movement-speed-indicators)
 - [Author-Guided Video Motion Detection](#author-guided-video-motion-detection)
 - [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
@@ -115,6 +116,19 @@ Reduce mechanical repetition through intentional variation before adding randomn
 - Use repeatable seeded generation and apply the exact reviewed output so preview and insertion cannot differ through rerandomization.
 - Verify bounds, timestamp ordering, anchor preservation, repeatability, and transitions to surrounding content. Evaluate usefulness on representative sections before committing to randomization.
 
+## Movement Speed Indicators
+
+**Priority:** To be decided. **Status:** Proposed.
+
+Make movement speed clear during detailed point editing regardless of timeline zoom; the apparent angle of a segment changes with zoom and is not a reliable speed indicator.
+
+- Start with a numerical readout when hovering over a segment or dragging a point: duration in milliseconds, absolute position distance in percentage points, and average speed in percentage points per second, calculated as `abs(endPosition - startPosition) / elapsedSeconds`. For example, 50 percentage points over 250 ms is 200 percentage points/second.
+- For a selected or dragged point, show both incoming and outgoing segment speeds and update them during the edit.
+- Add optional segment coloring using a fixed speed scale independent of zoom and the visible section, with a legend and numerical readout so color is not the only indication. Do not label speeds as safe/unsafe based on script values alone.
+- Describe these as script-space segment-average speeds at normal (1x) playback, not measured physical device speeds. Playback rate, configured stroke range, interpolation, and device behavior can affect actual movement.
+- Consider a derived speed-graph track later, as part of [Multiple Tracks and Project Format](#multiple-tracks-and-project-format).
+- Verify numerical values, incoming/outgoing updates, zero-distance segments, and zoom-independent readouts/color mapping. Do not calculate a finite speed for duplicate or non-increasing timestamps; surface invalid timing explicitly.
+
 ## Author-Guided Video Motion Detection
 
 **Priority:** To be decided. **Status:** Idea for exploration; not selected for implementation.
@@ -158,6 +172,7 @@ Support multiple typed timeline tracks aligned to a shared video timebase. Track
 ### Track Types
 
 - Funscript movement: editable timestamp/position actions, optionally associated with a device/channel.
+- Movement speed graph: a derived, read-only view of a chosen movement track's segment-average speed in percentage points/second at 1x playback, aligned to the same timebase and updated when source actions change. Use explicit source-track association and zoom-independent speed units/scales; see [Movement Speed Indicators](#movement-speed-indicators).
 - Chapters: named video section boundaries, with previous/next chapter navigation.
 - Project information and notes: time-linked annotations, section descriptions, scripting decisions, and work-in-progress notes; project-wide information belongs in project metadata.
 - Extracted images: thumbnails or reference frames at timestamps, with links to the extracted assets.

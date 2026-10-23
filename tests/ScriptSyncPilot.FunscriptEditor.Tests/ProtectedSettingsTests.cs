@@ -228,6 +228,37 @@ public sealed class ProtectedSettingsTests
     }
 
     [DataTestMethod]
+    [DataRow("")]
+    [DataRow("   ")]
+    public void LegacyKey_RequiresReplacementBeforeSaving(string blankKey)
+    {
+        WithTemporaryPath(path =>
+        {
+            const string json = """{"ConnectionKey":"synthetic-legacy-key","DeviceOffsetMs":275}""";
+            File.WriteAllText(path, json);
+            var original = File.ReadAllBytes(path);
+            var settings = AppSettings.Load(path);
+            Assert.IsTrue(settings.RequiresKeyReentry);
+            settings.ConnectionKey = blankKey;
+
+            Assert.ThrowsException<SettingsException>(() => settings.Serialize());
+            Assert.ThrowsException<SettingsException>(() => settings.Save(path));
+            CollectionAssert.AreEqual(original, File.ReadAllBytes(path));
+            Assert.IsTrue(settings.RequiresKeyReentry);
+            Assert.AreEqual(0, settings.ConnectionKeys.Count);
+
+            settings.ConnectionKey = "synthetic-replacement-key";
+            settings.Save(path);
+            var restored = AppSettings.Load(path);
+            Assert.AreEqual("synthetic-replacement-key", restored.ConnectionKey);
+            Assert.AreEqual(275, restored.DeviceOffsetMs);
+            Assert.IsFalse(restored.RequiresKeyReentry);
+            using var saved = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.IsFalse(saved.RootElement.TryGetProperty("ConnectionKey", out _));
+        });
+    }
+
+    [DataTestMethod]
     [DataRow("MpvIpcPipe")]
     [DataRow("LastScriptPath")]
     public void NullNonSecretTextField_IsRejectedWithoutChangingFile(string field)

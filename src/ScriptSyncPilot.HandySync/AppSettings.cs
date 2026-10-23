@@ -173,7 +173,7 @@ public sealed class AppSettings
                 if (keys.Count == 0) keys.Add(entry);
                 else keys[0] = entry;
             }
-            else if (keys.Count > 0)
+            else if (keys.Count > 0 || RequiresKeyReentry)
             {
                 throw new SettingsException("The saved connection key cannot be replaced with an empty key.");
             }

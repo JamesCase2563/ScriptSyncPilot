@@ -1,6 +1,6 @@
 # Protect Credentials and Script URLs — Plan
 
-**Status:** In progress; design approved (2026-10-22), M1-M3 implemented and automatically verified; M4.1/M4.2 complete. M2.7 atomic writes were implemented with M2.6. Final focused tests pass (112/112), non-incremental solution build has zero warnings/errors, and full solution tests pass (238/238). M4.3 final review and manual Windows/device checks remain.
+**Status:** In progress; design approved (2026-10-22), M1-M3 implemented and automatically verified; M4.1/M4.2 complete. M2.7 atomic writes were implemented with M2.6. Final focused tests pass (112/112), non-incremental solution build has zero warnings/errors, and full solution tests pass (238/238). Manual Windows/device checks are recorded in [VERIFICATION.md](VERIFICATION.md) as completed except the upload/setup failure case, which is automatically verified but was not exercised manually. M4.3 final review remains pending.
 **Affected projects:** HandySync, Common logging if needed, HandySync tests, documentation.
 
 ## Goal

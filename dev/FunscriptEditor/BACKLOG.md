@@ -7,6 +7,11 @@
 - [Markers and Snapping](#markers-and-snapping)
 - [Video Playback Speed](#video-playback-speed)
 - [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
+- [Tap-Based Pattern Generation](#tap-based-pattern-generation)
+- [Editable Pattern Preview](#editable-pattern-preview)
+- [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
+- [Movement Speed Indicators](#movement-speed-indicators)
+- [Author-Guided Video Motion Detection](#author-guided-video-motion-detection)
 - [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
 	- [Track Types](#track-types)
@@ -76,6 +81,68 @@ Archived documents: [plan](../archive/2026-10-numeric-position-entry/PLAN.md), [
 
 This provides a separate manual rhythm-entry workflow: press position keys at the desired video times to author individual points, rather than adding a tap-tempo control to live pattern recording. Coordinate digit bindings with the recording mode below so one keypress cannot both insert a point and change a pattern boundary.
 
+## Tap-Based Pattern Generation
+
+**Priority:** To be decided; suggested before editable previews and controlled variation. **Status:** Proposed.
+
+Generate patterns from author-recorded taps, including taps entered during reduced-speed playback. Preserve their video-time timestamps by default instead of replacing them with evenly spaced cycles. This extends the manual tapping [workflow](../../docs/scripting-workflow.md) without changing the existing interval-and-cycle-count insertion mode.
+
+- Support an explicit choice between one tap per full cycle at the same phase (generate the intermediate turning point using the chosen profile) and one tap per turning point (alternating bottom/top, preserving unequal outward and return durations).
+- Offer consistent-range mode: keep the selected minimum/maximum positions, so longer intervals produce slower movement.
+- Explore consistent-average-speed mode: longer intervals produce greater movement distance. For a full out-and-back cycle, average speed is approximately `2 * strokeRange / cycleDuration`; require a reference speed or a calibrated cycle because timing alone cannot determine absolute range. Define range anchoring and report infeasible ranges rather than silently clamping or distorting them.
+- Make smoothing or timing regularization explicit and optional. Define tap selection, phase, incomplete-cycle handling, and invalid-input feedback before implementation; distinguish taps from ordinary script points and structure markers.
+- Preview the output, preserve content outside the selected section, and reuse existing conflict handling and coherent undo. Verify exact preservation of tap timestamps at different playback rates and both interpretations of interval length.
+
+## Editable Pattern Preview
+
+**Priority:** To be decided; suggested after tap-based generation. **Status:** Proposed.
+
+Treat generated output as a temporary editable draft before insertion. Let the author drag meaningful turning points in time and position and add/remove points without having to manipulate every sample used to approximate an eased curve.
+
+- Apply the edited draft as one coherent undoable operation; cancellation leaves the script, dirty state, and committed undo/redo history unchanged.
+- Apply exactly the reviewed draft rather than unconditionally regenerating and losing manual adjustments. Recheck conflicts against the current destination script and preserve existing boundary/conflict rules.
+- Define how generator-setting changes interact with manual draft edits; do not silently discard edits. Keep draft operations separate from committed-script history.
+- Verify that preview edits survive application, cancellation has no committed effects, and destination edits made after preview are handled explicitly.
+
+## Expressive Patterns and Controlled Variation
+
+**Priority:** To be decided; suggested after evaluating tap-based generation and editable previews. **Status:** Proposed; randomization is optional, not a default.
+
+Reduce mechanical repetition through intentional variation before adding randomness: preserve observed tap timing, allow gradual changes in depth and rise/return balance, and support editable turning points and suitable easing. Compare the generated curve with actual device playback to distinguish generator limitations from device behavior.
+
+- Evaluate small, smoothly changing variation across cycles rather than independent jitter on every sample. Timing and position variation must be opt-in and bounded.
+- Keep author-tapped timing anchors fixed by default and preserve section boundaries, strictly ordered timestamps, and the author's position range.
+- Prevent accidental extra reversals and excessively short movements; define measurable interval and movement-rate limits rather than assuming editor limits guarantee device safety.
+- Use repeatable seeded generation and apply the exact reviewed output so preview and insertion cannot differ through rerandomization.
+- Verify bounds, timestamp ordering, anchor preservation, repeatability, and transitions to surrounding content. Evaluate usefulness on representative sections before committing to randomization.
+
+## Movement Speed Indicators
+
+**Priority:** To be decided. **Status:** Proposed.
+
+Make movement speed clear during detailed point editing regardless of timeline zoom; the apparent angle of a segment changes with zoom and is not a reliable speed indicator.
+
+- Start with a numerical readout when hovering over a segment or dragging a point: duration in milliseconds, absolute position distance in percentage points, and average speed in percentage points per second, calculated as `abs(endPosition - startPosition) / elapsedSeconds`. For example, 50 percentage points over 250 ms is 200 percentage points/second.
+- For a selected or dragged point, show both incoming and outgoing segment speeds and update them during the edit.
+- Add optional segment coloring using a fixed speed scale independent of zoom and the visible section, with a legend and numerical readout so color is not the only indication. Do not label speeds as safe/unsafe based on script values alone.
+- Describe these as script-space segment-average speeds at normal (1x) playback, not measured physical device speeds. Playback rate, configured stroke range, interpolation, and device behavior can affect actual movement.
+- Consider a derived speed-graph track later, as part of [Multiple Tracks and Project Format](#multiple-tracks-and-project-format).
+- Verify numerical values, incoming/outgoing updates, zero-distance segments, and zoom-independent readouts/color mapping. Do not calculate a finite speed for duplicate or non-increasing timestamps; surface invalid timing explicitly.
+
+## Author-Guided Video Motion Detection
+
+**Priority:** To be decided. **Status:** Idea for exploration; not selected for implementation.
+
+Explore reducing manual tempo tapping by letting the author identify the actionable movement in a movie. Start with a short, author-selected continuous shot: select a tracking region, indicate the movement axis, and optionally select a reference feature to distinguish relevant movement from camera or whole-subject motion.
+
+- First milestone to evaluate: propose full-cycle boundary taps for review and use with the existing [scripting workflow](../../docs/scripting-workflow.md) and pattern insertion tool.
+- Possible later extension: calibrate the two movement extremes to script minimum/maximum and propose position curves, including changing stroke lengths. Screen displacement does not necessarily represent the desired script depth.
+- Keep results as editable suggestions with preview, explicit acceptance, existing conflict handling, and undo. Do not automatically overwrite authored work or send unreviewed output to a device.
+- Flag tracking loss and uncertain intervals for correction/reinitialization rather than inventing movement. Evaluate cuts, occlusion, blur, perspective changes, and features leaving the frame.
+- Investigate timestamp-preserving frame decoding and conventional feature tracking, optical flow, or template matching; FFmpeg and an OpenCV .NET wrapper are candidates, not selected dependencies. The current mpv IPC integration supplies playback state/control, not image frames.
+- For VR, evaluate a stable projection, fixed viewport, or single-eye view so head movement does not become scripted movement.
+- Before committing to implementation, test representative clips and define measurable timing accuracy, tracking reliability, correction effort, and processing-performance targets. Decide whether assisted tempo detection is useful enough before extending to calibrated positions.
+
 ## Live Pattern Recording
 
 **Priority:** To be decided. **Status:** Proposed; keyboard control groups agreed, exact bindings and cycle-time presets to be refined.
@@ -105,6 +172,7 @@ Support multiple typed timeline tracks aligned to a shared video timebase. Track
 ### Track Types
 
 - Funscript movement: editable timestamp/position actions, optionally associated with a device/channel.
+- Movement speed graph: a derived, read-only view of a chosen movement track's segment-average speed in percentage points/second at 1x playback, aligned to the same timebase and updated when source actions change. Use explicit source-track association and zoom-independent speed units/scales; see [Movement Speed Indicators](#movement-speed-indicators).
 - Chapters: named video section boundaries, with previous/next chapter navigation.
 - Project information and notes: time-linked annotations, section descriptions, scripting decisions, and work-in-progress notes; project-wide information belongs in project metadata.
 - Extracted images: thumbnails or reference frames at timestamps, with links to the extracted assets.

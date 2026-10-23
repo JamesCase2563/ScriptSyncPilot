@@ -48,7 +48,10 @@ public sealed class MainForm : Form
     private readonly System.Windows.Forms.Timer _syncTimer = new() { Interval = 3000 };
     private readonly System.Windows.Forms.Timer _devicePollTimer = new() { Interval = 5000 };
 
-    private readonly AppSettings _settings = AppSettings.Load();
+    private readonly AppSettings _settings;
+    private readonly Func<string, HandyApiClient> _createHandyClient;
+    private readonly Action<AppSettings> _saveSettings;
+    private readonly Action<string> _showSettingsError;
 
     private HandyApiClient? _handy;
     private readonly SemaphoreSlim _deviceCommandGate = new(1, 1);
@@ -93,13 +96,25 @@ public sealed class MainForm : Form
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
 
-    public MainForm()
+    public MainForm() : this(AppSettings.Load(), key => new HandyApiClient(key)) { }
+
+    internal MainForm(AppSettings settings, Func<string, HandyApiClient> createHandyClient,
+        Action<AppSettings>? saveSettings = null, Action<string>? showSettingsError = null)
     {
+        _settings = settings;
+        _createHandyClient = createHandyClient;
+        _saveSettings = saveSettings ?? (value => value.Save());
+        _showSettingsError = showSettingsError ?? (message => MessageBox.Show(this, message,
+            "Settings not saved", MessageBoxButtons.OK, MessageBoxIcon.Error));
         Text = "ScriptSyncPilot – Handy Sync";
         Width = 720;
         Height = 560;
 
-        _connectionKeyBox.Text = _settings.ConnectionKey;
+        _connectionKeyBox.Text = _settings.GetFirstConnectionKey() ?? _settings.ConnectionKey;
+        if (_settings.RequiresKeyReentry)
+            Shown += (_, _) => MessageBox.Show(this,
+                "Please re-enter your Handy connection key. Legacy plaintext keys are no longer loaded; the key will be protected when settings are saved.",
+                "Connection key required", MessageBoxButtons.OK, MessageBoxIcon.Information);
         _mpvPipeBox.Text = _settings.MpvIpcPipe;
         _scriptPathBox.Text = _settings.LastScriptPath;
         if (_scriptPathBox.Text.Length > 0 && File.Exists(_scriptPathBox.Text))
@@ -212,7 +227,17 @@ public sealed class MainForm : Form
             _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
             _settings.StrokeMinPercent = _strokeSlider.LowerValue;
             _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
-            _settings.Save();
+            try
+            {
+                _saveSettings(_settings);
+            }
+            catch (SettingsException ex)
+            {
+                Log(ex.Message);
+                _isClosing = false;
+                _showSettingsError(ex.Message);
+                return;
+            }
 
             _lifetimeCts.Cancel();
             await DetachMpvAsync(stopDevice: false);
@@ -324,7 +349,7 @@ public sealed class MainForm : Form
     {
         SetStatus("Uploading script…");
         var url = await client.UploadScriptCsvAsync(script.ToCsv(), cancellationToken);
-        Log($"Script hosted at {url}");
+        Log("Script upload complete; configuring HSSP.");
 
         if (!ReferenceEquals(_handy, client) || scriptVersion != _scriptVersion || !ReferenceEquals(script, _script))
             return false;
@@ -388,6 +413,11 @@ public sealed class MainForm : Form
     private async Task ConnectHandyAsync()
     {
         if (_handyDisconnecting) return;
+        if (string.IsNullOrWhiteSpace(_connectionKeyBox.Text))
+        {
+            MessageBox.Show(this, "Enter a Handy connection key before connecting.", "ScriptSyncPilot");
+            return;
+        }
         if (_script is null)
         {
             MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
@@ -398,7 +428,7 @@ public sealed class MainForm : Form
         try
         {
             SetStatus("Connecting to Handy…");
-            var client = new HandyApiClient(_connectionKeyBox.Text.Trim());
+            var client = _createHandyClient(_connectionKeyBox.Text.Trim());
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;

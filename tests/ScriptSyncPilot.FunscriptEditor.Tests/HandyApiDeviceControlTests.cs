@@ -79,9 +79,61 @@ public sealed class HandyApiDeviceControlTests
             () => client.SetOffsetAsync(100, CancellationToken.None));
 
         Assert.AreEqual(1002, exception.Code);
-        Assert.AreEqual("DeviceTimeout", exception.Name);
+        Assert.IsNull(exception.Name);
         Assert.IsFalse(exception.Message.Contains("connection secret", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(exception.Message.Contains("sensitive-connection-key", StringComparison.Ordinal));
+    }
+
+    [DataTestMethod]
+    [DataRow("[]")]
+    [DataRow("42")]
+    [DataRow("true")]
+    [DataRow("\"synthetic-secret\"")]
+    public async Task MalformedError_WithValidResult_IsRejected(string error)
+    {
+        var body = "{\"result\":{\"min\":0.25,\"max\":0.75,\"connected\":true},\"error\":" + error + "}";
+        using var handler = new RecordingHandler(body, body, body, body);
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        Func<Task>[] calls =
+        [
+            () => client.SetStrokeAsync(0.25, 0.75, CancellationToken.None),
+            () => client.GetStrokeAsync(CancellationToken.None),
+            () => client.SetOffsetAsync(100, CancellationToken.None),
+            () => client.IsConnectedAsync(CancellationToken.None)
+        ];
+        foreach (var call in calls)
+        {
+            var exception = await Assert.ThrowsExceptionAsync<HandyApiException>(call);
+            StringAssert.Contains(exception.Message, "invalid response shape");
+            Assert.IsFalse(exception.ToString().Contains("synthetic-secret", StringComparison.Ordinal));
+            Assert.IsNull(exception.InnerException);
+        }
+    }
+
+    [DataTestMethod]
+    [DataRow("")]
+    [DataRow(",\"error\":null")]
+    public async Task MissingOrNullError_WithValidResult_IsAccepted(string errorProperty)
+    {
+        var body = "{\"result\":{\"min\":0.25,\"max\":0.75,\"connected\":true}" + errorProperty + "}";
+        using var handler = new RecordingHandler(body, body, body, body);
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        Assert.AreEqual(0.25, (await client.SetStrokeAsync(0.25, 0.75, CancellationToken.None)).Min);
+        Assert.AreEqual(0.75, (await client.GetStrokeAsync(CancellationToken.None)).Max);
+        await client.SetOffsetAsync(100, CancellationToken.None);
+        Assert.IsTrue(await client.IsConnectedAsync(CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task ObjectError_WithValidResult_TakesPrecedence()
+    {
+        const string body = """{"result":{"min":0.25,"max":0.75},"error":{"code":1002,"message":"synthetic-secret"}}""";
+        using var handler = new RecordingHandler(body);
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        var exception = await Assert.ThrowsExceptionAsync<HandyApiException>(
+            () => client.SetStrokeAsync(0.25, 0.75, CancellationToken.None));
+        Assert.AreEqual(1002, exception.Code);
+        Assert.IsFalse(exception.ToString().Contains("synthetic-secret", StringComparison.Ordinal));
     }
 
     private sealed class RecordingHandler(params string[] responses) : HttpMessageHandler

@@ -2,6 +2,7 @@
 
 ## Table of Contents
 
+- [Multiple Saved Connection Keys](#multiple-saved-connection-keys)
 - [Reconnect and HSSP Recovery](#reconnect-and-hssp-recovery)
 - [Request Timeouts and Retries](#request-timeouts-and-retries)
 - [Desired State and Command Coalescing](#desired-state-and-command-coalescing)
@@ -16,6 +17,14 @@
 Entries below track future work; status notes call out partial implementations. Implemented command serialization, version-aware setup, session checks, awaited teardown, and main-form device controls are described in [architecture](ARCHITECTURE.md), not listed as wholly unfinished features.
 
 Intermittent Handy disconnects have also been observed with other services. Wi-Fi instability is a working hypothesis, not a confirmed cause. Diagnostics should distinguish network, service, firmware, credential, and local lifecycle failures.
+
+## Multiple Saved Connection Keys
+
+**Priority:** Low. **Status:** Key-management UI proposed; protected multi-key storage implemented as part of [credential and script-URL protection](../work/protect-credentials-and-script-urls/DESIGN.md).
+
+Add a HandySync UI for managing multiple saved connection keys. Let users assign a label to each saved key, choose the active key from a dropdown, add keys, and delete unused keys with clear confirmation. Do not display the key value after it has been saved. Until this UI is implemented, HandySync uses the first key in the protected saved-key collection; the implemented storage preserves order and supports adding, retrieving, and deleting entries.
+
+The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [design](../work/protect-credentials-and-script-urls/DESIGN.md) for the implemented storage behavior and security constraints.
 
 ## Reconnect and HSSP Recovery
 

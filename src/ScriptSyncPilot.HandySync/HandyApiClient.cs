@@ -48,6 +48,7 @@ public sealed class HandyApiClient : IDisposable
         using var resp = await GetAsync("connected", ct);
         var body = await ReadBodyAsync("connected", resp, ct);
         var parsed = ParseResponse<DeviceResponse<ConnectedResult>>("connected", body);
+        ThrowIfDeviceError("connected", parsed?.Error);
         return parsed?.Result?.Connected ?? false;
     }
 
@@ -181,10 +182,7 @@ public sealed class HandyApiClient : IDisposable
         {
             throw new HandyApiException($"{path}: invalid JSON response.");
         }
-        if (parsed?.Error is { ValueKind: System.Text.Json.JsonValueKind.Object } error)
-        {
-            throw DeviceError(path, error);
-        }
+        ThrowIfDeviceError(path, parsed?.Error);
 
         return parsed?.Result ?? throw new HandyApiException($"{path}: response did not contain a result.");
     }
@@ -204,11 +202,8 @@ public sealed class HandyApiClient : IDisposable
         {
             if (document.RootElement.ValueKind != JsonValueKind.Object)
                 throw new HandyApiException($"{path}: invalid response shape.");
-            if (!document.RootElement.TryGetProperty("error", out var error)
-                || error.ValueKind != System.Text.Json.JsonValueKind.Object)
-                return;
-
-            throw DeviceError(path, error);
+            if (document.RootElement.TryGetProperty("error", out var error))
+                ThrowIfDeviceError(path, error);
         }
     }
 
@@ -219,6 +214,14 @@ public sealed class HandyApiClient : IDisposable
         var statusCode = (int)response.StatusCode;
         response.Dispose();
         throw new HandyApiException($"{path} failed: {statusCode}.");
+    }
+
+    private static void ThrowIfDeviceError(string path, JsonElement? error)
+    {
+        if (error is null || error.Value.ValueKind == JsonValueKind.Null) return;
+        if (error.Value.ValueKind != JsonValueKind.Object)
+            throw new HandyApiException($"{path}: invalid response shape.");
+        throw DeviceError(path, error.Value);
     }
 
     private static HandyApiException DeviceError(string path, JsonElement error)

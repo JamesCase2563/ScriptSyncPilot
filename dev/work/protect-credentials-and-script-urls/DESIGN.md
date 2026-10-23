@@ -108,6 +108,7 @@ M2.1 introduced and verified the representation independently, without changing 
 - Do not display the URL in the visible log, persist it in settings, include it in exception messages, or include it in diagnostic/support instructions.
 - Do not log raw response bodies from upload failures or malformed upload responses. Preserve useful diagnostics such as operation name and HTTP status code without secret-bearing body text.
 - Audit HandySync log calls and exception paths around upload/HSSP setup so the URL cannot leak through wrapped exception details. Keep ordinary API error reporting useful and credential-free.
+- Device response envelopes accept an omitted or JSON-null `error`; object-valued errors use sanitized device-error reporting. Reject all other `error` shapes explicitly, even when a valid `result` is present, for result-bearing calls, connection checks, and no-result commands.
 
 ### Settings writes and failure handling
 

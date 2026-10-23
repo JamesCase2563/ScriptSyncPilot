@@ -118,6 +118,35 @@ public sealed class ProtectedSettingsTests
         Assert.IsFalse(restored.RequiresKeyReentry);
     }
 
+    [DataTestMethod]
+    [DataRow("\"\"")]
+    [DataRow("\"   \"")]
+    [DataRow("null")]
+    [DataRow("42")]
+    public void LegacyWithoutNonblankStringKey_AllowsSavingUnrelatedSettings(string legacyValue)
+    {
+        WithTemporaryPath(path =>
+        {
+            File.WriteAllText(path, "{\"ConnectionKey\":" + legacyValue + ",\"DeviceOffsetMs\":275}");
+            var protector = new FailingProtector();
+            var settings = AppSettings.Load(path, protector);
+            Assert.IsFalse(settings.RequiresKeyReentry);
+            Assert.AreEqual("", settings.ConnectionKey);
+            settings.DeviceOffsetMs = 300;
+            settings.Save(path);
+
+            var restored = AppSettings.Load(path, protector);
+            Assert.IsFalse(restored.RequiresKeyReentry);
+            Assert.AreEqual("", restored.ConnectionKey);
+            Assert.AreEqual(300, restored.DeviceOffsetMs);
+            Assert.AreEqual(0, restored.ConnectionKeys.Count);
+            Assert.AreEqual(0, protector.ProtectCalls);
+            Assert.AreEqual(0, protector.UnprotectCalls);
+            using var saved = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.IsFalse(saved.RootElement.TryGetProperty("ConnectionKey", out _));
+        });
+    }
+
     [TestMethod]
     public void ProtectionFailure_LeavesExistingFileUnchangedAndDoesNotEchoExceptionDetails()
     {

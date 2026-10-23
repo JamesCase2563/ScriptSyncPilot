@@ -42,7 +42,7 @@ public sealed class HandySettingsCharacterizationTests
     }
 
     [TestMethod]
-    public void LegacyPlaintextKey_IsIgnoredAndOmittedWithoutChangingOtherSettings()
+    public void LegacyPlaintextKey_RequiresReplacementWithoutChangingOtherSettings()
     {
         var settings = AppSettings.Deserialize("""
             {
@@ -60,9 +60,12 @@ public sealed class HandySettingsCharacterizationTests
         Assert.AreEqual(20, settings.StrokeMinPercent);
         Assert.AreEqual(90, settings.StrokeMaxPercent);
         Assert.AreEqual("sample.funscript", settings.LastScriptPath);
+        Assert.IsTrue(settings.RequiresKeyReentry);
+        Assert.ThrowsException<SettingsException>(() => settings.Serialize());
+        settings.ConnectionKey = "synthetic-replacement-key";
         using var document = JsonDocument.Parse(settings.Serialize());
         Assert.IsFalse(document.RootElement.TryGetProperty("ConnectionKey", out _));
-        Assert.AreEqual(0, document.RootElement.GetProperty("ConnectionKeys").GetArrayLength());
+        Assert.AreEqual(1, document.RootElement.GetProperty("ConnectionKeys").GetArrayLength());
     }
 
     [DataTestMethod]

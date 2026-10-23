@@ -141,7 +141,9 @@ public sealed class AppSettings
             using var document = JsonDocument.Parse(json);
             settings.RequiresKeyReentry = keys.Count == 0
                 && document.RootElement.ValueKind == JsonValueKind.Object
-                && document.RootElement.TryGetProperty("ConnectionKey", out _);
+                && document.RootElement.TryGetProperty("ConnectionKey", out var legacyKey)
+                && legacyKey.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(legacyKey.GetString());
             return settings;
         }
         catch (Exception ex) when (ex is JsonException or CryptographicException or FormatException

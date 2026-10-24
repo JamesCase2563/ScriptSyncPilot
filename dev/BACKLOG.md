@@ -12,6 +12,20 @@ Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md
 
 Active entries describe remaining work. Implemented baselines are summarized under [Completed](#completed); partial delivery does not mark the broader item complete.
 
+## Initial-release scope classification
+
+Reviewed against the [approved support scope](work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+These labels describe initial-release scope, not implementation completion or a change
+to future feature priorities.
+
+| Entry | Classification | Release boundary |
+| --- | --- | --- |
+| Automated Tests and CI | In scope | Verify existing supported workflows, lifecycle and failure paths; use test doubles where practical |
+| UI and Session Logic Boundaries | Deferred | Extract only what a concrete release-blocking defect or verification need requires; no architecture rewrite prerequisite |
+| GUI Usability and Visual Polish | Deferred | Separate product-improvement effort; fixes to defects in existing supported workflows remain in scope |
+| Privacy and Operational Guidance | In scope | Accurate data handling, support/build/troubleshooting guidance and disclosure of unconfirmed provider retention; do not invent provider guarantees |
+| Completed baselines | In scope | Preserve implemented behavior and existing verification evidence |
+
 ## Automated Tests and CI
 
 **Priority:** High. **Status:** Broader coverage and CI proposed; initial Common suite implemented (see [Completed](#completed)).

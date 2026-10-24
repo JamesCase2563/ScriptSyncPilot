@@ -19,6 +19,27 @@ Entries below track future work; status notes call out partial implementations. 
 
 Intermittent Handy disconnects have also been observed with other services. Wi-Fi instability is a working hypothesis, not a confirmed cause. Diagnostics should distinguish network, service, firmware, credential, and local lifecycle failures.
 
+## Initial-release scope classification
+
+Reviewed against the [approved support scope](../work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+Labels below apply to remaining proposals, not completed baselines. Future priorities
+do not make an excluded or deferred feature an initial-release requirement.
+
+| Entry | Classification | Release boundary |
+| --- | --- | --- |
+| Multiple Saved Connection Keys | Deferred | New management UI is not required; retain protected storage and current first-key behavior |
+| Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
+| Request Timeouts and Retries | In scope / Deferred | Verify bounded requests and shutdown; add timeout fixes where necessary. Expanded automatic retries/backoff are deferred |
+| Desired State and Command Coalescing | Deferred | Preserve command serialization and existing debouncing; fix stale-command/lifecycle defects if found, without requiring a new desired-state system |
+| Connection Events | Deferred | SSE and additional event-driven status are not release requirements; preserve current polling |
+| Firmware and Capabilities | In scope / Deferred / Excluded | Verify existing gates and accurate compatibility reporting; additional model-specific validation is deferred. Firmware installation/update flows are excluded |
+| Timing and Diagnostics | In scope / Deferred | Preserve useful, secret-free diagnostics, including connection hardware information; expanded drift/RTT metrics and clock-refresh strategies are deferred |
+| Offset Feedback | Deferred | Reset/range extensions are not required; preserve existing device-side offset controls |
+| Playback Speed Sync | Excluded | Non-1x device playback is outside initial scope; existing stop/suppress behavior and resumption at confirmed 1x remain in scope |
+| Local Buttplug/Intiface Output | Excluded | Local/offline backends, other vendors and alternate output protocols require a separate scope decision |
+| Verification and Order | In scope | Verify the supported baseline with fake transports and recorded manual checks; the suggested future implementation order is not a release commitment |
+| Completed baselines | In scope | Preserve device controls, protected storage and lifecycle guarantees |
+
 ## Multiple Saved Connection Keys
 
 **Priority:** Low. **Status:** Key-management UI proposed; storage implementation is recorded under [Completed](#completed).

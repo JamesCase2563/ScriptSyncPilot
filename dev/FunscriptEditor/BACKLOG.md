@@ -27,6 +27,29 @@
 
 Entries above the Completed section track remaining work. Completed feature details and verification records remain in the linked archives.
 
+## Initial-release scope classification
+
+Reviewed against the [approved support scope](../work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+New authoring features below remain future work; classification does not remove them
+or change their relative future priority. Defects affecting existing supported
+editing, file preservation or shutdown remain in scope.
+
+| Entry | Classification | Release boundary |
+| --- | --- | --- |
+| Large-Script Performance and History Memory | Deferred | Quantitative optimization work is not a release prerequisite absent an identified blocker; no unmeasured large-script performance guarantee |
+| Markers and Snapping | Deferred | New editing feature |
+| Constrained Point Movement and Keyboard Nudging | Deferred | New editing feature |
+| Multiple-Point Selection and Group Editing | Deferred | New editing feature |
+| Tap-Based Pattern Generation | Deferred | New generation workflow |
+| Editable Pattern Preview | Deferred | New draft-editing workflow beyond the implemented preview |
+| Expressive Patterns and Controlled Variation | Deferred | New generation behavior; no randomization commitment |
+| Movement Speed Indicators | Deferred | New readouts/visualizations, not physical safety certification |
+| Author-Guided Video Motion Detection | Experimental | Exploration only; no selected implementation or new dependency approved |
+| Live Pattern Recording | Deferred | New recording mode; retain existing numeric point-entry behavior |
+| Multiple Tracks and Project Format | Deferred | Includes proposed track types, duplication/conversion, audio-derived actions, chapter editing/export and project persistence; no new media tooling or schema required for release |
+| Verification and Boundaries | In scope | Verify existing interactions, persistence and lifecycle; no device controller in the editor |
+| Completed features | In scope | Preserve pattern insertion, undo/redo, video playback speed and numeric position entry |
+
 ## Large-Script Performance and History Memory
 
 **Priority:** To be decided. **Status:** Deferred verification; pattern insertion and multilevel undo/redo are implemented.

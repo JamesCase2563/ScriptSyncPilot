@@ -89,7 +89,7 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [x] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix. [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records two H01 devices (model number 0, variant 0), firmware `4.3.0+dcee7e58` and `4.2.2+44874492`, and successful workflows confirmed by the maintainer on 2026-10-24; connection/setup is additionally corroborated by logs.
 - [x] Document the support boundary for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service in [known limitations](SCOPE-AND-LIMITATIONS.md#known-limitations). Unsupported devices/firmware are untested and not guaranteed to work; acquiring unsupported hardware is not required. Normal-path tests do not validate failure/recovery scenarios, and communication loss prevents guaranteeing a physical stop. Implementation and simulated failure-path verification remain under milestone 3.
 - [x] Maintain a [protocol compatibility matrix and version-change/revalidation checklist](TESTED-ENVIRONMENTS.md#compatibility-and-protocol-matrix). Future clean-release and failure-path verification remain separate gates.
-- [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.
+- [x] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded. Initial-release classifications recorded in the [vision](../../VISION.md#initial-release-classification), [shared backlog](../../BACKLOG.md#initial-release-scope-classification), [HandySync backlog](../../HandySync/BACKLOG.md#initial-release-scope-classification) and [editor backlog](../../FunscriptEditor/BACKLOG.md#initial-release-scope-classification). Existing feature priorities remain future-work priorities, not release commitments.
 
 ### 3. Stabilize software against the support promise
 
@@ -118,8 +118,8 @@ Keep implementation details in the existing component backlogs. This plan owns c
 | Session/UI separation | [Shared backlog](../../BACKLOG.md) | Related engineering quality work, but only extract boundaries where reliability or testability warrants it. |
 | Device recovery, timeouts/retries, coalescing, events, diagnostics | [HandySync backlog](../../HandySync/BACKLOG.md) | Direct overlap with reliability and support promises. Select and sequence specific entries after protocol support and recovery expectations are defined. |
 | Firmware and capabilities | [HandySync backlog](../../HandySync/BACKLOG.md) | Existing partial capability/firmware checks overlap with compatibility policy. Firmware updates are explicitly out of scope across the application; user documentation points to official vendor instructions. |
-| Playback speed synchronization and local output | [HandySync backlog](../../HandySync/BACKLOG.md) | Product-scope decisions may defer or exclude these proposals; they are not automatic release blockers. |
-| Product boundaries and possible extensions | [Product vision](../../VISION.md) | Treat as future direction; reconcile it with the supported protocol/product scope during milestone 3. |
+| Playback speed synchronization and local output | [HandySync backlog](../../HandySync/BACKLOG.md) | Non-1x device playback and local output are excluded from initial-release scope; existing non-1x stop/suppress behavior remains in scope. |
+| Product boundaries and possible extensions | [Product vision](../../VISION.md) | Initial-release classifications reconciled with approved scope in milestone 2; future extensions are not release commitments. |
 | Current component responsibilities and contracts | [System architecture](../../ARCHITECTURE.md) | Preserve these ownership and lifecycle contracts while stabilizing or changing features. |
 
 ## Release Readiness Gate

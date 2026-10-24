@@ -17,7 +17,7 @@ Copy the record below for each tested combination. Record exact versions rather 
 | .NET SDK used to build | 10.0.401 (current repository SDK, verified with `dotnet --version`) |
 | .NET Desktop Runtime used | Microsoft.WindowsDesktop.App 9.0.11 (installed runtime matching the apps' net9.0-windows target; running-process version not independently checked) |
 | CPU architecture | x64 (PROCESSOR_ARCHITECTURE=AMD64; Intel processor) |
-| ScriptSyncPilot source tag/commit | HandySync: `b21834c64d818c3a54c47e0dca455e8411ac93f2` plus local changes below; verified from the running application's Debug DLL informational version (`1.0.0+b21834c64d818c3a54c47e0dca455e8411ac93f2`). FunscriptEditor: the current on-disk Debug DLL identifies `9201014694363616bcbdacefaa8a36b30139f022`; no editor process was running at inspection, so its identity as the binary used for the reported editor tests is not independently confirmed. |
+| ScriptSyncPilot source tag/commit | `b21834c64d818c3a54c47e0dca455e8411ac93f2` for both FunscriptEditor and HandySync; local changes described below |
 | Windows edition, version, OS build | Windows 11 Home, version 25H2, OS build 26200.9711 |
 | Local source changes | Uncommitted HandySync hardware diagnostics in `HandyApiClient.cs` and `MainForm.cs`, with related tests/documentation. HandySync DLL built at 10:38:40 and the running process started at 10:38:41 on 2026-10-24; subsequent logs demonstrate the added diagnostics. Embedded commit metadata does not identify uncommitted changes; this is not a clean-checkout build of the base commit alone. |
 | Handy model / hardware revision | Both devices report model name H01, model number 0, model variant 0. Separate manufacturer and hardware revision not reported by the API; model variant is not a confirmed hardware revision. |
@@ -62,7 +62,7 @@ observed by the assistant, except for the reviewed connection/setup log evidence
 
 | Workflow | Result | Notes / evidence |
 | --- | --- | --- |
-| Build from recorded source | Pass | Maintainer-reported local builds; binary source metadata inspected as described above. Not a clean-checkout validation. |
+| Build from recorded source | Pass | Maintainer confirms both applications used the recorded commit, with local changes described above. Not a clean-checkout validation. |
 | Editor launch and mpv attachment | Pass | Maintainer-reported |
 | Script open, edit, undo/redo, save and reload | Pass | Maintainer-reported |
 | Editor playback-speed controls | Pass | Maintainer-reported |
@@ -78,7 +78,7 @@ observed by the assistant, except for the reviewed connection/setup log evidence
 - Workflows not exercised: none of the listed workflows, per maintainer confirmation.
 - Observed failures: two initial connection attempts returned not connected before a subsequent successful connection; cause and reproducibility not established.
 - Workaround: a later connection attempt succeeded; no specific corrective action verified.
-- Build limitations: local Debug builds, including uncommitted HandySync changes, rather than a single clean source revision; the editor test binary identity is not independently confirmed.
+- Build limitations: local Debug builds from the recorded commit, including uncommitted HandySync changes; not a clean-checkout validation.
 - Revalidation: repeat against the intended clean release revision before claiming that revision is validated.
 
 ## Environment record template

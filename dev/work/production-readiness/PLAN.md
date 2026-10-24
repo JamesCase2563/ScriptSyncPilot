@@ -84,8 +84,10 @@ External service references for the data-flow/privacy review: [Handyverse](https
 ### 2. Freeze initial product and protocol boundaries
 
 - [ ] Define supported applications, operating systems, device models, firmware versions, API/protocol modes, and required external software.
+- [x] Approve the [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md). Maintainer approved on 2026-10-24, including limited automatic recovery for the first release; tested version/model coverage and release verification remain outstanding.
 - [x] Keep firmware updating out of scope across the entire application: apps may report compatibility, and documentation refers users to official manufacturer instructions; ScriptSyncPilot does not download, install, distribute, or initiate firmware updates.
 - [ ] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix.
+  Record each tested combination and its results using the [tested-environment template](TESTED-ENVIRONMENTS.md).
 - [ ] Document behavior for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service.
 - [ ] Maintain a protocol compatibility matrix and version-change/revalidation checklist.
 - [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.

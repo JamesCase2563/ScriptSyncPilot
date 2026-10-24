@@ -13,7 +13,7 @@ public sealed class HandyApiDeviceControlTests
     public async Task DeviceControlEndpoints_UseExpectedRequestsAndParseResults()
     {
         using var handler = new RecordingHandler(
-            "{\"result\":{\"fw_status\":0,\"fw_version\":\"4.3.0\",\"hw_model_name\":\"H01\"}}",
+            "{\"result\":{\"fw_status\":0,\"fw_version\":\"4.3.0\",\"hw_model_name\":\"H01\",\"hw_model_no\":0,\"hw_model_variant\":0}}",
             "{\"result\":{\"offset\":-250}}",
             "{\"result\":\"ok\"}",
             "{\"result\":{\"min\":0.25,\"max\":0.75,\"min_absolute\":30.165,\"max_absolute\":80.495}}",
@@ -28,6 +28,8 @@ public sealed class HandyApiDeviceControlTests
         Assert.AreEqual(0, info.FirmwareStatus);
         Assert.AreEqual("4.3.0", info.FirmwareVersion);
         Assert.AreEqual("H01", info.ModelName);
+        Assert.AreEqual(0, info.ModelNumber);
+        Assert.AreEqual(0, info.ModelVariant);
         Assert.AreEqual("info", handler.Requests[0].Path);
         Assert.AreEqual("GET", handler.Requests[0].Method);
         Assert.AreEqual("LGtuDB6Ikqu4s65pK7eoshlqkDV_ziiG", handler.Requests[0].ApiKey);

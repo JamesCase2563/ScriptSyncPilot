@@ -1,5 +1,7 @@
 # Initial Support Scope and Known Limitations
 
+**Status:** Approved by the maintainer on 2026-10-24, including limited automatic recovery for the first release. This approves the support scope, not release readiness.
+
 ## Release model
 
 ScriptSyncPilot is a free, MIT-licensed project maintained by an individual. The initial release is **source-only**: users obtain the source from a published version tag and build it locally.

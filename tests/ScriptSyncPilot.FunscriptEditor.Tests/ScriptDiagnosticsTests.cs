@@ -15,6 +15,73 @@ public sealed class ScriptDiagnosticsTests
     private const string Url = "https://example.test/private-script.csv?token=synthetic-bearer";
     private const string Secret = "synthetic-connection-secret";
 
+    [STATestMethod]
+    [DataRow("""{"fw_status":0,"fw_version":"4.3.0","hw_model_name":"H01","hw_model_no":0,"hw_model_variant":0,"session_id":"synthetic-private-session"}""",
+        """model name "H01", model number 0, model variant 0.""", true)]
+    [DataRow("""{"fw_status":2,"fw_version":"3.2.0","hw_model_name":"H01","hw_model_no":1,"hw_model_variant":2}""",
+        """model name "H01", model number 1, model variant 2.""", false)]
+    [DataRow("""{"fw_status":0,"fw_version":"4.3.0"}""",
+        "model name not reported, model number not reported, model variant not reported.", true)]
+    [DataRow("""{"fw_status":0,"fw_version":"4.3.0","hw_model_name":null,"hw_model_no":null,"hw_model_variant":null}""",
+        "model name not reported, model number not reported, model variant not reported.", true)]
+    [DataRow("""{"fw_status":0,"fw_version":"4.3.0","hw_model_name":"H01\r\nforged log entry"}""",
+        """model name "H01\r\nforged log entry", model number not reported, model variant not reported.""", true)]
+    [DataRow("invalid", "Could not verify device firmware; device controls are disabled:", false)]
+    public void ConnectionInfo_LogsHardwareToVisibleAndPersistentLogs(string result, string expected, bool controlsSupported)
+    {
+        var oldApp = Path.GetFileName(Path.GetDirectoryName(AppLog.FilePath)!);
+        AppLog.Init("ScriptSyncPilot-device-info-test-" + Guid.NewGuid().ToString("N"));
+        var logPath = AppLog.FilePath;
+        try
+        {
+            var requestCount = 0;
+            using var handler = new Handler(request =>
+            {
+                requestCount++;
+                Assert.AreEqual(HttpMethod.Get, request.Method);
+                Assert.AreEqual("/api/info", request.RequestUri!.AbsolutePath);
+                return Response(result == "invalid" ? "{" : "{\"result\":" + result + "}");
+            });
+            using var client = new HandyApiClient(Secret, handler, new Uri("https://example.test/api/"));
+            using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings(), _ => client);
+            _ = form.Handle;
+            SetField(form, "_handy", client);
+
+            var check = (Task)form.GetType().GetMethod("CheckDeviceFirmwareAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, [client])!;
+            Complete(check);
+
+            Assert.AreEqual(1, requestCount, "Hardware logging should reuse the firmware info request.");
+            Assert.AreEqual(controlsSupported, GetField<bool>(form, "_deviceControlsSupported"));
+            var visible = GetField<TextBox>(form, "_log").Text;
+            var persistent = File.ReadAllText(logPath);
+            foreach (var log in new[] { visible, persistent })
+            {
+                StringAssert.Contains(log, expected);
+                AssertSafe(log);
+                Assert.IsFalse(log.Contains("synthetic-private-session", StringComparison.Ordinal));
+                Assert.IsFalse(log.Contains("\r\nforged log entry", StringComparison.Ordinal));
+                if (result != "invalid")
+                {
+                    StringAssert.Contains(log, "Device hardware:");
+                    StringAssert.Contains(log, controlsSupported ? "Device firmware supported:" : "Device controls unsupported:");
+                }
+                else
+                {
+                    Assert.IsFalse(log.Contains("Device hardware:", StringComparison.Ordinal));
+                }
+            }
+            SetField(form, "_handy", null);
+        }
+        finally
+        {
+            AppLog.Init(oldApp);
+            if (File.Exists(logPath)) File.Delete(logPath);
+            var directory = Path.GetDirectoryName(logPath)!;
+            if (Directory.Exists(directory)) Directory.Delete(directory);
+        }
+    }
+
     [DataTestMethod]
     [DataRow("io")]
     [DataRow("cancel")]

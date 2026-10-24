@@ -524,6 +524,11 @@ public sealed class MainForm : Form
                 _deviceCommandGate.Release();
             }
 
+            var modelName = string.IsNullOrWhiteSpace(info.ModelName)
+                ? "not reported"
+                : System.Text.Json.JsonSerializer.Serialize(info.ModelName);
+            Log($"Device hardware: model name {modelName}, model number {info.ModelNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}, model variant {info.ModelVariant?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}.");
+
             _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
             if (!_deviceControlsSupported)
             {

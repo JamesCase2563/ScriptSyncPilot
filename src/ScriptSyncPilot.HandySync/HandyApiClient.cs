@@ -297,6 +297,8 @@ public sealed class HandyApiClient : IDisposable
         [JsonPropertyName("fw_status")] public int? FirmwareStatus { get; set; }
         [JsonPropertyName("fw_version")] public string FirmwareVersion { get; set; } = "";
         [JsonPropertyName("hw_model_name")] public string ModelName { get; set; } = "";
+        [JsonPropertyName("hw_model_no")] public int? ModelNumber { get; set; }
+        [JsonPropertyName("hw_model_variant")] public int? ModelVariant { get; set; }
     }
 
     private sealed class OffsetResult

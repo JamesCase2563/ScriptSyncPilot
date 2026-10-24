@@ -4,6 +4,8 @@
 
 - [Large-Script Performance and History Memory](#large-script-performance-and-history-memory)
 - [Markers and Snapping](#markers-and-snapping)
+- [Constrained Point Movement and Keyboard Nudging](#constrained-point-movement-and-keyboard-nudging)
+- [Multiple-Point Selection and Group Editing](#multiple-point-selection-and-group-editing)
 - [Tap-Based Pattern Generation](#tap-based-pattern-generation)
 - [Editable Pattern Preview](#editable-pattern-preview)
 - [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
@@ -38,6 +40,31 @@ See the [pattern-insertion verification record](../archive/2026-10-pattern-inser
 **Priority:** To be decided. **Status:** Proposed.
 
 Evaluate markers and configurable grid/marker snapping for alignment with video, retaining precise unsnapped editing.
+
+## Constrained Point Movement and Keyboard Nudging
+
+**Priority:** To be decided; suggested before more elaborate generation features. **Status:** Proposed.
+
+Allow precise point editing without accidentally changing timing during a position adjustment or changing position during a timing adjustment.
+
+- Offer explicit position-only (vertical) and time-only (horizontal) drag constraints, with a clear visual indication of the active lock. Prefer explicit axis choice over inferring the axis from the first mouse movement.
+- Add keyboard nudging in small, predictable time/position increments, with an optional larger step. Exact increments and Ctrl/Shift bindings remain design decisions; check existing navigation, numeric-entry, and selection shortcuts before assigning them.
+- Treat one completed drag or continuous keyboard-nudge sequence as one coherent undoable operation. Preserve native keyboard behavior in editable controls.
+- Design together with [multiple-point selection](#multiple-point-selection-and-group-editing), so the same constraints and nudges can apply to a selected group. Suggested delivery order: constrained movement/nudging first, group editing next.
+- Verify that the locked coordinate remains exactly unchanged, increments are independent of timeline zoom, and cancellation, boundaries, and undo/redo preserve existing editing behavior.
+
+## Multiple-Point Selection and Group Editing
+
+**Priority:** To be decided; coordinate with constrained movement. **Status:** Proposed; not an automatic production-readiness blocker.
+
+Support selecting and editing several points together. Initial scope is select, move, nudge, and delete; scaling, time stretching, mirroring, and range adjustments are possible later extensions, not part of the initial commitment.
+
+- Click to select one point, modifier-click to add/remove points, and drag a selection rectangle to select a group. Define how selection gestures coexist with point dragging, timeline navigation, and axis-lock modifiers.
+- Move or nudge selected points together while preserving their relative timing and positions. Apply the same time-only/position-only constraints as individual-point editing.
+- Stop the entire group at time/position boundaries rather than clamping points individually and distorting the shape.
+- Define explicit conflict handling when movement encounters unselected points or would produce duplicate/non-increasing timestamps. Do not silently merge or delete points.
+- Delete the selection as one undoable operation; group drags and continuous nudge sequences should likewise produce coherent history entries.
+- Verify selection toggling and rectangle selection, relative-spacing preservation, boundary behavior, collisions, cancellation, and undo/redo. Keep the shared design focused on usability improvements rather than expanding production-readiness scope.
 
 ## Tap-Based Pattern Generation
 

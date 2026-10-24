@@ -39,6 +39,8 @@ Other device vendors, alternative protocols, local/offline device output, and no
 - **Concurrent device control is unsupported.** Avoid using another application to control the same device while HandySync is connected.
 - **Timing is best-effort.** Network conditions, device behavior, and service availability can affect synchronization.
 - **Device compatibility is limited to recorded tests.** Untested models or firmware versions are not claimed as supported.
+- **Unsupported hardware/firmware is untested and not guaranteed to work.** Physical testing is limited to the devices available to the maintainer; acquiring unsupported devices or installing older firmware is not a release requirement. Firmware compatibility checks do not establish successful operation on an untested device.
+- **Failure and recovery scenarios have limited physical coverage.** Protocol errors, service/network outages, device takeover and synchronization loss are not validated by the normal-path checks in ENV-001. Correct behavior or automatic recovery in these scenarios is not guaranteed. If communication is lost, the app cannot guarantee a physical device stop; stop the device using its physical controls if necessary.
 - **Saved keys are account/profile-bound.** Copying protected settings to another machine or Windows profile may make them unreadable. Keep the original connection key available separately.
 - **Historical files are not cleaned automatically.** Older settings backups or logs may contain plaintext keys or hosted-script URLs.
 - **Provider retention remains unconfirmed.** The exact lifetime of hosted uploads and download URLs is awaiting clarification from Handy.
@@ -62,7 +64,7 @@ Before labeling a source release production-ready:
 - A clean checkout builds and the required automated tests pass in CI.
 - The tested environment and device compatibility matrix is published.
 - Core editing and synchronization workflows have recorded manual checks.
-- Failure-path checks cover invalid credentials, unavailable services, malformed responses, settings failures, and shutdown.
+- Failure-path checks cover invalid credentials, unavailable services, malformed responses, settings failures, and shutdown. Use test doubles or simulated responses where practical; unsupported physical hardware is not required. Record simulated and physical coverage separately, and document remaining untested scenarios.
 - No known release-blocking credential-disclosure, data-loss, or device-stop/shutdown defects remain.
 - Build/update/rollback instructions, privacy information, support/security contacts, and known limitations are reviewed and published.
 - Remaining risks are explicitly accepted by the maintainer in the release verification record.

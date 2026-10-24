@@ -4,7 +4,7 @@
 **Affected projects:** Repository/operations, FunscriptEditor, HandySync, Common, documentation.  
 **Goal:** Establish the maintainer, legal, product-scope, security, reliability, and release foundations needed before describing ScriptSyncPilot as production-ready.
 
-This is a coordinating work item, not a commitment to implement every possible feature. It records release decisions and sequences work that remains in the component backlogs. Legal and regulatory applicability must be confirmed with qualified counsel; this plan is not legal advice or a compliance determination.
+This is a coordinating work item, not a commitment to implement every possible feature. It records release decisions and sequences work that remains in the component backlogs. Paid legal review is outside the current budget and is not a project release prerequisite; legal and regulatory applicability remains unresolved where not established. This plan is not legal advice or a compliance determination.
 
 ## Outcomes
 
@@ -24,7 +24,7 @@ This is a coordinating work item, not a commitment to implement every possible f
 
 ## Open Decisions
 
-- **Legal applicability:** Whether GDPR, Norwegian/EEA rules, or other obligations apply to the verified operating model, and what actions/notices are required. Obtain qualified legal advice; do not claim compliance or non-applicability before the assessment.
+- **Legal applicability:** Whether GDPR, Norwegian/EEA rules, or other obligations apply to the verified operating model, and what actions/notices are required. Record the limits of the available assessment; do not claim compliance or non-applicability without an adequate basis. The maintainer declined paid legal review on 2026-10-24 due to cost; this does not establish that no obligations apply.
 
 ## Scope
 
@@ -76,7 +76,7 @@ The following describes the current implementation and documented vendor require
 - [x] Implement credential and temporary script-URL protection: protected local key storage, URL omission/redaction from diagnostics, safe exception reporting, and local settings/log guidance. Task completed and archived by maintainer confirmation on 2026-10-23; see the [design](../../archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) and [verification evidence and limitations](../../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md). Provider-side retention clarification and support-report guidance remain separate items above.
 - [x] Compare the stated source-only, non-commercial FOSS model with the European Commission's [CRA summary](https://digital-strategy.ec.europa.eu/en/policies/cra-summary) and [open-source guidance](https://digital-strategy.ec.europa.eu/en/policies/cra-open-source): preliminary position is that the current model appears outside CRA scope, and the maintainer does not meet the stated legal-person condition for an open-source software steward. Reassess if monetisation, commercial distribution/support, a steward arrangement, or other relevant facts change; this is not a formal legal opinion.
 - [ ] Assess GDPR and Norwegian/EEA data-protection obligations based on the maintainer's role, any personal data the project itself receives, the app's third-party data flows, and the worldwide audience. Determine whether privacy information, a lawful-basis/role analysis, contact point, or other process is required.
-- [ ] Ask qualified counsel whether any additional obligations apply to this free software, including copyright/dependency notices, product liability or safety expectations for software that controls a physical device, security vulnerability handling, and any consumer-facing claims. Disclaimers do not replace applicable duties.
+- **Deferred (budget; maintainer decision 2026-10-24):** Paid legal review of additional obligations, including copyright/dependency notices, product liability or safety expectations for software that controls a physical device, security vulnerability handling, and consumer-facing claims. Not a release prerequisite or a completed legal assessment; applicability remains unresolved, and disclaimers do not replace applicable duties.
 - [ ] Publish only reviewed, accurate disclaimers, privacy information, security reporting instructions, and support contact details.
 
 External service references for the data-flow/privacy review: [Handyverse](https://handyverse.com/#/), [The Handy privacy policy](https://www.thehandy.com/privacy-policy/), [Handy API v3 docs](https://www.handyfeeling.com/api/handy-rest/v3/docs/), and the [Handy Hosting API spec](https://www.handyfeeling.com/api/hosting/v2/docs/spec.yaml). The privacy policy and API docs provide useful facts but do not by themselves establish the project's legal role or the upload endpoint's exact data-retention period.
@@ -87,7 +87,7 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [x] Approve the [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md). Maintainer approved on 2026-10-24, including limited automatic recovery for the first release; tested version/model coverage is recorded in ENV-001, while release verification remains outstanding.
 - [x] Keep firmware updating out of scope across the entire application: apps may report compatibility, and documentation refers users to official manufacturer instructions; ScriptSyncPilot does not download, install, distribute, or initiate firmware updates.
 - [x] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix. [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records two H01 devices (model number 0, variant 0), firmware `4.3.0+dcee7e58` and `4.2.2+44874492`, and successful workflows confirmed by the maintainer on 2026-10-24; connection/setup is additionally corroborated by logs.
-- [ ] Document behavior for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service.
+- [x] Document the support boundary for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service in [known limitations](SCOPE-AND-LIMITATIONS.md#known-limitations). Unsupported devices/firmware are untested and not guaranteed to work; acquiring unsupported hardware is not required. Normal-path tests do not validate failure/recovery scenarios, and communication loss prevents guaranteeing a physical stop. Implementation and simulated failure-path verification remain under milestone 3.
 - [x] Maintain a [protocol compatibility matrix and version-change/revalidation checklist](TESTED-ENVIRONMENTS.md#compatibility-and-protocol-matrix). Future clean-release and failure-path verification remain separate gates.
 - [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.
 

@@ -81,6 +81,38 @@ observed by the assistant, except for the reviewed connection/setup log evidence
 - Build limitations: local Debug builds from the recorded commit, including uncommitted HandySync changes; not a clean-checkout validation.
 - Revalidation: repeat against the intended clean release revision before claiming that revision is validated.
 
+## Compatibility and protocol matrix
+
+This matrix summarizes ENV-001 only; vendor minimum requirements are not test results.
+
+| Application / integration | Recorded coverage | Result / boundary |
+| --- | --- | --- |
+| FunscriptEditor / mpv IPC | ENV-001 Windows x64, .NET and mpv versions above | Pass for the listed editor workflows; no other platform or version coverage claimed |
+| HandySync / Handy REST API v3 | H01 / model number 0 / variant 0; firmware `4.3.0+dcee7e58` (status 0) and `4.2.2+44874492` (status 1) | Pass for the listed workflows on both devices; vendor minimum is firmware v4 |
+| HandySync / Hosting API v2 | CSV upload and returned URL used for HSSP setup on both devices | Pass; hosted-upload retention remains unconfirmed |
+| HandySync / HSSP | Normal-speed playback, pause and seek on both recorded firmware builds | Pass (maintainer-reported); non-1x device playback is excluded |
+| HandySync / offset and stroke | Both recorded devices/firmware builds | Pass (maintainer-reported); requires supported firmware and relevant device capabilities |
+| HandySync / non-1x safety behavior | Both recorded devices/firmware builds | Pass (maintainer-reported): device synchronization stops/is suppressed rather than following non-1x playback |
+| Other models, firmware builds or dependency versions | No recorded coverage | Not validated; add an environment record before claiming compatibility |
+| Legacy API v2, alternate movement protocols, other vendors and offline output | Outside initial support scope | Not supported by this release scope; Hosting API v2 is separate from legacy device REST API v2 |
+
+### Version-change and release revalidation checklist
+
+For each intended source release and whenever a supported environment or integration
+changes:
+
+- [ ] Record the exact source revision, local changes (if any), application build configuration, Windows/architecture, .NET, mpv, and device model/firmware in a new or explicitly dated environment record.
+- [ ] Build and run required automated tests from the intended clean release checkout.
+- [ ] Repeat the affected workflows from the environment template; for a release, repeat all core editor and synchronization workflows.
+- [ ] For mpv changes, verify IPC attachment, playback controls, play/pause/seek events, and playback-rate safety behavior.
+- [ ] For device firmware, Handy API or protocol changes, review current official API requirements and verify connectivity, info/capabilities, upload/setup, playback timing, offset/stroke controls and device-stop attempts.
+- [ ] Exercise relevant failure paths, including invalid credentials, unavailable services, malformed responses, settings/save failures and shutdown; record outcomes separately from normal-path passes.
+- [ ] Record failures, known limitations and retest evidence; update this matrix and the support scope without extending claims to untested combinations.
+
+These unchecked items are a reusable checklist for the next revalidation, not
+unfinished fields in ENV-001. ENV-001 does not replace clean-release or failure-path
+verification.
+
 ## Environment record template
 
 | Field | Value |

@@ -36,7 +36,7 @@ The following describes the current implementation and documented vendor require
 - Handy's API v3 specification requires firmware v4 or newer. Offset/stroke controls additionally require firmware v4+ with `fw_status` other than update-required and the relevant slider capability.
 - HandySync requires an mpv session and internet access to Handy services. Automatic reconnection/recovery is not fully implemented; see the [HandySync backlog](../HandySync/BACKLOG.md).
 - Firmware update/install flows, other device vendors, alternate Handy protocols, legacy API v2, local/offline device output, and non-1x device playback are outside the current product scope.
-- Exact tested Handy models and firmware combinations have not yet been inventoried; do not make broader compatibility claims until verified.
+- Tested Handy model/firmware combinations and workflow results are recorded in the [tested environments and compatibility matrix](TESTED-ENVIRONMENTS.md). Coverage is limited to those records; do not make broader compatibility claims.
 
 ### In scope
 
@@ -83,13 +83,12 @@ External service references for the data-flow/privacy review: [Handyverse](https
 
 ### 2. Freeze initial product and protocol boundaries
 
-- [ ] Define supported applications, operating systems, device models, firmware versions, API/protocol modes, and required external software.
-- [x] Approve the [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md). Maintainer approved on 2026-10-24, including limited automatic recovery for the first release; tested version/model coverage and release verification remain outstanding.
+- [x] Define supported applications, operating systems, device models, firmware versions, API/protocol modes, and required external software. See the [approved support scope](SCOPE-AND-LIMITATIONS.md) and [tested environments and compatibility matrix](TESTED-ENVIRONMENTS.md); coverage is limited to the recorded combinations.
+- [x] Approve the [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md). Maintainer approved on 2026-10-24, including limited automatic recovery for the first release; tested version/model coverage is recorded in ENV-001, while release verification remains outstanding.
 - [x] Keep firmware updating out of scope across the entire application: apps may report compatibility, and documentation refers users to official manufacturer instructions; ScriptSyncPilot does not download, install, distribute, or initiate firmware updates.
-- [ ] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix.
-  Record each tested combination and its results using the [tested-environment template](TESTED-ENVIRONMENTS.md).
+- [x] Inventory and verify the Handy models/firmware combinations actually tested; maintain the compatibility and protocol revalidation matrix. [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records two H01 devices (model number 0, variant 0), firmware `4.3.0+dcee7e58` and `4.2.2+44874492`, and successful workflows confirmed by the maintainer on 2026-10-24; connection/setup is additionally corroborated by logs.
 - [ ] Document behavior for unsupported firmware, protocol errors, outages, device takeover, synchronization loss, and unavailable internet/service.
-- [ ] Maintain a protocol compatibility matrix and version-change/revalidation checklist.
+- [x] Maintain a [protocol compatibility matrix and version-change/revalidation checklist](TESTED-ENVIRONMENTS.md#compatibility-and-protocol-matrix). Future clean-release and failure-path verification remain separate gates.
 - [ ] Review product vision and backlog proposals against these boundaries; label items in-scope, deferred, experimental, or explicitly excluded.
 
 ### 3. Stabilize software against the support promise

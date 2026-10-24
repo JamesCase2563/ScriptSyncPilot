@@ -1,0 +1,68 @@
+# Initial Support Scope and Known Limitations
+
+## Release model
+
+ScriptSyncPilot is a free, MIT-licensed project maintained by an individual. The initial release is **source-only**: users obtain the source from a published version tag and build it locally.
+
+Support is best-effort through GitHub issues. There is no guaranteed response time, service availability, or fix schedule. Initially, fixes target the latest published source release; maintaining older release branches is not promised.
+
+## Supported scope
+
+### FunscriptEditor
+- Local funscript authoring and editing on Windows.
+- Video playback through an external mpv installation.
+- Existing implemented editing features, including pattern insertion, undo/redo, numeric point entry, and playback-speed controls.
+- Local processing of video and script files; the editor does not upload them to Handy services.
+
+### HandySync
+- Synchronization of a local funscript with mpv playback through Handy REST API v3 and HSSP.
+- Script hosting through Handy Hosting API v2.
+- **Normal-speed (1x) device playback only.** At other or unknown playback rates, device playback is stopped and synchronization is suspended.
+- Offset and stroke controls where the device’s firmware and reported capabilities support them.
+- Windows-user-bound protection of saved connection keys.
+
+The release documentation must list the Windows, .NET SDK/runtime, mpv, and Handy model/firmware combinations actually tested. Vendor requirements—such as firmware v4 or newer for API v3—are not equivalent to verified compatibility.
+
+## External requirements and boundaries
+
+HandySync requires internet access and available Handy services. Uploaded CSV files contain action timestamps and positions; the associated video is not uploaded.
+
+ScriptSyncPilot does not install or update device firmware. Users must use the manufacturer’s official tools and instructions.
+
+Other device vendors, alternative protocols, local/offline device output, and non-Windows platforms are outside the initial supported scope.
+
+## Known limitations
+
+- **Recovery is limited.** Automatic recovery from network/service outages, device reboots, or takeover by another application is not guaranteed. Manual reconnection may be necessary.
+- **Concurrent device control is unsupported.** Avoid using another application to control the same device while HandySync is connected.
+- **Timing is best-effort.** Network conditions, device behavior, and service availability can affect synchronization.
+- **Device compatibility is limited to recorded tests.** Untested models or firmware versions are not claimed as supported.
+- **Saved keys are account/profile-bound.** Copying protected settings to another machine or Windows profile may make them unreadable. Keep the original connection key available separately.
+- **Historical files are not cleaned automatically.** Older settings backups or logs may contain plaintext keys or hosted-script URLs.
+- **Provider retention remains unconfirmed.** The exact lifetime of hosted uploads and download URLs is awaiting clarification from Handy.
+- Features marked proposed, experimental, or deferred in the backlogs are not release promises.
+
+These limitations do not excuse known defects that could disclose credentials, corrupt user files, or prevent controlled shutdown.
+
+## Reporting problems
+
+Report reproducible defects through GitHub issues, including:
+- Source version/tag and relevant software/firmware versions.
+- Steps to reproduce, expected behavior, and actual behavior.
+- Sanitized diagnostics where useful.
+
+Do not include connection keys, generated script URLs, private media, or unreviewed settings/log files in public reports. Security vulnerabilities should use the repository’s published security-reporting channel once established.
+
+## Initial release gate
+
+Before labeling a source release production-ready:
+
+- A clean checkout builds and the required automated tests pass in CI.
+- The tested environment and device compatibility matrix is published.
+- Core editing and synchronization workflows have recorded manual checks.
+- Failure-path checks cover invalid credentials, unavailable services, malformed responses, settings failures, and shutdown.
+- No known release-blocking credential-disclosure, data-loss, or device-stop/shutdown defects remain.
+- Build/update/rollback instructions, privacy information, support/security contacts, and known limitations are reviewed and published.
+- Remaining risks are explicitly accepted by the maintainer in the release verification record.
+
+Release-task status is tracked in the [production-readiness plan](PLAN.md#milestones), not in a separate checklist here. Credential protection is recorded under milestone 1; error reporting, file preservation, and stop/shutdown verification are tracked under milestone 3.

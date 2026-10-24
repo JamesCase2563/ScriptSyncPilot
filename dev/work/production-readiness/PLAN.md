@@ -94,7 +94,7 @@ External service references for the data-flow/privacy review: [Handyverse](https
 ### 3. Stabilize software against the support promise
 
 - [x] Assign accountability to the GitHub repository owner for issue and security-report triage, publishing releases, setting any older-version support policy, and communicating breaking changes.
-- [ ] Prioritize the existing recovery, timeout/retry, command coalescing, diagnostics, and capability-validation work against agreed failure scenarios.
+- [x] Prioritize the existing recovery, timeout/retry, command coalescing, diagnostics, and capability-validation work against agreed failure scenarios. Maintainer approved the [initial-release reliability priorities](#initial-release-reliability-priorities) on 2026-10-24; verification and any necessary defect fixes remain separate tasks.
 - [ ] Establish CI build/test gates and required coverage for lifecycle, protocol handling, persistence, and failure paths.
 - [ ] Verify reliable error reporting: failures are visible and actionable, do not falsely report success, and do not disclose credentials or private script URLs. Reuse the archived credential-protection evidence above and identify remaining gaps.
 - [ ] Verify file preservation: failed saves, invalid settings, and cancelled edits preserve existing data. Reuse settings-preservation evidence and verify editor file operations separately.
@@ -103,6 +103,22 @@ External service references for the data-flow/privacy review: [Handyverse](https
 - [ ] Document how users obtain source, build/install it, update to a later source revision, and return to a prior known-good revision; include troubleshooting guidance for external tools and device connectivity.
 - [ ] Define version tags and release notes for source releases, plus how to withdraw or supersede a faulty release. Do not plan binary artifact signing/distribution unless the source-only scope changes.
 - [ ] Set measurable release acceptance criteria: required CI build and tests pass from a clean checkout; documented supported environment/protocol requirements match the tested matrix; no known release-blocking defects remain; privacy/security and troubleshooting documentation is reviewed; and limitations are published.
+
+#### Initial-release reliability priorities
+
+This is the agreed verification order, not a commitment to new features or evidence
+that verification is complete. Preserve existing behavior; change code only where
+verification identifies a defect in the supported baseline. Use simulated failures
+and test doubles where practical; additional physical devices are not required.
+
+| Priority | Area / failure scenario | Minimum expectation |
+| --- | --- | --- |
+| 1 | Timeouts and shutdown: slow or unavailable services | Requests do not wait indefinitely; disconnect/shutdown finishes predictably and attempts to stop the device. Communication loss prevents guaranteeing a physical stop. |
+| 2 | Error reporting: failed requests or operations | Failures are visible and actionable, do not falsely report success, and do not expose keys or private script URLs. |
+| 3 | Command ordering: disconnect or session replacement during queued/in-flight work | No stale play/seek commands are issued after disconnect or session replacement; preserve existing serialization and verify safe handling of in-flight requests. New command-coalescing machinery is not required. |
+| 4 | Firmware and capabilities: unsupported controls or missing/failed reads | Existing controls respect implemented firmware/capability gates; missing or failed reads are reported clearly. No broader hardware compatibility claim or new model support is required. |
+| Deferred | Automatic recovery and expanded retries | Automatic reconnect, device-takeover restoration, session restoration and expanded retry/backoff are not initial-release requirements. The user must be able to disconnect and start a fresh connection. |
+| Deferred | Additional diagnostics | No structured logging overhaul, drift metrics or detailed network statistics are required; preserve useful, secret-free diagnostics. |
 
 ### 4. Confirm release readiness
 

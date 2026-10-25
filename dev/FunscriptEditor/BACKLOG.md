@@ -2,6 +2,8 @@
 
 ## Table of Contents
 
+- [Editor GUI Improvements](#editor-gui-improvements)
+- [Pattern Improvements](#pattern-improvements)
 - [Large-Script Performance and History Memory](#large-script-performance-and-history-memory)
 - [Markers and Snapping](#markers-and-snapping)
 - [Constrained Point Movement and Keyboard Nudging](#constrained-point-movement-and-keyboard-nudging)
@@ -14,6 +16,7 @@
 - [Live Pattern Recording](#live-pattern-recording)
 - [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
 	- [Track Types](#track-types)
+	- [Intensity Bar](#intensity-bar)
 	- [Multiple Tracks of the Same Type](#multiple-tracks-of-the-same-type)
 	- [Copying and Conversion](#copying-and-conversion)
 	- [Video Chapters](#video-chapters)
@@ -36,6 +39,8 @@ editing, file preservation or shutdown remain in scope.
 
 | Entry | Classification | Release boundary |
 | --- | --- | --- |
+| Editor GUI Improvements | Deferred | Editor-specific usability ideas; coordinate with shared GUI work |
+| Pattern Improvements | Deferred | Additional profiles and generation refinements; no initial-release requirement |
 | Large-Script Performance and History Memory | Deferred | Quantitative optimization work is not a release prerequisite absent an identified blocker; no unmeasured large-script performance guarantee |
 | Markers and Snapping | Deferred | New editing feature |
 | Constrained Point Movement and Keyboard Nudging | Deferred | New editing feature |
@@ -49,6 +54,27 @@ editing, file preservation or shutdown remain in scope.
 | Multiple Tracks and Project Format | Deferred | Includes proposed track types, duplication/conversion, audio-derived actions, chapter editing/export and project persistence; no new media tooling or schema required for release |
 | Verification and Boundaries | In scope | Verify existing interactions, persistence and lifecycle; no device controller in the editor |
 | Completed features | In scope | Preserve pattern insertion, undo/redo, video playback speed and numeric position entry |
+
+## Editor GUI Improvements
+
+**Priority:** To be decided. **Status:** Proposed; umbrella for editor-specific GUI ideas.
+
+Collect focused usability improvements here, coordinating cross-application changes
+with [shared GUI work](../BACKLOG.md#gui-usability-and-visual-polish).
+
+- Add clear script/video time indication on the waveform control. Define the displayed time reference and formatting when designing the feature, including how any script/video offset is represented.
+- Keep the playback marker fixed at the horizontal center of the waveform control and move the background timeline/script beneath it as playback advances or seeks. Preserve the selected zoom level while following playback; zoom remains available and is anchored to the centered playhead. Define start/end-of-script viewport behavior during design without shifting the marker away from center.
+- Add navigation to the next point, previous point, and currently selected point, seeking the playhead to the target timestamp while preserving zoom. Define shortcuts, navigation reference (playhead or selection), and behavior at the first/last point or with no selection during design; coordinate with group selection and avoid conflicts with existing keyboard controls.
+
+## Pattern Improvements
+
+**Priority:** To be decided. **Status:** Proposed; umbrella for pattern-generation ideas.
+
+Extend the available profiles and authoring controls without changing existing
+patterns implicitly. Related proposals include [tap-based generation](#tap-based-pattern-generation),
+[editable previews](#editable-pattern-preview) and [controlled variation](#expressive-patterns-and-controlled-variation).
+
+- Add asymmetric turning profiles: slow/smooth the direction change at only one extreme while retaining a sharp, triangular reversal at the other. Offer both orientations (smooth minimum/sharp maximum and sharp minimum/smooth maximum). Exact curve shape and controls remain to be designed.
 
 ## Large-Script Performance and History Memory
 
@@ -181,6 +207,7 @@ Support multiple typed timeline tracks aligned to a shared video timebase. Track
 
 - Funscript movement: editable timestamp/position actions, optionally associated with a device/channel.
 - Movement speed graph: a derived, read-only view of a chosen movement track's segment-average speed in percentage points/second at 1x playback, aligned to the same timebase and updated when source actions change. Use explicit source-track association and zoom-independent speed units/scales; see [Movement Speed Indicators](#movement-speed-indicators).
+- Intensity bar: an exploratory, calculated overview of estimated experienced intensity throughout the script; see [Intensity Bar](#intensity-bar).
 - Chapters: named video section boundaries, with previous/next chapter navigation.
 - Project information and notes: time-linked annotations, section descriptions, scripting decisions, and work-in-progress notes; project-wide information belongs in project metadata.
 - Extracted images: thumbnails or reference frames at timestamps, with links to the extracted assets.
@@ -191,6 +218,26 @@ Support multiple typed timeline tracks aligned to a shared video timebase. Track
 - Review/work status: ranges marked for scripting, revision, or completion.
 
 The additional types are candidates, not a requirement to implement them all in the first multitrack version.
+
+### Intensity Bar
+
+**Status:** Exploratory multi-track idea; calculation and definition TBD.
+
+Propose a timeline-aligned intensity bar associated with a movement track, showing
+an estimate of experienced intensity across the script. What "intensity" means,
+which inputs contribute, how it is calculated over time, and how the scale is
+normalized must be tried out and defined when this feature is explored. Do not
+equate it with movement speed alone or present it as a measured physical response.
+
+An example authoring goal is a gradual build with partial recovery: start at low
+intensity, increase for a while, return to slightly above the initial low level,
+then rise further. Repeat with progressively higher troughs and peaks, reaching
+full intensity near the end. This is an optional authoring shape to inspect, not a
+rule every script must follow or an automatic script modification.
+
+Keep the bar informational and separate from device output. Evaluate candidate
+definitions against authored examples and user feedback before selecting a formula
+or claiming that the displayed estimate represents an individual's experience.
 
 ### Multiple Tracks of the Same Type
 

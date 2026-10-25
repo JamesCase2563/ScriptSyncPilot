@@ -38,7 +38,7 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Timing and Diagnostics | In scope / Deferred | Preserve useful, secret-free diagnostics, including connection hardware information; expanded drift/RTT metrics and clock-refresh strategies are deferred |
 | Offset Feedback | Deferred | Reset/range extensions are not required; preserve existing device-side offset controls |
 | Playback Speed Sync | Excluded | Non-1x device playback is outside initial scope; existing stop/suppress behavior and resumption at confirmed 1x remain in scope |
-| Local Buttplug/Intiface Output | Excluded | Local/offline backends, other vendors and alternate output protocols require a separate scope decision |
+| Local Buttplug/Intiface Output | Excluded from initial release; high-priority follow-up | Prioritize local Handy BLE evaluation for privacy; initial-release boundaries and support for other vendors remain unchanged |
 | Verification and Order | In scope | Verify the supported baseline with fake transports and recorded manual checks; the suggested future implementation order is not a release commitment |
 | Completed baselines | In scope | Preserve device controls, protected storage and lifecycle guarantees |
 
@@ -145,17 +145,27 @@ Non-1x device playback is currently unsupported. HandySync observes mpv speed an
 
 ## Local Buttplug/Intiface Output
 
-**Priority:** Optional. **Status:** Proposed alternative.
+**Priority:** High; privacy-focused follow-up, raised by the maintainer on 2026-10-25. **Status:** Proposed alternative; not an initial-release requirement.
 
 Evaluate `HandySync -> Buttplug WebSocket -> Intiface Central -> local Bluetooth` as a separate backend behind a suitable output interface, not mixed into the HSSP client.
 
 This avoids cloud hosting, application-key dependency, and server-time sync. It requires local funscript scheduling, latency/command-loss/back-pressure handling, and compatibility checks, and does not provide HSSP buffering. A separate ControllerHost is not a prerequisite.
 
+The privacy goal is to keep script content and playback commands on the local
+machine/Bluetooth link rather than sending them to Handy's hosting and REST services.
+First evaluate the available H01 devices and their recorded firmware builds; this
+does not authorize expanding support to other vendors.
+
+- Verify BLE discovery, connection and position/duration control through a locally bound Intiface endpoint before designing the full backend.
+- Verify operation with internet access disabled after prerequisites are installed. Local mode must not silently fall back to cloud hosting or REST control.
+- Identify any independent device, Intiface or dependency network activity before claiming fully offline/private operation; local control alone does not prove the absence of telemetry.
+- Preserve explicit backend selection, pause/seek behavior, normal-speed safety gates, stop/disconnect and shutdown guarantees. Validate timing and command-loss behavior before claiming parity with HSSP.
+
 ## Verification and Order
 
 Use the [shared test backlog](../BACKLOG.md) for fake-transport ordering, replacement, recovery, and idempotent teardown tests. Preserve current lifecycle guarantees when adding SSE/retries; background failures must not escape after close.
 
-Suggested order: explicit recovery state and timeout policy; HSSP recovery; duplicate suppression; SSE/polling; timing diagnostics/offset feedback; optional local backend. This is not a dated delivery commitment.
+Suggested order: verify the initial-release timeout, error-reporting and lifecycle baseline; then prioritize local Handy BLE/Intiface feasibility and backend work for privacy ahead of deferred automatic HSSP recovery, expanded coalescing, SSE and richer timing diagnostics/offset feedback. The local backend remains outside the initial-release gate unless separately approved. This is not a dated delivery commitment.
 
 ## Completed
 

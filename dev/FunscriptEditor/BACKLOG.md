@@ -210,6 +210,7 @@ Support multiple typed timeline tracks aligned to a shared video timebase. Track
 - Intensity bar: an exploratory, calculated overview of estimated experienced intensity throughout the script; see [Intensity Bar](#intensity-bar).
 - Chapters: named video section boundaries, with previous/next chapter navigation.
 - Project information and notes: time-linked annotations, section descriptions, scripting decisions, and work-in-progress notes; project-wide information belongs in project metadata.
+- Authoring review comments: timestamped improvement notes captured during HandySync playback, stored in a project notes/review track or a separate associated comment track and available for later editor review. Keep comments separate from movement/output; storage and integration remain to be designed with [HandySync review comments](../HandySync/BACKLOG.md#authoring-review-comments-during-playback).
 - Extracted images: thumbnails or reference frames at timestamps, with links to the extracted assets.
 - Audio: referenced audio clips and waveforms aligned to video, with per-track offsets and mute controls where playback is supported.
 - Beat/rhythm markers: detected or manually marked beats to guide movement timing.

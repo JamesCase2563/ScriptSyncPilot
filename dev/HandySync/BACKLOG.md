@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Multiple Saved Connection Keys](#multiple-saved-connection-keys)
+- [Authoring Review Comments During Playback](#authoring-review-comments-during-playback)
 - [Reconnect and HSSP Recovery](#reconnect-and-hssp-recovery)
 - [Request Timeouts and Retries](#request-timeouts-and-retries)
 - [Desired State and Command Coalescing](#desired-state-and-command-coalescing)
@@ -28,6 +29,7 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Entry | Classification | Release boundary |
 | --- | --- | --- |
 | Multiple Saved Connection Keys | Deferred | New management UI is not required; retain protected storage and current first-key behavior |
+| Authoring Review Comments During Playback | Deferred | New local review workflow; project/comment-track format and persistence remain to be designed |
 | Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
 | Request Timeouts and Retries | In scope / Deferred | Verify bounded requests and shutdown; add timeout fixes where necessary. Expanded automatic retries/backoff are deferred |
 | Desired State and Command Coalescing | Deferred | Preserve command serialization and existing debouncing; fix stale-command/lifecycle defects if found, without requiring a new desired-state system |
@@ -47,6 +49,19 @@ do not make an excluded or deferred feature an initial-release requirement.
 Add a HandySync UI for managing multiple saved connection keys. Let users assign a label to each saved key, choose the active key from a dropdown, add keys, and delete unused keys with clear confirmation. Do not display the key value after it has been saved. Until this UI is implemented, HandySync uses the first key in the protected saved-key collection; the implemented storage preserves order and supports adding, retrieving, and deleting entries.
 
 The GUI change should build on the protected multi-key storage/API rather than introduce a second persistence format. Keep key values protected at rest, do not log them, and make the empty-key state explicit after deleting the last key. See the [archived design](../archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) for the implemented storage behavior and security constraints.
+
+## Authoring Review Comments During Playback
+
+**Priority:** To be decided. **Status:** Proposed idea; coordinate with editor multi-track work.
+
+Let users record comments about script-authoring improvements in HandySync while
+using/reviewing a script. Capture the playback timestamp when the comment is initiated
+so typing time does not move the note away from the moment being reviewed.
+
+- Allow comments to be written to a project's notes/review track or a separate comment track associated with the script, for later review in FunscriptEditor.
+- Keep comments separate from movement actions and device output; recording feedback must not alter the script being played or upload comments to Handy services.
+- Coordinate the representation with the editor's [track types](../FunscriptEditor/BACKLOG.md#track-types). Project integration versus standalone comment storage, file association, and time/offset mapping remain design decisions.
+- Preserve existing project data and unrelated tracks. Define safe save/conflict handling when the editor and HandySync access the same project, and surface save failures without losing entered comments.
 
 ## Reconnect and HSSP Recovery
 

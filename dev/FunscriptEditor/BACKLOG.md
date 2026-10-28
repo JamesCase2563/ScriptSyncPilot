@@ -75,6 +75,7 @@ patterns implicitly. Related proposals include [tap-based generation](#tap-based
 [editable previews](#editable-pattern-preview) and [controlled variation](#expressive-patterns-and-controlled-variation).
 
 - Add asymmetric turning profiles: slow/smooth the direction change at only one extreme while retaining a sharp, triangular reversal at the other. Offer both orientations (smooth minimum/sharp maximum and sharp minimum/smooth maximum). Exact curve shape and controls remain to be designed.
+- Add a layered profile with a slow, long-range wave from minimum to maximum and shorter, faster vibrations superimposed on it. Define vibration amplitude/frequency and how the combined pattern respects the selected minimum/maximum bounds.
 
 ## Large-Script Performance and History Memory
 

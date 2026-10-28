@@ -30,23 +30,31 @@ Mnemonic: scenes are at the ceiling, start is high, stop is low, cuts sit in the
 
 ## Passes
 
-Save after each pass. Before pass 4, also save a copy (for example `movie.markers.funscript`); pattern insertion replaces the taps, and the copy keeps the hand-marked structure for later rework.
+Save after each pass. Before pass 4, also save a copy (for example `<movie>.markers.funscript`); pattern insertion replaces the taps, and the copy keeps the hand-marked structure for later rework.
 
 ### 1. Cuts (optional, 2x)
+
+Filename: `<movie>.scenes.funscript`
 
 Play at 2x and press `5` at each cut or pause; press `0` at a change of scene. Skip this pass for short videos or a single continuous take.
 
 ### 2. Movement sections (1.5-2x)
 
+Filename: `<movie>.movement.funscript`
+
 Play at 1.5-2x. Press `7` where device movement should begin and `3` where it should end. Everything between a `3` and the next `7` is a rest section and needs no further work. Use frame step (`Left`/`Right`) to refine a boundary, or drag the point.
 
 ### 3. Tempo taps (0.5-1x, movement sections only)
+
+Filename: `<movie>.markers.funscript`
 
 Seek to each `7` marker and play at 1x, or 0.5-0.75x for fast movement. Press the key left of `1` once per full cycle, always at the same phase (the bottom of the stroke). Timestamps are recorded in video time, so slowed playback gives more precise taps without distorting tempo.
 
 The tap spacing now shows the tempo directly: even spacing means constant speed, and a visible change in spacing marks a tempo change. Correct individual taps by dragging or by deleting and retapping. Held keys do not repeat.
 
 ### 4. Patterns (one per constant-tempo segment)
+
+Filename: `<movie>.draft.funscript`
 
 For each run of evenly spaced taps:
 
@@ -58,6 +66,8 @@ For each run of evenly spaced taps:
 At a tempo change, the last tap of one run is the first tap of the next, so consecutive segments join without a gap. If the stroke minimum is not 0%, the preserved boundary taps sit slightly below the pattern; drag them up to the minimum or accept the small dip.
 
 ### 5. Cleanup and review (1x, with device)
+
+Filename: `<movie>.final.funscript`
 
 Remaining structure markers would move the device, so convert them:
 

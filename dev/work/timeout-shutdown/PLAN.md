@@ -14,17 +14,17 @@ This work was selected from the [production-readiness plan](../production-readin
 - Preserve serialized command ordering, safe cancellation/error reporting, and cleanup/disposal guarantees.
 - Add automated tests with fake transports for timeout and shutdown failure paths; record manual UI observations only if available.
 
-Out of scope: automatic retries/backoff, reconnect/session restoration, command coalescing, broader diagnostics, API/device expansion, and physical-stop guarantees under network loss.
+Out of scope: automatic retries/backoff, reconnect/session restoration, command coalescing, broader diagnostics, API/device expansion, and physical-stop guarantees under network loss. The separate [Reconnect and HSSP Recovery backlog item](../../HandySync/BACKLOG.md#reconnect-and-hssp-recovery) remains deferred; if that work is later selected, it should build on the bounded request behavior established here rather than duplicate timeout policy.
 
 ## Milestones
 
 ### 1. Characterize current lifecycle and choose budgets
 
-- [ ] Confirm which requests occur during connect, steady-state sync, controls, disconnect, and close.
-- [x] Adopt the backlog timeout ranges: control/status 5–10 seconds, each time sample 3–5 seconds, upload 30–60 seconds.
-- [ ] Specify total clock-estimation and shutdown bounds using the adopted operation ranges.
+- [x] Confirm which requests occur during connect, steady-state sync, controls, disconnect, and close. See the request-path map in [DESIGN.md](DESIGN.md).
+- [x] Adopt concrete values from the backlog ranges: control/status 10 seconds, each time sample 5 seconds, upload 60 seconds.
+- [x] Specify the request bounds: clock estimation is at most 15 × 5 seconds = 75 seconds, excluding local overhead; disconnect/close is at most 60 seconds to drain/cancel one active operation, followed by the 10-second stop attempt and local cleanup. Implement the cancellation/drain mechanism safely in M2/M3.
 - [x] Prefer active request cancellation if it improves lifecycle stability; coordinate cancellation, drain, and client disposal so no stale work can continue.
-- [ ] Record decisions in [DESIGN.md](DESIGN.md).
+- [x] Record decisions in [DESIGN.md](DESIGN.md).
 
 ### 2. Implement bounded requests
 

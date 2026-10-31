@@ -45,7 +45,8 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 
 - [x] Add fake-handler tests for REST, upload, response-read, and caller-cancellation behavior.
 - [ ] Add lifecycle tests for blocked in-flight commands, stop success/failure/timeout, cleanup, and no stale post-disconnect commands.
-- [ ] Run focused and full solution tests/build as appropriate; record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
+- [x] Run focused HandyApi timeout/connect-flow tests; 7/7 passed. See [VERIFICATION.md](VERIFICATION.md).
+- [ ] Run full solution tests/build and record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
 - [ ] Move any newly found independent defects to the owning backlog and link them here.
 - [ ] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) if implemented behavior changes its lifecycle contract.
 - [ ] Record completion and any remaining limitations here; archive the work folder only when all required work is complete.
@@ -64,5 +65,5 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 
 ## Status and outcome
 
-Implementation has not started. Verification evidence and unresolved limitations belong in [VERIFICATION.md](VERIFICATION.md). Record the completion date, change/PR reference, and architecture/backlog updates here when done.
+M2 bounded requests and timeout failure handling are implemented and focused tests pass. M3 teardown behavior, full solution verification, and the remaining acceptance criteria are still open. Keep detailed evidence and unresolved limitations in [VERIFICATION.md](VERIFICATION.md); record the completion date, change/PR reference, and architecture/backlog updates here when the full work item is done.
 

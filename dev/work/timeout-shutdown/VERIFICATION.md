@@ -1,17 +1,19 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Focused request-timeout behavior passed; teardown and full acceptance verification remain incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Focused request-timeout, connect-flow, and play-timeout behavior passed; teardown and full acceptance verification remain incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
-`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, and safe timeout messages. The tests use short injected budgets and synthetic secret text. All four tests passed in the out-of-sandbox run recorded below.
+`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven tests passed in the out-of-sandbox run recorded below.
 
 Record each run with the exact command, environment, result, and relevant test names. Use fake transports and controlled delays; do not use real connection keys, hosted-script URLs, or live device/service dependencies.
 
 | Scenario | Evidence required | Result |
 | --- | --- | --- |
 | REST request exceeds its budget | Operation fails within the configured bound; timeout is distinguishable from caller cancellation where applicable; message is secret-free. | Passed |
-| Hosting upload exceeds its budget | Upload and response read are bounded; dependent HSSP setup/play does not run. | Upload timeout passed; downstream setup/play gating not separately tested |
+| Firmware prerequisite read times out during connect | Connect aborts before mode change, upload, setup, or play. | Passed |
+| Hosting upload exceeds its budget | Upload is bounded and dependent HSSP setup/play does not run. | Passed |
+| HSSP play times out | Ready state and periodic sync are cleared; status reports unknown device state, not successful playback. | Passed |
 | REST/upload response body stalls | Body read is bounded and reported as failure. | Passed |
 | Caller cancels before budget | Cancellation remains cancellation and is not mislabeled as timeout. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Pending |
@@ -36,7 +38,7 @@ Focused test execution inside the sandbox stalled after launching the test host.
 dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~HandyApiTimeoutTests" --verbosity minimal
 ```
 
-Result: **Passed, 4/4** (REST timeout, hosting upload timeout, response-body read timeout, caller cancellation). The test run completed in 331 ms. An earlier normal-output build attempt had encountered a file lock on `src/ScriptSyncPilot.FunscriptEditor/bin/Debug/net9.0-windows/ScriptSyncPilot.Common.dll`; that lock was later released and did not prevent the successful run.
+Result: **Passed, 7/7** (REST timeout, hosting upload timeout, response-body read timeout, caller cancellation, firmware-read timeout aborts connect, upload timeout prevents setup/play, and play timeout clears ready state and avoids success status). The final focused run completed in 909 ms. An earlier normal-output build attempt had encountered a file lock on `src/ScriptSyncPilot.FunscriptEditor/bin/Debug/net9.0-windows/ScriptSyncPilot.Common.dll`; that lock was later released and did not prevent the successful run.
 
 ## Manual verification
 

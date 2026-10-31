@@ -31,7 +31,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 - [x] Apply explicit bounded cancellation to REST and hosting sends and response reads.
 - [x] Preserve caller cancellation semantics and distinguish timeout from caller cancellation.
 - [x] Keep timeout/error messages free of credentials, hosted URLs, response bodies, and unsafe exception text.
-- [ ] Ensure a timed-out operation cannot be reported as successful or trigger dependent setup/play steps.
+- [x] Ensure a timed-out operation cannot be reported as successful or trigger dependent setup/play steps.
 
 ### 3. Implement predictable teardown
 

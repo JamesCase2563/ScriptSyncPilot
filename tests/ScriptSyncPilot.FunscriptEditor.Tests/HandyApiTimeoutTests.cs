@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Http;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Reflection;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ScriptSyncPilot.Common;
 using ScriptSyncPilot.HandySync;
+using System.Windows.Forms;
 
 namespace ScriptSyncPilot.FunscriptEditor.Tests;
 
@@ -78,6 +83,108 @@ public sealed class HandyApiTimeoutTests
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
     }
 
+    [STATestMethod]
+    public void FirmwareReadTimeout_AbortsConnectBeforeModeUploadSetupOrPlay()
+    {
+        using var deviceHandler = new ConnectSequenceHandler(blockedPath: "/api/info");
+        using var hostingHandler = new NeverUsedHandler();
+        var client = CreateClient(deviceHandler, hostingHandler, controlTimeout: ShortTimeout, uploadTimeout: ShortTimeout);
+        using var form = CreateConnectForm(client);
+
+        InvokeAndPumpConnect(form);
+        Application.DoEvents();
+
+        CollectionAssert.AreEqual(new[] { "/api/connected", "/api/info" }, deviceHandler.Paths.ToArray());
+        Assert.IsFalse(hostingHandler.RequestStarted);
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("info: request timed out.", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void UploadTimeout_DoesNotSendHsspSetupOrPlay_AndDoesNotLeaveHsspReady()
+    {
+        using var deviceHandler = new ConnectSequenceHandler();
+        using var hostingHandler = new BlockingHandler();
+        var client = CreateClient(deviceHandler, hostingHandler, controlTimeout: ShortTimeout, uploadTimeout: ShortTimeout);
+        using var form = CreateConnectForm(client);
+
+        InvokeAndPumpConnect(form);
+        Application.DoEvents();
+
+        Assert.IsTrue(hostingHandler.Started.Task.IsCompleted);
+        Assert.IsFalse(deviceHandler.Paths.Any(path => path.EndsWith("/hssp/setup", StringComparison.Ordinal)));
+        Assert.IsFalse(deviceHandler.Paths.Any(path => path.EndsWith("/hssp/play", StringComparison.Ordinal)));
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("script upload: request timed out.", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void PlayTimeout_ClearsReadyStateAndDoesNotReportPlaybackSuccess()
+    {
+        using var handler = new BlockingHandler();
+        using var hostingHandler = new NeverUsedHandler();
+        using var client = CreateClient(handler, hostingHandler, controlTimeout: ShortTimeout);
+        var session = new MpvSession();
+        typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, false);
+        typeof(MpvSession).GetProperty(nameof(MpvSession.Speed))!.SetValue(session, 1.0);
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        GetField<System.Windows.Forms.Timer>(form, "_syncTimer").Start();
+
+        var operation = (Task)typeof(ScriptSyncPilot.HandySync.MainForm)
+            .GetMethod("OnMpvPauseChangedAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, [session, false])!;
+        var timer = Stopwatch.StartNew();
+        while (!operation.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+        Assert.IsTrue(operation.IsCompleted, "Play operation did not finish within the test bound.");
+        operation.GetAwaiter().GetResult();
+        Application.DoEvents();
+
+        Assert.IsTrue(handler.Started.Task.IsCompleted);
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsFalse(GetField<System.Windows.Forms.Timer>(form, "_syncTimer").Enabled);
+        Assert.IsTrue(GetField<Label>(form, "_status").Text.Contains("device state is unknown", StringComparison.Ordinal));
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/play: request timed out.", StringComparison.Ordinal));
+        session.Dispose();
+    }
+
+    private static ScriptSyncPilot.HandySync.MainForm CreateConnectForm(HandyApiClient client)
+    {
+        var form = new ScriptSyncPilot.HandySync.MainForm(
+            new AppSettings { ConnectionKey = "synthetic-connection-key" }, _ => client, _ => { }, _ => { });
+        _ = form.Handle;
+        typeof(ScriptSyncPilot.HandySync.MainForm).GetField("_script", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(form, new Funscript());
+        return form;
+    }
+
+    private static void InvokeAndPumpConnect(ScriptSyncPilot.HandySync.MainForm form)
+    {
+        var connect = (Task)typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("ConnectHandyAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, null)!;
+        var timer = Stopwatch.StartNew();
+        while (!connect.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+
+        Assert.IsTrue(connect.IsCompleted, "ConnectHandyAsync did not finish within the test bound.");
+        connect.GetAwaiter().GetResult();
+    }
+
+    private static T GetField<T>(object instance, string name) =>
+        (T)instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(instance)!;
+
+    private static void SetField(object instance, string name, object value) =>
+        instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(instance, value);
+
     private static HandyApiClient CreateClient(HttpMessageHandler deviceHandler,
         HttpMessageHandler? hostingHandler = null, TimeSpan? controlTimeout = null, TimeSpan? uploadTimeout = null) =>
         new("test-key", deviceHandler, new Uri("https://example.test/api/"), hostingHandler,
@@ -111,6 +218,51 @@ public sealed class HandyApiTimeoutTests
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
     }
 
+    private sealed class ConnectSequenceHandler(string? blockedPath = null) : HttpMessageHandler
+    {
+        public ConcurrentQueue<string> Paths { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            Paths.Enqueue(path);
+            if (path == blockedPath)
+            {
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new TaskCanceledException(SyntheticSecret);
+                }
+            }
+
+            var body = path switch
+            {
+                "/api/connected" => "{\"result\":{\"connected\":true}}",
+                "/api/info" => "{\"result\":{\"fw_status\":0,\"fw_version\":\"4.3.0\",\"hw_model_name\":\"test\"}}",
+                "/api/servertime" => "{\"server_time\":1000}",
+                "/api/capabilities" => "{\"result\":{\"slider\":0}}",
+                "/api/settings/slider" => "{\"result\":{}}",
+                "/api/hstp/offset" => "{\"result\":{\"offset\":0}}",
+                _ => ""
+            };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        }
+    }
+
+    private sealed class NeverUsedHandler : HttpMessageHandler
+    {
+        public bool RequestStarted { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestStarted = true;
+            throw new AssertFailedException("Unexpected request.");
+        }
+    }
+
     private sealed class BlockingContent : HttpContent
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -140,9 +292,4 @@ public sealed class HandyApiTimeoutTests
         }
     }
 
-    private sealed class NeverUsedHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            throw new AssertFailedException("Unexpected device request.");
-    }
 }

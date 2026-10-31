@@ -543,6 +543,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
         {
+            if (IsRequestTimeout(ex)) throw;
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
@@ -558,6 +559,10 @@ public sealed class MainForm : Form
         return Version.TryParse(versionText, out var version) && version.Major >= 4
                && firmwareStatus is int status && status != 2;
     }
+
+    private static bool IsRequestTimeout(Exception ex) =>
+        ex is TaskCanceledException canceled
+        && canceled.Message.EndsWith(": request timed out.", StringComparison.Ordinal);
 
     private async Task ReadAndAdoptDeviceControlsAsync(HandyApiClient client)
     {
@@ -576,6 +581,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _hasDeviceSlider = true;
                 Log($"Could not read device capabilities: {ex.Message}");
             }
@@ -597,6 +603,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _temperatureHighTrigger = null;
                 _temperatureHysteresis = null;
                 _deviceToolTip.SetToolTip(_strokeSlider, string.Empty);
@@ -617,6 +624,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _offsetInitialReadFailed = true;
                 _offsetInitialReadEditVersion = _offsetEditVersion;
                 _offsetWriteFailed = false;
@@ -644,6 +652,7 @@ public sealed class MainForm : Form
                 }
                 catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
                 {
+                    if (IsRequestTimeout(ex)) throw;
                     _strokeInitialReadFailed = true;
                     _strokeInitialReadEditVersion = _strokeEditVersion;
                     _strokeWriteFailed = false;
@@ -1211,7 +1220,13 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
             Log($"Play/stop failed: {ex.Message}");
-            if (ReferenceEquals(_mpv, session) && session.Speed != 1.0)
+            if (IsRequestTimeout(ex))
+            {
+                _hsspReady = false;
+                _syncTimer.Stop();
+                SetStatus("Handy request timed out; device state is unknown");
+            }
+            else if (ReferenceEquals(_mpv, session) && session.Speed != 1.0)
                 SetStatus("Device stop failed: pause mpv and disconnect Handy");
         }
     }

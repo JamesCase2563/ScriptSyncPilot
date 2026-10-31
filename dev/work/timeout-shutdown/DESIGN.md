@@ -12,7 +12,7 @@ This work addresses the production-readiness reliability priority for timeouts a
 ## Current implementation
 
 - `HandyApiClient` owns separate `HttpClient` instances for REST and hosting requests. The clients have framework timeouts disabled; explicit operation budgets use linked cancellation tokens: 10 seconds for status/control, 5 seconds per server-time sample, and 60 seconds for upload.
-- The same operation token bounds send and response-body read. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `TaskCanceledException` with operation-specific timeout text.
+- Sends use `ResponseHeadersRead`; the same operation token bounds sending and subsequent response-body reads. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `TaskCanceledException` with operation-specific timeout text.
 - `MainForm` cancels its lifetime token during close, then detaches mpv and calls `DisconnectHandyAsync`.
 - Disconnect suspends device work, cancels debounced writes, clears the active client, waits for the serialized device-command gate, attempts HSSP stop with `CancellationToken.None`, then disposes the captured client.
 - The stop request has no caller cancellation and is now independently bounded by the 10-second HSSP control budget. The shutdown path must keep that final stop attempt independent of the already-canceled application lifetime token.
@@ -63,6 +63,7 @@ Communication loss can prevent a physical stop; the software can promise only a 
 
 - Report timeout separately from explicit user/lifecycle cancellation where the UI or logs distinguish them.
 - Treat timeout as a failed operation; never convert it to a success-shaped response or silently continue setup/play as if the operation completed.
+- Connect aborts on timeout during firmware or initial device-control reads, upload, or HSSP setup. If the initial HSSP play/stop request times out, HandySync clears the ready state, stops periodic sync, and reports that device state is unknown.
 - Do not add automatic retries in this work. Retry policy for transient resets, DNS failures, HTTP 408/429/5xx and `Retry-After` remains separately deferred in the HandySync backlog.
 - Preserve existing useful, secret-free diagnostics and existing response validation.
 

@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Plan
 
-**Status:** Approved by the maintainer on 2026-10-31; implementation and verification not started. Initial design decisions recorded 2026-10-31.
+**Status:** Approved by the maintainer on 2026-10-31; implementation in progress. Request budgets and focused timeout behavior are verified; teardown and full acceptance verification remain pending. Initial design decisions recorded 2026-10-31.
 **Affected projects:** HandySync.
 **Goal:** Ensure HandySync requests and shutdown are bounded, stop is attempted safely, failures are visible, and no stale device command is issued after disconnect.
 
@@ -28,9 +28,9 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 
 ### 2. Implement bounded requests
 
-- [ ] Apply explicit bounded cancellation to REST and hosting sends and response reads.
-- [ ] Preserve caller cancellation semantics and safely distinguish timeout from caller cancellation where useful.
-- [ ] Keep timeout/error messages free of credentials, hosted URLs, response bodies, and unsafe exception text.
+- [x] Apply explicit bounded cancellation to REST and hosting sends and response reads.
+- [x] Preserve caller cancellation semantics and distinguish timeout from caller cancellation.
+- [x] Keep timeout/error messages free of credentials, hosted URLs, response bodies, and unsafe exception text.
 - [ ] Ensure a timed-out operation cannot be reported as successful or trigger dependent setup/play steps.
 
 ### 3. Implement predictable teardown
@@ -43,7 +43,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 
 ### 4. Verify and close
 
-- [ ] Add fake-handler tests for REST, upload, response-read, and caller-cancellation behavior.
+- [x] Add fake-handler tests for REST, upload, response-read, and caller-cancellation behavior.
 - [ ] Add lifecycle tests for blocked in-flight commands, stop success/failure/timeout, cleanup, and no stale post-disconnect commands.
 - [ ] Run focused and full solution tests/build as appropriate; record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
 - [ ] Move any newly found independent defects to the owning backlog and link them here.

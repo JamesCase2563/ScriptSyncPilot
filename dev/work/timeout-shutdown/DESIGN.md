@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Design
 
-**Status:** Approved by the maintainer on 2026-10-31; implementation and verification not started.
+**Status:** Approved by the maintainer on 2026-10-31; request budgets implemented and focused timeout behavior verified. Shutdown verification remains pending.
 **Affected projects:** HandySync. Common and FunscriptEditor are out of scope unless investigation finds a shared HTTP or lifecycle defect that blocks this work.
 
 ## Goal
@@ -11,11 +11,11 @@ This work addresses the production-readiness reliability priority for timeouts a
 
 ## Current implementation
 
-- `HandyApiClient` owns separate `HttpClient` instances for REST and hosting requests. Both use the framework default timeout; neither has an explicit operation budget.
-- Requests and response-body reads accept caller cancellation tokens. Cancellation is surfaced with safe operation text, but a canceled request and a request timeout are not distinguished in the message.
+- `HandyApiClient` owns separate `HttpClient` instances for REST and hosting requests. The clients have framework timeouts disabled; explicit operation budgets use linked cancellation tokens: 10 seconds for status/control, 5 seconds per server-time sample, and 60 seconds for upload.
+- The same operation token bounds send and response-body read. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `TaskCanceledException` with operation-specific timeout text.
 - `MainForm` cancels its lifetime token during close, then detaches mpv and calls `DisconnectHandyAsync`.
 - Disconnect suspends device work, cancels debounced writes, clears the active client, waits for the serialized device-command gate, attempts HSSP stop with `CancellationToken.None`, then disposes the captured client.
-- Because the stop request has no caller cancellation and the HTTP timeout is implicit, teardown duration depends on the default client behavior. The shutdown path must keep the final stop attempt independent of the already-canceled application lifetime token while still bounding it.
+- The stop request has no caller cancellation and is now independently bounded by the 10-second HSSP control budget. The shutdown path must keep that final stop attempt independent of the already-canceled application lifetime token.
 
 ## Request-path characterization (M1.1)
 

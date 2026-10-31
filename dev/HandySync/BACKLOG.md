@@ -65,7 +65,7 @@ so typing time does not move the note away from the moment being reviewed.
 
 ## Reconnect and HSSP Recovery
 
-**Priority:** High. **Status:** Proposed.
+**Priority:** High. **Status:** Timeout and shutdown work selected for initial-release verification; see the [approved work plan](../work/timeout-shutdown/PLAN.md). Expanded automatic retries/backoff remain deferred.
 
 Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
 

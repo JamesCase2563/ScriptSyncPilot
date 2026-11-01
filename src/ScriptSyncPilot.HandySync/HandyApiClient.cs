@@ -11,6 +11,17 @@ public sealed class HandyApiException(string message, int? code = null, string? 
     public string? Name { get; } = name;
 }
 
+public sealed class HandyApiTimeoutException : TaskCanceledException
+{
+    internal HandyApiTimeoutException(string operation, CancellationToken cancellationToken)
+        : base($"{operation}: request timed out.", null, cancellationToken)
+    {
+        Operation = operation;
+    }
+
+    public string Operation { get; }
+}
+
 /// <summary>
 /// Minimal Handy REST API v3 client covering exactly what HSSP-driven video
 /// sync needs: server time sampling for clock offset, script hosting upload,
@@ -202,7 +213,7 @@ public sealed class HandyApiClient : IDisposable
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            throw new TaskCanceledException($"{operation}: request timed out.", null, callerToken);
+            throw new HandyApiTimeoutException(operation, callerToken);
         }
     }
 
@@ -229,7 +240,7 @@ public sealed class HandyApiClient : IDisposable
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
-            throw new TaskCanceledException($"{operation}: request timed out.", null, callerToken);
+            throw new HandyApiTimeoutException(operation, callerToken);
         }
     }
 

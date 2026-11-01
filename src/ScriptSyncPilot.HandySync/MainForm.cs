@@ -583,8 +583,7 @@ public sealed class MainForm : Form
     }
 
     private static bool IsRequestTimeout(Exception ex) =>
-        ex is TaskCanceledException canceled
-        && canceled.Message.EndsWith(": request timed out.", StringComparison.Ordinal);
+        ex is HandyApiTimeoutException;
 
     private async Task ReadAndAdoptDeviceControlsAsync(HandyApiClient client)
     {

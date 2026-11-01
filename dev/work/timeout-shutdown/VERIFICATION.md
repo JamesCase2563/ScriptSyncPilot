@@ -4,7 +4,7 @@
 
 ## Automated verification
 
-`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, per-sample clock-sampling bounds, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven timeout tests passed in the out-of-sandbox run recorded below; the later clock-sampling test passed in the M4 run.
+`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, typed timeout classification, safe timeout messages, per-sample clock-sampling bounds, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text.
 
 Record each run with the exact command, environment, result, and relevant test names. Use fake transports and controlled delays; do not use real connection keys, hosted-script URLs, or live device/service dependencies.
 
@@ -86,6 +86,14 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 
 Result: **Passed, 1/1**. The first close event was deferred for asynchronous teardown; despite a failed stop request the form closed, and the shutdown error callback was never invoked.
 
+Typed timeout classification follow-up:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~HandyApiTimeoutTests" --verbosity minimal
+```
+
+Result: **Passed, 9/9** on 2026-11-01. Budget expiration now raises `HandyApiTimeoutException`, while caller cancellation remains an ordinary `TaskCanceledException`; `MainForm` classifies the typed exception without inspecting message text.
+
 M4 remaining-scenario command (per-sample clock bound, disconnect/close against an unavailable service, repeated disconnect):
 
 ```powershell
@@ -110,12 +118,12 @@ Result: **Build succeeded, 0 warnings, 0 errors. Tests passed 278/278** (ScriptS
 
 ## Manual verification
 
-Pending. If performed, record OS/runtime, app build, mpv state, and whether the service/device was reachable. Verify the UI remains usable or closes within the documented bound and that stop failure is logged without a shutdown dialog or exposure of credentials/private URLs. A manual check is supplementary; simulated failure coverage is sufficient where practical.
+Not performed. Reviewed against the shutdown acceptance criteria: manual observation is supplementary, not required, because automated WinForms close tests exercise asynchronous close completion after stop failure/timeout with bounded fake transports. These tests do not exercise a real Windows session-end notification (`CloseReason.WindowsShutDown`), which is outside the documented application-close guarantee.
 
 ## Limitations and release-gate linkage
 
 - A timeout bounds the client's wait; it cannot prove the remote service did not process a request after the client stopped waiting.
 - If communication is lost, HandySync cannot guarantee that the physical device stopped. User-facing limitations must continue to say this clearly.
-- The lifecycle tests drive `MainForm` through its private disconnect/close entry points with fake transports; they do not exercise a real Windows session close (`CloseReason.WindowsShutDown`) or a live service outage. Manual verification remains supplementary and was not performed.
+- The lifecycle tests drive `MainForm` through its private disconnect/close entry points with fake transports; they do not exercise a real Windows session close (`CloseReason.WindowsShutDown`) or a live service outage. Those cases are outside the documented application-close guarantee and are not release blockers for this work item.
 - Automated verification is complete; this evidence is linked from the priority 1 row in the [production-readiness PLAN](../production-readiness/PLAN.md). The Reliability and data preservation gate itself remains open until its full scope is reviewed there.
 

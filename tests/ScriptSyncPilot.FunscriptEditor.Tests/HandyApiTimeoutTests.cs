@@ -25,9 +25,10 @@ public sealed class HandyApiTimeoutTests
 
         var request = client.IsConnectedAsync(CancellationToken.None);
         await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
         Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
+        Assert.AreEqual("connected", error.Operation);
         Assert.AreEqual("connected: request timed out.", error.Message);
         Assert.IsNull(error.InnerException, "Transport exception details must not be retained in the public timeout error.");
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
@@ -43,7 +44,7 @@ public sealed class HandyApiTimeoutTests
         var stopwatch = Stopwatch.StartNew();
         var request = client.HsspStopForDisconnectAsync();
         await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
         Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
         Assert.AreEqual("hssp/stop: request timed out.", error.Message);
@@ -58,7 +59,7 @@ public sealed class HandyApiTimeoutTests
         using var client = CreateClient(handler, serverTimeTimeout: ShortTimeout);
 
         var stopwatch = Stopwatch.StartNew();
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
             () => client.EstimateClockOffsetMsAsync(15, CancellationToken.None));
 
         Assert.AreEqual("servertime: request timed out.", error.Message);
@@ -77,7 +78,7 @@ public sealed class HandyApiTimeoutTests
 
         var request = client.UploadScriptCsvAsync("0,0", CancellationToken.None);
         await hostingHandler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
         Assert.IsTrue(hostingHandler.CancellationObserved.Task.IsCompleted);
         Assert.AreEqual("script upload: request timed out.", error.Message);
@@ -93,7 +94,7 @@ public sealed class HandyApiTimeoutTests
 
         var request = client.GetInfoAsync(CancellationToken.None);
         await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
         Assert.IsTrue(content.CancellationObserved.Task.IsCompleted);
         Assert.AreEqual("info: request timed out.", error.Message);

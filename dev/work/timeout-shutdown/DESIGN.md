@@ -12,7 +12,7 @@ This work addresses the production-readiness reliability priority for timeouts a
 ## Current implementation
 
 - `HandyApiClient` owns separate `HttpClient` instances for REST and hosting requests. The clients have framework timeouts disabled; explicit operation budgets use linked cancellation tokens: 10 seconds for status/control, 5 seconds per server-time sample, and 60 seconds for upload.
-- Sends use `ResponseHeadersRead`; the same operation token bounds sending and subsequent response-body reads. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `TaskCanceledException` with operation-specific timeout text.
+- Sends use `ResponseHeadersRead`; the same operation token bounds sending and subsequent response-body reads. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `HandyApiTimeoutException` (a `TaskCanceledException`) with operation-specific timeout text.
 - `MainForm` cancels its lifetime token during close, then detaches mpv and calls `DisconnectHandyAsync`.
 - Disconnect suspends device work, cancels debounced writes and pending requests, clears the active client, waits for the serialized device-command gate, attempts HSSP stop with a separately bounded token, then disposes the captured client even if stop fails.
 - The stop request has no caller cancellation and is now independently bounded by the 10-second HSSP control budget. The shutdown path must keep that final stop attempt independent of the already-canceled application lifetime token.

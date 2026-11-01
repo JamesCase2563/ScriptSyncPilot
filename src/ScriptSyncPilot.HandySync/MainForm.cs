@@ -1284,13 +1284,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
-                Log($"Resync failed: {ex.Message}");
-                if (IsRequestTimeout(ex))
-                {
-                    _hsspReady = false;
-                    _syncTimer.Stop();
-                    SetStatus("Handy request timed out; device state is unknown");
-                }
+                HandlePlaybackCommandFailure(session, client, "Resync failed", ex);
             }
         }
     }
@@ -1402,16 +1396,24 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            Log($"Play/stop failed: {ex.Message}");
-            if (IsRequestTimeout(ex))
-            {
-                _hsspReady = false;
-                _syncTimer.Stop();
-                SetStatus("Handy request timed out; device state is unknown");
-            }
-            else if (ReferenceEquals(_mpv, session) && session.Speed != 1.0)
+            if (HandlePlaybackCommandFailure(session, client, "Play/stop failed", ex) && !IsRequestTimeout(ex)
+                && session.Speed != 1.0)
                 SetStatus("Device stop failed: pause mpv and disconnect Handy");
         }
+    }
+
+    // Late failures from a replaced mpv session or Handy client must not alter or report on the current target.
+    private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex)
+    {
+        if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)) return false;
+        Log($"{prefix}: {ex.Message}");
+        if (IsRequestTimeout(ex))
+        {
+            _hsspReady = false;
+            _syncTimer.Stop();
+            SetStatus("Handy request timed out; device state is unknown");
+        }
+        return true;
     }
 
     private async Task OnSyncTickAsync()
@@ -1435,13 +1437,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            Log($"Drift correction failed: {ex.Message}");
-            if (IsRequestTimeout(ex))
-            {
-                _hsspReady = false;
-                _syncTimer.Stop();
-                SetStatus("Handy request timed out; device state is unknown");
-            }
+            HandlePlaybackCommandFailure(session, client, "Drift correction failed", ex);
         }
     }
 

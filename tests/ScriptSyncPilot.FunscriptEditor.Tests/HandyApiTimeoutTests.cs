@@ -398,6 +398,75 @@ public sealed class HandyApiTimeoutTests
         Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/synctime: request timed out.", StringComparison.Ordinal));
     }
 
+    [STATestMethod]
+    public void StaleSeekTimeout_AfterSessionReplaced_DoesNotAlterCurrentSession() =>
+        VerifyStaleTimeoutIgnored("OnMpvPositionChangedAsync", session => [session, 10d], replaceClient: false);
+
+    [STATestMethod]
+    public void StalePlayTimeout_AfterSessionReplaced_DoesNotAlterCurrentSession() =>
+        VerifyStaleTimeoutIgnored("OnMpvPauseChangedAsync", session => [session, false], replaceClient: false);
+
+    [STATestMethod]
+    public void StaleSyncTimeout_AfterSessionReplaced_DoesNotAlterCurrentSession() =>
+        VerifyStaleTimeoutIgnored("OnSyncTickAsync", _ => null, replaceClient: false);
+
+    [STATestMethod]
+    public void StaleSyncTimeout_AfterClientReplaced_DoesNotAlterCurrentClient() =>
+        VerifyStaleTimeoutIgnored("OnSyncTickAsync", _ => null, replaceClient: true);
+
+    private static void VerifyStaleTimeoutIgnored(string method, Func<MpvSession, object?[]?> args, bool replaceClient)
+    {
+        using var handler = new BlockingHandler();
+        using var hostingHandler = new NeverUsedHandler();
+        using var client = CreateClient(handler, hostingHandler, controlTimeout: ShortTimeout);
+        using var replacementClient = CreateClient(new NeverUsedHandler(), controlTimeout: ShortTimeout);
+        using var session = CreatePlayingSession();
+        using var replacementSession = CreatePlayingSession();
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        var syncTimer = GetField<System.Windows.Forms.Timer>(form, "_syncTimer");
+        syncTimer.Start();
+
+        var operation = (Task)typeof(ScriptSyncPilot.HandySync.MainForm)
+            .GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, args(session))!;
+        PumpUntil(() => handler.Started.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        if (replaceClient) SetField(form, "_handy", replacementClient);
+        else SetField(form, "_mpv", replacementSession);
+        var statusBefore = GetField<Label>(form, "_status").Text;
+        PumpUntil(() => operation.IsCompleted, TimeSpan.FromSeconds(3));
+        operation.GetAwaiter().GetResult();
+        Application.DoEvents();
+
+        Assert.IsTrue(GetField<bool>(form, "_hsspReady"), "A stale timeout must not clear readiness for the current target.");
+        Assert.IsTrue(syncTimer.Enabled, "A stale timeout must not stop periodic sync for the current target.");
+        Assert.AreEqual(statusBefore, GetField<Label>(form, "_status").Text);
+        Assert.IsFalse(GetField<TextBox>(form, "_log").Text.Contains("timed out", StringComparison.Ordinal),
+            "A stale failure must not be reported against the current target.");
+        syncTimer.Stop();
+    }
+
+    private static MpvSession CreatePlayingSession()
+    {
+        var session = new MpvSession();
+        typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, false);
+        typeof(MpvSession).GetProperty(nameof(MpvSession.Speed))!.SetValue(session, 1.0);
+        return session;
+    }
+
+    private static void PumpUntil(Func<bool> condition, TimeSpan timeout)
+    {
+        var timer = Stopwatch.StartNew();
+        while (!condition() && timer.Elapsed < timeout)
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+        Assert.IsTrue(condition(), "Condition was not met within the test bound.");
+    }
+
     private static ScriptSyncPilot.HandySync.MainForm CreateConnectForm(HandyApiClient client, TimeSpan? drainTimeout = null)
     {
         var form = new ScriptSyncPilot.HandySync.MainForm(

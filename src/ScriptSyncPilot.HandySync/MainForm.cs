@@ -15,6 +15,7 @@ namespace ScriptSyncPilot.HandySync;
 public sealed class MainForm : Form
 {
     private static readonly TimeSpan DisconnectDrainTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan DisconnectStopWaitTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ShutdownSessionTransitionTimeout = TimeSpan.FromSeconds(2);
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
@@ -783,25 +784,67 @@ public sealed class MainForm : Form
     private async Task StopAndDisposeAfterDrainAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
     {
         await gateWait.ConfigureAwait(false);
+        Task? stopTask = null;
+        var teardownDeferred = false;
         try
         {
             if (client is not null && shouldStopDevice)
-                await client.HsspStopForDisconnectAsync();
-        }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
-        {
-            Log($"Could not stop Handy playback: {ex.Message}");
-        }
-        catch (Exception)
-        {
-            Log("Could not stop Handy playback: request failed; device state is unknown.");
+            {
+                stopTask = client.HsspStopForDisconnectAsync();
+                try
+                {
+                    await stopTask.WaitAsync(DisconnectStopWaitTimeout);
+                }
+                catch (TimeoutException)
+                {
+                    Log("Handy stop exceeded its disconnect time budget; retaining the client until the request completes.");
+                    teardownDeferred = true;
+                    _ = FinishDeferredStopAndDisposeAsync(stopTask, client);
+                }
+                catch (Exception ex)
+                {
+                    LogStopFailure(ex);
+                }
+            }
         }
         finally
         {
-            try { client?.Dispose(); }
-            catch (Exception) { Log("Could not dispose the disconnected Handy client."); }
-            finally { _deviceCommandGate.Release(); }
+            if (!teardownDeferred) DisposeDisconnectedClientAndReleaseGate(client);
         }
+    }
+
+    private async Task FinishDeferredStopAndDisposeAsync(Task stopTask, HandyApiClient client)
+    {
+        try
+        {
+            await stopTask.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogStopFailure(ex);
+        }
+        finally
+        {
+            DisposeDisconnectedClientAndReleaseGate(client);
+        }
+    }
+
+    private void LogStopFailure(Exception ex)
+    {
+        if (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+            Log($"Could not stop Handy playback: {ex.Message}");
+        else
+            Log("Could not stop Handy playback: request failed; device state is unknown.");
+    }
+
+    private void DisposeDisconnectedClientAndReleaseGate(HandyApiClient? client)
+    {
+        try
+        {
+            client?.Dispose();
+        }
+        catch (Exception) { Log("Could not dispose the disconnected Handy client."); }
+        finally { _deviceCommandGate.Release(); }
     }
 
     private void CompleteDisconnectUiState(bool teardownPending)

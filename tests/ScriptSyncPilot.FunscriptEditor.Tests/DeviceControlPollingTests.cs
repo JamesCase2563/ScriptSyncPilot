@@ -395,6 +395,81 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void ShutdownDeadlineAbandonsDetachWithoutPostCloseUiOrDeviceWork()
+    {
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, count, _) =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/api/hssp/stop")
+                throw new InvalidOperationException($"Unexpected request after shutdown: {request.RequestUri}");
+            if (count == 1)
+            {
+                stopStarted.TrySetResult();
+                await releaseStop.Task; // Non-cooperative: holds the session transition past the shutdown deadline.
+            }
+            return JsonResponse("{\"result\":\"ok\"}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => { }, TimeSpan.FromMilliseconds(100));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        SetPrivateField(form, "_script", new ScriptSyncPilot.Common.Funscript());
+        SetPrivateField(form, "_mpv", new ScriptSyncPilot.Common.MpvSession());
+        _ = form.Handle;
+
+        var detach = InvokePrivateTask(form, "DetachMpvAsync", true);
+        PumpUntil(() => stopStarted.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        var closingArgs = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        typeof(Form).GetMethod("OnFormClosing", PrivateInstance)!.Invoke(form, [closingArgs]);
+        var shutdownTimer = Stopwatch.StartNew();
+        PumpUntil(() => form.IsDisposed, TimeSpan.FromSeconds(5));
+        Assert.IsTrue(shutdownTimer.Elapsed >= TimeSpan.FromSeconds(1.5),
+            "Shutdown must have proceeded only after the session-transition deadline expired.");
+
+        releaseStop.TrySetResult();
+        PumpUntil(() => detach.IsCompleted && handler.IsDisposed, TimeSpan.FromSeconds(3));
+
+        Assert.IsTrue(detach.IsCompletedSuccessfully, "The abandoned transition must not fault after Close().");
+        Assert.IsNull(GetPrivateField(form, "_mpv"));
+        Assert.IsFalse(handler.Requests.Any(request => request.Path != "hssp/stop"),
+            "The abandoned transition must not reinstall the script or issue other device work after shutdown.");
+    }
+
+    [STATestMethod]
+    public void ShutdownCancelsDetachWaitingForDeviceGateSoTeardownOwnsFinalStop()
+    {
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => { }, TimeSpan.FromMilliseconds(100));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        SetPrivateField(form, "_mpv", new ScriptSyncPilot.Common.MpvSession());
+        _ = form.Handle;
+        var deviceGate = (SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!;
+        Assert.IsTrue(deviceGate.Wait(0));
+
+        var detach = InvokePrivateTask(form, "DetachMpvAsync", true);
+        Assert.IsFalse(detach.IsCompleted);
+        var shutdownTimer = Stopwatch.StartNew();
+        var closingArgs = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        typeof(Form).GetMethod("OnFormClosing", PrivateInstance)!.Invoke(form, [closingArgs]);
+        PumpUntil(() => detach.IsCompleted && form.IsDisposed, TimeSpan.FromSeconds(3));
+
+        Assert.IsTrue(shutdownTimer.Elapsed < TimeSpan.FromSeconds(1.5),
+            "Shutdown must not wait for the session-transition deadline when the detach is only queued for the device gate.");
+        Assert.IsTrue(detach.IsCompletedSuccessfully);
+        Assert.AreEqual(0, handler.Requests.Count, "The canceled detach must not issue its own stop.");
+
+        deviceGate.Release();
+        PumpUntil(() => handler.IsDisposed, TimeSpan.FromSeconds(3));
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"),
+            "Deferred Handy teardown issues the single final stop.");
+    }
+
+    [STATestMethod]
     public void RepeatedDisconnectSharesOneTeardownAndALaterDisconnectIsSafe()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

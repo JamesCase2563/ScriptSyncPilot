@@ -311,7 +311,32 @@ public sealed class MainForm : Form
         }
     }
 
-    private void SetStatus(string text) => BeginInvoke(() => _status.Text = text);
+    private void SetStatus(string text)
+    {
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!_isClosing && !IsDisposed) _status.Text = text;
+            });
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+    }
+
+    private bool ShutdownStarted => _lifetimeCts.IsCancellationRequested;
+
+    // A transition that outlived the shutdown deadline must release mpv without touching the closed form.
+    private void ReleaseMpvAfterShutdown()
+    {
+        _syncTimer.Stop();
+        _hsspReady = false;
+        _mpvAttached = false;
+        _videoTransportPending = false;
+        var session = _mpv;
+        _mpv = null;
+        session?.Dispose();
+    }
 
     private void LoadScript(string path)
     {
@@ -437,11 +462,20 @@ public sealed class MainForm : Form
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
             session.DurationChanged += seconds => OnMpvDurationChanged(session, seconds);
             session.SpeedChanged += _ => OnMpvSpeedChanged(session);
-            session.Disconnected += () => BeginInvoke(() =>
+            session.Disconnected += () =>
             {
-                if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
-            });
+                if (ShutdownStarted || IsDisposed || !IsHandleCreated) return;
+                try
+                {
+                    BeginInvoke(() =>
+                    {
+                        if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
+                    });
+                }
+                catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+            };
             await session.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
+            if (ShutdownStarted) return;
             Log("Attached to mpv IPC pipe.");
 
             _mpvAttached = true;
@@ -454,12 +488,14 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is IOException or TaskCanceledException or ArgumentException)
         {
+            if (ShutdownStarted) return;
             Log($"Error: {ex.Message}");
             SetStatus("Error");
             await DetachMpvCoreAsync();
         }
         finally
         {
+            if (ShutdownStarted) ReleaseMpvAfterShutdown();
             _sessionTransitionGate.Release();
             _mpvAttachInProgress = false;
             UpdateVideoTransportButtons(_mpv);
@@ -1335,7 +1371,7 @@ public sealed class MainForm : Form
 
     private void UpdateVideoTransportButtons(MpvSession? session)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || Disposing) return;
         if (InvokeRequired)
         {
             try { BeginInvoke(() => UpdateVideoTransportButtons(session)); }
@@ -1450,7 +1486,8 @@ public sealed class MainForm : Form
         await _sessionTransitionGate.WaitAsync();
         try
         {
-            await DetachMpvCoreAsync(stopDevice);
+            if (ShutdownStarted) ReleaseMpvAfterShutdown();
+            else await DetachMpvCoreAsync(stopDevice);
         }
         finally
         {
@@ -1474,7 +1511,9 @@ public sealed class MainForm : Form
 
         if (stopDevice && client is not null)
         {
-            await _deviceCommandGate.WaitAsync();
+            // Once shutdown starts, its Handy teardown owns the final stop.
+            try { await _deviceCommandGate.WaitAsync(_lifetimeCts.Token); }
+            catch (OperationCanceledException) when (ShutdownStarted) { return; }
             try
             {
                 if (ReferenceEquals(_handy, client))
@@ -1490,6 +1529,8 @@ public sealed class MainForm : Form
             }
         }
 
+        if (ShutdownStarted) return;
+
         if (stopDevice && client is not null && ReferenceEquals(_handy, client) && _script is not null)
         {
             try
@@ -1498,13 +1539,15 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
-                if (ReferenceEquals(_handy, client))
+                if (!ShutdownStarted && ReferenceEquals(_handy, client))
                 {
                     Log($"Could not install the selected script after stopping: {ex.Message}");
                     await DisconnectHandyAsync();
                 }
             }
         }
+
+        if (ShutdownStarted) return;
 
         _hsspReady = stopDevice
                      && client is not null

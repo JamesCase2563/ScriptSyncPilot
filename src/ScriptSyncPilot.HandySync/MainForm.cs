@@ -1185,6 +1185,12 @@ public sealed class MainForm : Form
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
                 Log($"Resync failed: {ex.Message}");
+                if (IsRequestTimeout(ex))
+                {
+                    _hsspReady = false;
+                    _syncTimer.Stop();
+                    SetStatus("Handy request timed out; device state is unknown");
+                }
             }
         }
     }

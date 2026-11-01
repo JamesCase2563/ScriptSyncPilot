@@ -34,6 +34,24 @@ public sealed class HandyApiTimeoutTests
     }
 
     [TestMethod]
+    public async Task DisconnectStop_IgnoresCanceledRequestLifetime_ButKeepsControlTimeout()
+    {
+        using var handler = new BlockingHandler();
+        using var client = CreateClient(handler, controlTimeout: ShortTimeout);
+        client.CancelPendingRequests();
+
+        var stopwatch = Stopwatch.StartNew();
+        var request = client.HsspStopForDisconnectAsync();
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+
+        Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
+        Assert.AreEqual("hssp/stop: request timed out.", error.Message);
+        Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+        Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task HostingUploadTimeout_CancelsTransport_AndReturnsSafeTimeoutMessage()
     {
         using var deviceHandler = new NeverUsedHandler();

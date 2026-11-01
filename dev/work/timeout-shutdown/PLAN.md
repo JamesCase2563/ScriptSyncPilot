@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Plan
 
-**Status:** Complete 2026-11-01. All milestones are done: request budgets, bounded teardown, and the full automated acceptance verification passed. Approved by the maintainer on 2026-10-31; initial design decisions recorded 2026-10-31.
+**Status:** Complete 2026-11-01. All milestones are done: request budgets, bounded teardown, and the full automated acceptance verification passed. The latest recorded focused `HandyApiTimeoutTests` run is 24/24 (at `64b96b6`); the latest recorded full solution run is 281/281 (Common 88/88; FunscriptEditor 193/193). Earlier milestone counts below are historical focused runs, not the final totals. Approved by the maintainer on 2026-10-31; initial design decisions recorded 2026-10-31.
 **Affected projects:** HandySync.
 **Goal:** Ensure HandySync requests and shutdown are bounded, stop is attempted safely, failures are visible, and no stale device command is issued after disconnect.
 
@@ -47,7 +47,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 - [x] Add lifecycle tests for blocked in-flight commands, stop success/failure/timeout, cleanup, and no stale post-disconnect commands.
 - [x] Verify a stop transport that ignores cancellation past the 2-second caller hard wait; disconnect remains pending and retains the client/gate until deferred teardown finishes. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify periodic `hssp/synctime` timeout clears readiness and stops periodic sync. See [VERIFICATION.md](VERIFICATION.md).
-- [x] Run focused HandyApi timeout/connect-flow tests; 7/7 passed. See [VERIFICATION.md](VERIFICATION.md).
+- [x] Initial M2 focused HandyApi timeout/connect-flow run: 7/7 passed (historical milestone result). The latest complete `HandyApiTimeoutTests` class run passed 24/24; see [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify disconnect command admission and pending-write cancellation; 2/2 focused lifecycle tests passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify in-flight command cancellation, queued seek suppression, and the post-drain stop attempt; 1/1 focused M3.2 test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify the disconnect stop bypasses canceled request lifetime while remaining bounded by the HSSP control timeout; 1/1 focused test passed. See [VERIFICATION.md](VERIFICATION.md).

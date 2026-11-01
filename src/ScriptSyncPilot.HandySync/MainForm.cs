@@ -762,26 +762,17 @@ public sealed class MainForm : Form
             return;
         }
 
-        await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice);
-        CompleteDisconnectUiState(teardownPending: false);
+        var teardownCompleted = await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice);
+        CompleteDisconnectUiState(teardownPending: !teardownCompleted);
     }
 
     private async Task FinishDeferredDisconnectAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
     {
-        await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice).ConfigureAwait(false);
-        if (IsDisposed || _isClosing || !IsHandleCreated) return;
-        try
-        {
-            BeginInvoke(() =>
-            {
-                if (!IsDisposed && !_isClosing)
-                    CompleteDisconnectUiState(teardownPending: false);
-            });
-        }
-        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+        var teardownCompleted = await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice).ConfigureAwait(false);
+        if (teardownCompleted) CompleteDeferredDisconnectUiState();
     }
 
-    private async Task StopAndDisposeAfterDrainAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
+    private async Task<bool> StopAndDisposeAfterDrainAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
     {
         await gateWait.ConfigureAwait(false);
         Task? stopTask = null;
@@ -811,6 +802,7 @@ public sealed class MainForm : Form
         {
             if (!teardownDeferred) DisposeDisconnectedClientAndReleaseGate(client);
         }
+        return !teardownDeferred;
     }
 
     private async Task FinishDeferredStopAndDisposeAsync(Task stopTask, HandyApiClient client)
@@ -826,7 +818,22 @@ public sealed class MainForm : Form
         finally
         {
             DisposeDisconnectedClientAndReleaseGate(client);
+            CompleteDeferredDisconnectUiState();
         }
+    }
+
+    private void CompleteDeferredDisconnectUiState()
+    {
+        if (IsDisposed || _isClosing || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!IsDisposed && !_isClosing)
+                    CompleteDisconnectUiState(teardownPending: false);
+            });
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
     }
 
     private void LogStopFailure(Exception ex)

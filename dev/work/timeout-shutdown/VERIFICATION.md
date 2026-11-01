@@ -111,7 +111,7 @@ Latest current `HandyApiTimeoutTests` class rerun:
 dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~HandyApiTimeoutTests" --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
 ```
 
-Result: **Passed, 10/10** on 2026-11-01. This rerun includes `DisconnectStop_IgnoresCanceledRequestLifetime_ButKeepsControlTimeout` and the later-added `SyncTimeout_ClearsReadyStateAndStopsPeriodicSync`.
+Result: **Passed, 24/24** (24 discovered) on 2026-11-01 at commit `64b96b6` (Windows, .NET 9, Debug). The 24 cases are 7 `[DataRow]` cases (5 + 2 across two `[DataTestMethod]` methods), 7 `[TestMethod]` methods and 10 `[STATestMethod]` methods. The cases include `DisconnectStop_IgnoresCanceledRequestLifetime_ButKeepsControlTimeout`, `SyncTimeout_ClearsReadyStateAndStopsPeriodicSync`, the non-cooperative transport tests and the stale-target timeout tests. An earlier rerun of this exact command reported 10/10 because the class had fewer tests then; the 24/24 result replaces it.
 
 M4 remaining-scenario command (per-sample clock bound, disconnect/close against an unavailable service, repeated disconnect):
 

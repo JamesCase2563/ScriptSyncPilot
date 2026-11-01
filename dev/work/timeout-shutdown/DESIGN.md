@@ -55,7 +55,7 @@ Prefer operation-scoped timeout cancellation linked with the caller token so use
 3. Drain serialized work. Active HTTP operations observe cancellation; already queued commands recheck client identity/readiness after acquiring the gate and exit without sending stale play/seek requests. The longest normal request budget is 60 seconds, while cancellation should make the drain finish sooner.
 4. If the captured client owns an installed/running HSSP script, make one bounded stop attempt using a separate token that bypasses the canceled request lifetime and remains bounded by the HSSP control budget.
 5. Record a safe log message if stop cannot be confirmed, including unexpected stop failures without logging raw transport exception text. Do not show a shutdown error dialog. Continue cleanup and dispose the client only after its in-flight request work has completed or been canceled and observed.
-6. Complete disconnect/close predictably. The UI must not report a confirmed physical stop when the request failed or timed out.
+6. Complete disconnect/close predictably. The close handler permits final close in a `finally` after best-effort teardown, logging unexpected teardown failures without showing a shutdown dialog. The UI must not report a confirmed physical stop when the request failed or timed out.
 
 Communication loss can prevent a physical stop; the software can promise only a bounded attempt and honest reporting.
 

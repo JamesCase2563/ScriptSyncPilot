@@ -179,6 +179,30 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void ClosingCompletesAfterStopFailureWithoutShowingShutdownDialog()
+    {
+        var shutdownDialogCount = 0;
+        using var handler = new RecordingHandler((_, _, _) =>
+            throw new InvalidOperationException("synthetic-secret-from-transport"));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => shutdownDialogCount++);
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var closingArgs = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        typeof(Form).GetMethod("OnFormClosing", PrivateInstance)!.Invoke(form, [closingArgs]);
+
+        Assert.IsTrue(closingArgs.Cancel, "The first close event should defer closing until asynchronous cleanup completes.");
+        PumpUntil(() => form.IsDisposed, TimeSpan.FromSeconds(3));
+
+        Assert.AreEqual(0, shutdownDialogCount);
+        Assert.IsTrue(handler.Requests.Any(request => request.Path == "hssp/stop"));
+        Assert.IsTrue(form.IsDisposed, "The form should close after the failed stop attempt and cleanup.");
+    }
+
+    [STATestMethod]
     public void PendingWritesRecheckFirmwareSupportAfterAcquiringGate()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

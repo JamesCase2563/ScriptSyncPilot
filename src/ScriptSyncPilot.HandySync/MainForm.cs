@@ -241,10 +241,28 @@ public sealed class MainForm : Form
             }
 
             _lifetimeCts.Cancel();
-            await DetachMpvAsync(stopDevice: false);
-            await DisconnectHandyAsync();
-            _allowClose = true;
-            Close();
+            try
+            {
+                await DetachMpvAsync(stopDevice: false);
+            }
+            catch (Exception)
+            {
+                Log("Could not fully detach mpv during shutdown; continuing cleanup.");
+            }
+
+            try
+            {
+                await DisconnectHandyAsync();
+            }
+            catch (Exception)
+            {
+                Log("Handy shutdown cleanup failed; closing the application.");
+            }
+            finally
+            {
+                _allowClose = true;
+                Close();
+            }
         };
     }
 

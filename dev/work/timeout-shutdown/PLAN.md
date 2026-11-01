@@ -39,7 +39,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 - [x] Cancel in-flight Handy requests before draining the command gate; queued commands recheck the active client/readiness and cannot send stale play/seek requests after disconnect begins.
 - [x] Attempt HSSP stop with its own bounded token, independent of canceled app lifetime; verified that canceled client work does not cancel the stop and that the control timeout still cancels a stalled stop request.
 - [x] Continue cleanup after stop failure/timeout, observing canceled work before disposing the captured client; disconnect waits for the command gate, disposes in a `finally`, and completes local state cleanup after a stop failure.
-- [ ] Ensure close flow completes predictably and logs stop failure without showing a shutdown error dialog.
+- [x] Ensure close flow completes predictably and logs stop failure without showing a shutdown error dialog; close is allowed in a `finally` after best-effort mpv and Handy cleanup.
 
 ### 4. Verify and close
 
@@ -50,6 +50,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 - [x] Verify in-flight command cancellation, queued seek suppression, and the post-drain stop attempt; 1/1 focused M3.2 test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify the disconnect stop bypasses canceled request lifetime while remaining bounded by the HSSP control timeout; 1/1 focused test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify cleanup and safe logging continue after a stop failure; 1/1 focused lifecycle test passed. M3.2 coverage also verifies canceled play work completes before the post-drain stop attempt. See [VERIFICATION.md](VERIFICATION.md).
+- [x] Verify application close completes after a stop failure without invoking the shutdown error callback; 1/1 focused WinForms lifecycle test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [ ] Run full solution tests/build and record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
 - [ ] Move any newly found independent defects to the owning backlog and link them here.
 - [ ] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) if implemented behavior changes its lifecycle contract.

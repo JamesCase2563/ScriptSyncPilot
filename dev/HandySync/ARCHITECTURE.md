@@ -22,12 +22,13 @@ Device playback requires an observed mpv speed of exactly 1x. Unknown or non-1x 
 ## Ordering and Lifecycle
 
 - One device-command semaphore covers connection requests, setup, playback, clock sync, and final stops.
+- Every Handy REST/hosting request and response read has an explicit budget (10 s for status/control, 5 s per server-time sample, 60 s for upload) enforced through linked cancellation. A timeout surfaces as a failed operation with safe operation text, distinct from caller cancellation, and never triggers dependent setup/play steps.
 - Queued work rechecks client/session identity after acquiring it. Playback notifications retain their originating session, including queued waveform/duration updates.
 - A session-transition semaphore serializes start/stop. Start remains disabled until teardown and readiness restoration finish.
-- Disconnect suspends commands, drains outstanding work, awaits the final stop attempt, logs failures, then disposes the captured client.
-- Closing awaits teardown. Normal session stop keeps the device connection and installs any selection changed during stop before restoring readiness.
+- Disconnect suspends command admission, cancels pending debounced writes and in-flight requests for the captured client, drains outstanding work, then awaits one final stop attempt bounded by the control budget and independent of the canceled application lifetime. Stop failure or timeout is logged safely and never reported as a confirmed stop; the client is disposed after its work is observed. Repeated disconnect requests share the in-progress teardown.
+- Closing awaits teardown and completes after best-effort cleanup without a shutdown error dialog. Normal session stop keeps the device connection and installs any selection changed during stop before restoring readiness.
 
-These are implemented foundations, not a complete recovery state machine or coalescing queue. Timeouts/retries, recovery, duplicate suppression, and diagnostics remain [backlog work](BACKLOG.md).
+These are implemented foundations, not a complete recovery state machine or coalescing queue. Retries, recovery, duplicate suppression, and expanded diagnostics remain [backlog work](BACKLOG.md).
 
 ## Settings and Connection Keys
 

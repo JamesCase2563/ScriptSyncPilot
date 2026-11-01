@@ -33,7 +33,7 @@ This is the agreed verification order, not evidence that verification is complet
 
 | Priority | Area / failure scenario | Minimum expectation |
 | --- | --- | --- |
-| 1 | Timeouts and shutdown: slow or unavailable services | Requests do not wait indefinitely; disconnect/shutdown finishes predictably and attempts to stop the device. Communication loss prevents guaranteeing a physical stop. |
+| 1 | Timeouts and shutdown: slow or unavailable services | Requests do not wait indefinitely; disconnect/shutdown finishes predictably and attempts to stop the device. Communication loss prevents guaranteeing a physical stop. Automated evidence recorded 2026-11-01 in the [timeout-shutdown verification](../timeout-shutdown/VERIFICATION.md). |
 | 2 | Error reporting: failed requests or operations | Failures are visible and actionable, do not falsely report success, and do not expose keys or private script URLs. |
 | 3 | Command ordering: disconnect or session replacement during queued/in-flight work | No stale play/seek commands are issued after disconnect or session replacement; preserve existing serialization and verify safe handling of in-flight requests. New command-coalescing machinery is not required. |
 | 4 | Firmware and capabilities: unsupported controls or missing/failed reads | Existing controls respect implemented firmware/capability gates; missing or failed reads are reported clearly. No broader hardware compatibility claim or new model support is required. |

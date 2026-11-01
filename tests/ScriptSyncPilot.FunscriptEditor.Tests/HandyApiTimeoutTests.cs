@@ -52,6 +52,23 @@ public sealed class HandyApiTimeoutTests
     }
 
     [TestMethod]
+    public async Task ClockSampling_BoundsEachSampleIndividually_AndAbortsAtTheStalledSample()
+    {
+        using var handler = new ServerTimeHandler(stallAtRequest: 3);
+        using var client = CreateClient(handler, serverTimeTimeout: ShortTimeout);
+
+        var stopwatch = Stopwatch.StartNew();
+        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(
+            () => client.EstimateClockOffsetMsAsync(15, CancellationToken.None));
+
+        Assert.AreEqual("servertime: request timed out.", error.Message);
+        Assert.AreEqual(3, handler.RequestCount, "Sampling must abort at the stalled sample without issuing the remaining requests.");
+        Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2),
+            "A stalled sample must fail within its per-sample budget, not the aggregate sampling bound.");
+        Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task HostingUploadTimeout_CancelsTransport_AndReturnsSafeTimeoutMessage()
     {
         using var deviceHandler = new NeverUsedHandler();
@@ -204,9 +221,10 @@ public sealed class HandyApiTimeoutTests
         instance.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(instance, value);
 
     private static HandyApiClient CreateClient(HttpMessageHandler deviceHandler,
-        HttpMessageHandler? hostingHandler = null, TimeSpan? controlTimeout = null, TimeSpan? uploadTimeout = null) =>
+        HttpMessageHandler? hostingHandler = null, TimeSpan? controlTimeout = null, TimeSpan? uploadTimeout = null,
+        TimeSpan? serverTimeTimeout = null) =>
         new("test-key", deviceHandler, new Uri("https://example.test/api/"), hostingHandler,
-            controlTimeout, scriptUploadTimeout: uploadTimeout);
+            controlTimeout, serverTimeTimeout, uploadTimeout);
 
     private sealed class BlockingHandler : HttpMessageHandler
     {
@@ -267,6 +285,34 @@ public sealed class HandyApiTimeoutTests
                 _ => ""
             };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        }
+    }
+
+    private sealed class ServerTimeHandler(int stallAtRequest) : HttpMessageHandler
+    {
+        private int _requestCount;
+
+        public int RequestCount => Volatile.Read(ref _requestCount);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var requestNumber = Interlocked.Increment(ref _requestCount);
+            if (requestNumber >= stallAtRequest)
+            {
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new TaskCanceledException(SyntheticSecret);
+                }
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"{{\"server_time\":{1000 + requestNumber}}}")
+            };
         }
     }
 

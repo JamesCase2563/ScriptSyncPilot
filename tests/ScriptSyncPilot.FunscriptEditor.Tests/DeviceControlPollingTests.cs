@@ -203,6 +203,128 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectStopTimeoutAgainstUnavailableServiceCompletesCleanupWithinBudget()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var stopCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/api/hssp/stop")
+                throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                stopCanceled.TrySetResult();
+                throw new TaskCanceledException("synthetic-secret-from-transport");
+            }
+            throw new InvalidOperationException("The stalled stop should only finish through cancellation.");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"),
+            controlRequestTimeout: TimeSpan.FromMilliseconds(100));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var teardownTimer = Stopwatch.StartNew();
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
+        disconnect.GetAwaiter().GetResult();
+
+        Assert.IsTrue(teardownTimer.Elapsed < TimeSpan.FromSeconds(3));
+        Assert.IsTrue(stopCanceled.Task.IsCompleted, "The stalled stop request must be canceled by its control timeout.");
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"));
+        Assert.IsNull(GetPrivateField(form, "_handy"));
+        Assert.IsFalse((bool)GetPrivateField(form, "_handyDisconnecting")!);
+        Assert.AreEqual("Idle", ((Label)GetPrivateField(form, "_status")!).Text);
+        var logText = ((TextBox)GetPrivateField(form, "_log")!).Text;
+        Assert.IsTrue(logText.Contains("Could not stop Handy playback: hssp/stop: request timed out.", StringComparison.Ordinal));
+        Assert.IsFalse(logText.Contains("synthetic-secret-from-transport", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void ClosingCompletesWhenStopTimesOutAgainstUnavailableServiceWithoutShutdownDialog()
+    {
+        var shutdownDialogCount = 0;
+        var stopCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/api/hssp/stop")
+                throw new InvalidOperationException($"Unexpected request during close: {request.RequestUri}");
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                stopCanceled.TrySetResult();
+                throw new TaskCanceledException("synthetic-secret-from-transport");
+            }
+            throw new InvalidOperationException("The stalled stop should only finish through cancellation.");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"),
+            controlRequestTimeout: TimeSpan.FromMilliseconds(100));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => shutdownDialogCount++);
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var closingArgs = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        typeof(Form).GetMethod("OnFormClosing", PrivateInstance)!.Invoke(form, [closingArgs]);
+
+        Assert.IsTrue(closingArgs.Cancel, "The first close event should defer closing until asynchronous cleanup completes.");
+        PumpUntil(() => form.IsDisposed, TimeSpan.FromSeconds(3));
+
+        Assert.AreEqual(0, shutdownDialogCount);
+        Assert.IsTrue(stopCanceled.Task.IsCompleted, "The stalled stop request must be canceled by its control timeout.");
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"));
+        Assert.IsTrue(form.IsDisposed, "The form should close after the timed-out stop attempt and cleanup.");
+    }
+
+    [STATestMethod]
+    public void RepeatedDisconnectSharesOneTeardownAndALaterDisconnectIsSafe()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/api/hssp/stop")
+                throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+            stopStarted.TrySetResult();
+            await releaseStop.Task.WaitAsync(cancellationToken);
+            return JsonResponse("{\"result\":\"ok\"}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var first = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => stopStarted.Task.IsCompleted, TimeSpan.FromSeconds(3));
+        var second = InvokePrivateTask(form, "DisconnectHandyAsync");
+        Assert.AreSame(first, second, "A disconnect requested during teardown must share the in-progress teardown task.");
+
+        releaseStop.TrySetResult();
+        PumpUntil(() => first.IsCompleted, TimeSpan.FromSeconds(3));
+        first.GetAwaiter().GetResult();
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"));
+
+        var third = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => third.IsCompleted, TimeSpan.FromSeconds(3));
+        third.GetAwaiter().GetResult();
+        PumpFor(TimeSpan.FromMilliseconds(100));
+
+        Assert.AreEqual(1, handler.Requests.Count, "A disconnect after teardown must not issue any further device requests.");
+        Assert.IsNull(GetPrivateField(form, "_handy"));
+        Assert.IsFalse((bool)GetPrivateField(form, "_handyDisconnecting")!);
+        Assert.AreEqual("Idle", ((Label)GetPrivateField(form, "_status")!).Text);
+    }
+
+    [STATestMethod]
     public void PendingWritesRecheckFirmwareSupportAfterAcquiringGate()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

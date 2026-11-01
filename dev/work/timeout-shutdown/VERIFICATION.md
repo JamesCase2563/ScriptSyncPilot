@@ -1,10 +1,10 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Focused request-timeout, connect-flow, play-timeout, and M3.1–M3.5 behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Complete 2026-11-01. All planned fake-transport scenarios passed, including clock sampling, unavailable-service disconnect/close, and repeated disconnect; the full solution build and test suite passed (278/278). This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
-`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven timeout tests passed in the out-of-sandbox run recorded below.
+`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, per-sample clock-sampling bounds, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven timeout tests passed in the out-of-sandbox run recorded below; the later clock-sampling test passed in the M4 run.
 
 Record each run with the exact command, environment, result, and relevant test names. Use fake transports and controlled delays; do not use real connection keys, hosted-script URLs, or live device/service dependencies.
 
@@ -22,11 +22,11 @@ Record each run with the exact command, environment, result, and relevant test n
 | Disconnect stop after request lifetime cancellation | Stop starts despite canceled client request lifetime and is canceled by its own control timeout if stalled. | Passed |
 | Stop failure during disconnect | Failure is logged without transport exception details; client and local disconnect cleanup still complete. | Passed |
 | Application close during stop failure | Close completes after best-effort teardown; no shutdown error dialog is shown. | Passed |
-| Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Pending |
+| Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Passed |
 | Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Passed for blocked play and queued seek |
 | Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Passed for the M3.2 blocked-play flow |
-| Disconnect/close with unavailable service | Stop attempt times out within budget, failure is logged safely without a shutdown dialog, cleanup completes, and no confirmed-stop claim is made. | Pending |
-| Repeated disconnect/close path | No duplicate unsafe disposal, unobserved task failure, or command after teardown. | Pending |
+| Disconnect/close with unavailable service | Stop attempt times out within budget, failure is logged safely without a shutdown dialog, cleanup completes, and no confirmed-stop claim is made. | Passed |
+| Repeated disconnect/close path | No duplicate unsafe disposal, unobserved task failure, or command after teardown. | Passed |
 
 ### Commands and results
 
@@ -86,6 +86,28 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 
 Result: **Passed, 1/1**. The first close event was deferred for asynchronous teardown; despite a failed stop request the form closed, and the shutdown error callback was never invoked.
 
+M4 remaining-scenario command (per-sample clock bound, disconnect/close against an unavailable service, repeated disconnect):
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj -m:1 --filter "FullyQualifiedName~ClockSampling_BoundsEachSampleIndividually|FullyQualifiedName~DisconnectStopTimeoutAgainstUnavailableService|FullyQualifiedName~ClosingCompletesWhenStopTimesOutAgainstUnavailableService|FullyQualifiedName~RepeatedDisconnectSharesOneTeardown" --verbosity minimal
+```
+
+Result: **Passed, 4/4** (2026-11-01, Windows, .NET 9, Debug).
+
+- `ClockSampling_BoundsEachSampleIndividually_AndAbortsAtTheStalledSample`: a 15-sample estimate with the third server-time sample stalled failed with the safe `servertime: request timed out.` message within one per-sample budget; exactly 3 requests were sent, confirming the per-sample (not aggregate) bound and that the remaining samples are never issued.
+- `DisconnectStopTimeoutAgainstUnavailableServiceCompletesCleanupWithinBudget`: the stalled stop request was canceled by the injected control timeout, disconnect logged `Could not stop Handy playback: hssp/stop: request timed out.` without transport exception text, and local cleanup (cleared client, idle status, re-enabled connect) completed within the test bound. No confirmed-stop claim was made.
+- `ClosingCompletesWhenStopTimesOutAgainstUnavailableServiceWithoutShutdownDialog`: application close deferred the first close event, the stalled stop was canceled by its control timeout, the form closed, and the shutdown error callback was never invoked.
+- `RepeatedDisconnectSharesOneTeardownAndALaterDisconnectIsSafe`: a disconnect requested during teardown returned the same in-progress task (one stop request total), and a later disconnect after completion finished without issuing further device requests, duplicate disposal, or unobserved task failures (`HandyApiClient.Dispose` is idempotent).
+
+M4 full solution build and test run:
+
+```powershell
+dotnet build ScriptSyncPilot.slnx --verbosity minimal
+dotnet test ScriptSyncPilot.slnx --no-build -m:1 --verbosity minimal
+```
+
+Result: **Build succeeded, 0 warnings, 0 errors. Tests passed 278/278** (ScriptSyncPilot.Common.Tests 88/88 in 460 ms; ScriptSyncPilot.FunscriptEditor.Tests 190/190 in 5 s). Run 2026-11-01 on Windows, .NET 9, Debug configuration, outside the sandbox.
+
 ## Manual verification
 
 Pending. If performed, record OS/runtime, app build, mpv state, and whether the service/device was reachable. Verify the UI remains usable or closes within the documented bound and that stop failure is logged without a shutdown dialog or exposure of credentials/private URLs. A manual check is supplementary; simulated failure coverage is sufficient where practical.
@@ -94,5 +116,6 @@ Pending. If performed, record OS/runtime, app build, mpv state, and whether the 
 
 - A timeout bounds the client's wait; it cannot prove the remote service did not process a request after the client stopped waiting.
 - If communication is lost, HandySync cannot guarantee that the physical device stopped. User-facing limitations must continue to say this clearly.
-- No verification evidence is recorded yet. Once completed, link this evidence from the Reliability and data preservation gate and priority 1 row in [production-readiness PLAN](../production-readiness/PLAN.md).
+- The lifecycle tests drive `MainForm` through its private disconnect/close entry points with fake transports; they do not exercise a real Windows session close (`CloseReason.WindowsShutDown`) or a live service outage. Manual verification remains supplementary and was not performed.
+- Automated verification is complete; this evidence is linked from the priority 1 row in the [production-readiness PLAN](../production-readiness/PLAN.md). The Reliability and data preservation gate itself remains open until its full scope is reviewed there.
 

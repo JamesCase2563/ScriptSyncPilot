@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Plan
 
-**Status:** Approved by the maintainer on 2026-10-31; implementation in progress. Request budgets and focused timeout behavior are verified; teardown and full acceptance verification remain pending. Initial design decisions recorded 2026-10-31.
+**Status:** Complete 2026-11-01. All milestones are done: request budgets, bounded teardown, and the full automated acceptance verification passed. Approved by the maintainer on 2026-10-31; initial design decisions recorded 2026-10-31.
 **Affected projects:** HandySync.
 **Goal:** Ensure HandySync requests and shutdown are bounded, stop is attempted safely, failures are visible, and no stale device command is issued after disconnect.
 
@@ -44,17 +44,18 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 ### 4. Verify and close
 
 - [x] Add fake-handler tests for REST, upload, response-read, and caller-cancellation behavior.
-- [ ] Add lifecycle tests for blocked in-flight commands, stop success/failure/timeout, cleanup, and no stale post-disconnect commands.
+- [x] Add lifecycle tests for blocked in-flight commands, stop success/failure/timeout, cleanup, and no stale post-disconnect commands.
 - [x] Run focused HandyApi timeout/connect-flow tests; 7/7 passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify disconnect command admission and pending-write cancellation; 2/2 focused lifecycle tests passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify in-flight command cancellation, queued seek suppression, and the post-drain stop attempt; 1/1 focused M3.2 test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify the disconnect stop bypasses canceled request lifetime while remaining bounded by the HSSP control timeout; 1/1 focused test passed. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify cleanup and safe logging continue after a stop failure; 1/1 focused lifecycle test passed. M3.2 coverage also verifies canceled play work completes before the post-drain stop attempt. See [VERIFICATION.md](VERIFICATION.md).
 - [x] Verify application close completes after a stop failure without invoking the shutdown error callback; 1/1 focused WinForms lifecycle test passed. See [VERIFICATION.md](VERIFICATION.md).
-- [ ] Run full solution tests/build and record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
-- [ ] Move any newly found independent defects to the owning backlog and link them here.
-- [ ] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) if implemented behavior changes its lifecycle contract.
-- [ ] Record completion and any remaining limitations here; archive the work folder only when all required work is complete.
+- [x] Verify the remaining acceptance scenarios: per-sample clock-sampling bounds, disconnect/close against an unavailable service (stop timeout), and repeated disconnect; 4/4 focused tests passed. See [VERIFICATION.md](VERIFICATION.md).
+- [x] Run full solution tests/build and record exact commands and results in [VERIFICATION.md](VERIFICATION.md); build succeeded and 278/278 tests passed on 2026-11-01.
+- [x] Move any newly found independent defects to the owning backlog and link them here. No independent defects were found during final verification; minor non-blocking robustness notes (string-suffix timeout detection in `MainForm.IsRequestTimeout`, duplicated timeout-wrapper overloads in `HandyApiClient`) are recorded in the status section below.
+- [x] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) if implemented behavior changes its lifecycle contract. The lifecycle section now documents the request budgets and bounded disconnect/close contract.
+- [x] Record completion and any remaining limitations here; archive the work folder only when all required work is complete.
 
 ## Acceptance criteria
 
@@ -70,5 +71,7 @@ Out of scope: automatic retries/backoff, reconnect/session restoration, command 
 
 ## Status and outcome
 
-M2 bounded requests and timeout failure handling are implemented and focused tests pass. M3 teardown behavior, full solution verification, and the remaining acceptance criteria are still open. Keep detailed evidence and unresolved limitations in [VERIFICATION.md](VERIFICATION.md); record the completion date, change/PR reference, and architecture/backlog updates here when the full work item is done.
+Completed 2026-11-01 on branch `work/handysync-timeout-shutdown`. All acceptance criteria are verified with fake transports: every Handy HTTP operation and response read is bounded (10 s control/status, 5 s per time sample, 60 s upload), timeouts surface as failed operations distinct from caller cancellation with secret-free text, dependent setup/play never proceeds after a timed-out prerequisite, disconnect/close finish within the documented drain-plus-stop bound even against an unavailable service, exactly one bounded stop attempt is made and never reported as a confirmed stop on failure, no stale play/seek is issued after disconnect, and the captured client is disposed only after in-flight work is observed. No automatic retry, reconnect, or coalescing behavior was introduced. Full evidence, exact commands, and results are in [VERIFICATION.md](VERIFICATION.md); the [HandySync architecture](../../HandySync/ARCHITECTURE.md) lifecycle contract and the [HandySync backlog](../../HandySync/BACKLOG.md#request-timeouts-and-retries) status were updated.
+
+Remaining limitations: a timeout bounds only the client's wait and cannot guarantee a physical device stop under communication loss; manual UI observation was not performed (supplementary only); timeout detection in `MainForm` relies on the client's `": request timed out."` message suffix and the two `WithRequestTimeoutAsync` overloads in `HandyApiClient` duplicate logic — both are internal, test-covered robustness notes, not defects, and may be cleaned up opportunistically. Expanded retries/backoff and reconnect/HSSP recovery remain deferred backlog items.
 

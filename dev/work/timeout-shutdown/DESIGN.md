@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Design
 
-**Status:** Approved by the maintainer on 2026-10-31; request budgets implemented and focused timeout behavior verified. Shutdown verification remains pending.
+**Status:** Implemented and verified; the work item completed 2026-11-01 (see [PLAN.md](PLAN.md) and [VERIFICATION.md](VERIFICATION.md)). Approved by the maintainer on 2026-10-31.
 **Affected projects:** HandySync. Common and FunscriptEditor are out of scope unless investigation finds a shared HTTP or lifecycle defect that blocks this work.
 
 ## Goal

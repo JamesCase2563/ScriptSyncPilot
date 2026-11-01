@@ -65,7 +65,7 @@ so typing time does not move the note away from the moment being reviewed.
 
 ## Reconnect and HSSP Recovery
 
-**Priority:** High. **Status:** Timeout and shutdown work selected for initial-release verification; see the [approved work plan](../work/timeout-shutdown/PLAN.md). Expanded automatic retries/backoff remain deferred.
+**Priority:** High. **Status:** Deferred; not selected for the initial release. Only the separate bounded-request and shutdown prerequisite is implemented (see [Request Timeouts and Retries](#request-timeouts-and-retries) and the [completed work plan](../work/timeout-shutdown/PLAN.md)). Unavailable/recovering states, takeover/reboot detection, automatic reconnect, HSSP restoration and retries/backoff remain unimplemented; future recovery should build on the existing request budgets.
 
 Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
 

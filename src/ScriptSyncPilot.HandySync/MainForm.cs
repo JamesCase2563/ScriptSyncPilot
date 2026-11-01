@@ -295,8 +295,20 @@ public sealed class MainForm : Form
     private void Log(string message)
     {
         AppLog.Write(message);
-        if (!IsDisposed && IsHandleCreated)
-            BeginInvoke(() => _log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}"));
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!_isClosing && !IsDisposed && IsHandleCreated && !_log.IsDisposed)
+                    _log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // The handle can be destroyed after the checks above while deferred cleanup is logging.
+        }
     }
 
     private void SetStatus(string text) => BeginInvoke(() => _status.Text = text);

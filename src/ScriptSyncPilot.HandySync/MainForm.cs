@@ -92,6 +92,7 @@ public sealed class MainForm : Form
     private bool _mpvAttachInProgress;
     private bool _mpvDetaching;
     private bool _handyDisconnecting;
+    private Task? _handyDisconnectTask;
     private bool _isClosing;
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -425,10 +426,12 @@ public sealed class MainForm : Form
         }
 
         _connectButton.Enabled = false;
+        HandyApiClient? connectingClient = null;
         try
         {
             SetStatus("Connecting to Handy…");
             var client = _createHandyClient(_connectionKeyBox.Text.Trim());
+            connectingClient = client;
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
@@ -498,6 +501,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
+            if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
             SetStatus("Handy error");
             await DisconnectHandyAsync();
@@ -678,7 +682,13 @@ public sealed class MainForm : Form
         }
     }
 
-    private async Task DisconnectHandyAsync()
+    private Task DisconnectHandyAsync()
+    {
+        if (_handyDisconnectTask is { IsCompleted: false }) return _handyDisconnectTask;
+        return _handyDisconnectTask = DisconnectHandyCoreAsync();
+    }
+
+    private async Task DisconnectHandyCoreAsync()
     {
         _handyDisconnecting = true;
         _devicePollTimer.Stop();
@@ -694,11 +704,12 @@ public sealed class MainForm : Form
         _disconnectButton.Enabled = false;
         _connectButton.Enabled = false;
 
+        client?.CancelPendingRequests();
         await _deviceCommandGate.WaitAsync();
         try
         {
             if (client is not null && shouldStopDevice)
-                await client.HsspStopAsync(CancellationToken.None);
+                await client.HsspStopForDisconnectAsync();
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
         {

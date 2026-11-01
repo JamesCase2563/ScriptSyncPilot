@@ -50,10 +50,10 @@ Prefer operation-scoped timeout cancellation linked with the caller token so use
 
 ## Shutdown behavior
 
-1. Mark disconnect/close in progress and stop polling or scheduling device writes.
-2. Cancel pending debounced writes and prevent new commands from entering for the captured client.
-3. Drain serialized work within the documented teardown bound, preserving command ordering and preventing stale play/seek work after disconnect.
-4. If the captured client owns an installed/running HSSP script, make one bounded stop attempt using a token that is not canceled merely because application lifetime has ended.
+1. Mark disconnect/close in progress, stop polling, clear the active client/readiness state, and stop scheduling device writes.
+2. Cancel pending debounced writes and cancel active Handy REST/hosting operations for the captured client before waiting on the command gate.
+3. Drain serialized work. Active HTTP operations observe cancellation; already queued commands recheck client identity/readiness after acquiring the gate and exit without sending stale play/seek requests. The longest normal request budget is 60 seconds, while cancellation should make the drain finish sooner.
+4. If the captured client owns an installed/running HSSP script, make one bounded stop attempt using a separate token that bypasses the canceled request lifetime and remains bounded by the HSSP control budget.
 5. Record a safe log message if stop cannot be confirmed. Do not show a shutdown error dialog. Continue cleanup and dispose the client only after its in-flight request work has completed or been canceled and observed.
 6. Complete disconnect/close predictably. The UI must not report a confirmed physical stop when the request failed or timed out.
 
@@ -64,6 +64,7 @@ Communication loss can prevent a physical stop; the software can promise only a 
 - Report timeout separately from explicit user/lifecycle cancellation where the UI or logs distinguish them.
 - Treat timeout as a failed operation; never convert it to a success-shaped response or silently continue setup/play as if the operation completed.
 - Connect aborts on timeout during firmware or initial device-control reads, upload, or HSSP setup. If the initial HSSP play/stop request times out, HandySync clears the ready state, stops periodic sync, and reports that device state is unknown.
+- Disconnect cancels all pending HTTP work for the captured client, drains the serialized command gate, and then uses the separate bounded HSSP stop request. `HandyApiClient.Dispose` is safe to call repeatedly.
 - Do not add automatic retries in this work. Retry policy for transient resets, DNS failures, HTTP 408/429/5xx and `Retry-After` remains separately deferred in the HandySync backlog.
 - Preserve existing useful, secret-free diagnostics and existing response validation.
 

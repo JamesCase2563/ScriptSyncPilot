@@ -97,6 +97,62 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectCancelsInflightPlayAndSkipsQueuedSeekBeforeStop()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var playStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var playCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/hssp/play")
+            {
+                playStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    playCanceled.TrySetResult();
+                    throw;
+                }
+            }
+
+            if (request.RequestUri!.AbsolutePath == "/api/hssp/stop")
+                return JsonResponse("{\"result\":\"ok\"}");
+
+            throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var session = new ScriptSyncPilot.Common.MpvSession();
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.IsPaused))!
+            .SetValue(session, false);
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+            .SetValue(session, 1.0);
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_hsspReady", true);
+        SetPrivateField(form, "_installedScriptClient", client);
+        SetPrivateField(form, "_mpv", session);
+        _ = form.Handle;
+
+        var play = InvokePrivateTask(form, "OnMpvPauseChangedAsync", session, false);
+        PumpUntil(() => playStarted.Task.IsCompleted, TimeSpan.FromSeconds(3));
+        var queuedSeek = InvokePrivateTask(form, "OnMpvPositionChangedAsync", session, 10d);
+        Assert.IsFalse(queuedSeek.IsCompleted);
+
+        var drainTimer = Stopwatch.StartNew();
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => disconnect.IsCompleted && play.IsCompleted && queuedSeek.IsCompleted, TimeSpan.FromSeconds(3));
+        disconnect.GetAwaiter().GetResult();
+        play.GetAwaiter().GetResult();
+        queuedSeek.GetAwaiter().GetResult();
+
+        Assert.IsTrue(drainTimer.Elapsed < TimeSpan.FromSeconds(3));
+        Assert.IsTrue(playCanceled.Task.IsCompleted);
+        CollectionAssert.AreEqual(new[] { "hssp/play", "hssp/stop" }, handler.Requests.Select(request => request.Path).ToArray());
+    }
+
+    [STATestMethod]
     public void PendingWritesRecheckFirmwareSupportAfterAcquiringGate()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

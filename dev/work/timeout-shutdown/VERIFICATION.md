@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Focused request-timeout, connect-flow, play-timeout, and M3.1 disconnect behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Focused request-timeout, connect-flow, play-timeout, M3.1, and M3.2 behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
@@ -18,9 +18,10 @@ Record each run with the exact command, environment, result, and relevant test n
 | Caller cancels before budget | Cancellation remains cancellation and is not mislabeled as timeout. | Passed |
 | Pending offset/stroke writes at disconnect | Both debounced writes are canceled before they send. | Passed |
 | New offset/stroke writes while stop is in progress | Disconnect does not admit new device-control writes. | Passed |
+| In-flight play and queued seek at disconnect | Active request is canceled, queued seek is skipped, and stop is attempted after the gate drains. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Pending |
-| Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Pending |
-| Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Pending |
+| Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Passed for blocked play and queued seek |
+| Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Passed for the M3.2 blocked-play flow |
 | Disconnect/close with unavailable service | Stop attempt times out within budget, failure is logged safely without a shutdown dialog, cleanup completes, and no confirmed-stop claim is made. | Pending |
 | Repeated disconnect/close path | No duplicate unsafe disposal, unobserved task failure, or command after teardown. | Pending |
 
@@ -49,6 +50,14 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 ```
 
 Result: **Passed, 2/2**. Both pending debounced writes were absent from the request log after disconnect, and no new control writes were issued while the stop request was held open.
+
+M3.2 focused serialized-command drain command:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~PendingOffsetAndStrokeWritesAreCancelledWhenDisconnectBegins|FullyQualifiedName~DisconnectRejectsNewWritesWhileStopIsInProgress|FullyQualifiedName~DisconnectCancelsInflightPlayAndSkipsQueuedSeekBeforeStop" --verbosity minimal
+```
+
+Result: **Passed, 3/3**. Disconnect canceled the blocked play operation, the queued seek sent no request after disconnect began, and the bounded stop request ran after the command gate drained.
 
 ## Manual verification
 

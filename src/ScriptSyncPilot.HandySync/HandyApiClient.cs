@@ -33,6 +33,8 @@ public sealed class HandyApiClient : IDisposable
     private readonly TimeSpan _controlRequestTimeout;
     private readonly TimeSpan _serverTimeRequestTimeout;
     private readonly TimeSpan _scriptUploadTimeout;
+    private readonly CancellationTokenSource _pendingRequestsCts = new();
+    private int _disposed;
 
     public HandyApiClient(string connectionKey)
         : this(connectionKey, new HttpClientHandler(), new Uri(BaseUrl))
@@ -162,15 +164,29 @@ public sealed class HandyApiClient : IDisposable
         WithRequestTimeoutAsync("hssp/stop", _controlRequestTimeout, ct,
             token => PutAsync("hssp/stop", null, token));
 
+    internal Task HsspStopForDisconnectAsync() =>
+        WithRequestTimeoutAsync("hssp/stop", _controlRequestTimeout, CancellationToken.None,
+            token => PutAsync("hssp/stop", null, token), ignorePendingRequestCancellation: true);
+
+    internal void CancelPendingRequests()
+    {
+        try { _pendingRequestsCts.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
     /// <summary>Nudges the device's running playback clock towards currentTimeMs without restarting playback.</summary>
     public Task HsspSyncTimeAsync(long currentTimeMs, long serverTimeMs, double filter = 0.5, CancellationToken ct = default) =>
         WithRequestTimeoutAsync("hssp/synctime", _controlRequestTimeout, ct,
             token => PutAsync("hssp/synctime", new { current_time = currentTimeMs, server_time = serverTimeMs, filter }, token));
 
-    private static async Task<T> WithRequestTimeoutAsync<T>(string operation, TimeSpan timeout,
-        CancellationToken callerToken, Func<CancellationToken, Task<T>> sendAndRead)
+    private async Task<T> WithRequestTimeoutAsync<T>(string operation, TimeSpan timeout,
+        CancellationToken callerToken, Func<CancellationToken, Task<T>> sendAndRead,
+        bool ignorePendingRequestCancellation = false)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        using var requestCts = ignorePendingRequestCancellation
+            ? CancellationTokenSource.CreateLinkedTokenSource(callerToken)
+            : CancellationTokenSource.CreateLinkedTokenSource(callerToken, _pendingRequestsCts.Token);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
         timeoutCts.CancelAfter(timeout);
         try
         {
@@ -180,22 +196,34 @@ public sealed class HandyApiClient : IDisposable
         {
             throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
         }
+        catch (OperationCanceledException) when (!ignorePendingRequestCancellation && _pendingRequestsCts.IsCancellationRequested)
+        {
+            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
+        }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {
             throw new TaskCanceledException($"{operation}: request timed out.", null, callerToken);
         }
     }
 
-    private static async Task WithRequestTimeoutAsync(string operation, TimeSpan timeout,
-        CancellationToken callerToken, Func<CancellationToken, Task> sendAndRead)
+    private async Task WithRequestTimeoutAsync(string operation, TimeSpan timeout,
+        CancellationToken callerToken, Func<CancellationToken, Task> sendAndRead,
+        bool ignorePendingRequestCancellation = false)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        using var requestCts = ignorePendingRequestCancellation
+            ? CancellationTokenSource.CreateLinkedTokenSource(callerToken)
+            : CancellationTokenSource.CreateLinkedTokenSource(callerToken, _pendingRequestsCts.Token);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
         timeoutCts.CancelAfter(timeout);
         try
         {
             await sendAndRead(timeoutCts.Token);
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
+        {
+            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
+        }
+        catch (OperationCanceledException) when (!ignorePendingRequestCancellation && _pendingRequestsCts.IsCancellationRequested)
         {
             throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
         }
@@ -330,8 +358,11 @@ public sealed class HandyApiClient : IDisposable
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _pendingRequestsCts.Cancel();
         _http.Dispose();
         _hostingHttp.Dispose();
+        _pendingRequestsCts.Dispose();
     }
 
     private sealed class ServerTimeResponse

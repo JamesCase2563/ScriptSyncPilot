@@ -15,6 +15,7 @@ namespace ScriptSyncPilot.HandySync;
 public sealed class MainForm : Form
 {
     private static readonly TimeSpan DisconnectDrainTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ShutdownSessionTransitionTimeout = TimeSpan.FromSeconds(2);
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -247,7 +248,7 @@ public sealed class MainForm : Form
             _lifetimeCts.Cancel();
             try
             {
-                await DetachMpvAsync(stopDevice: false);
+                await DetachMpvForShutdownAsync();
             }
             catch (Exception)
             {
@@ -268,6 +269,26 @@ public sealed class MainForm : Form
                 Close();
             }
         };
+    }
+
+    private async Task DetachMpvForShutdownAsync()
+    {
+        var gateAcquired = false;
+        try
+        {
+            gateAcquired = await _sessionTransitionGate.WaitAsync(ShutdownSessionTransitionTimeout);
+            if (!gateAcquired)
+            {
+                Log("mpv transition did not finish before the shutdown deadline; continuing Handy cleanup.");
+                return;
+            }
+
+            await DetachMpvCoreAsync(stopDevice: false);
+        }
+        finally
+        {
+            if (gateAcquired) _sessionTransitionGate.Release();
+        }
     }
 
     private void Log(string message)

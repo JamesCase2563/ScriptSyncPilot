@@ -14,7 +14,7 @@ This work addresses the production-readiness reliability priority for timeouts a
 - `HandyApiClient` owns separate `HttpClient` instances for REST and hosting requests. The clients have framework timeouts disabled; explicit operation budgets use linked cancellation tokens: 10 seconds for status/control, 5 seconds per server-time sample, and 60 seconds for upload.
 - Sends use `ResponseHeadersRead`; the same operation token bounds sending and subsequent response-body reads. Caller cancellation propagates as cancellation; expiration of the operation budget is surfaced as a safe `TaskCanceledException` with operation-specific timeout text.
 - `MainForm` cancels its lifetime token during close, then detaches mpv and calls `DisconnectHandyAsync`.
-- Disconnect suspends device work, cancels debounced writes, clears the active client, waits for the serialized device-command gate, attempts HSSP stop with `CancellationToken.None`, then disposes the captured client.
+- Disconnect suspends device work, cancels debounced writes and pending requests, clears the active client, waits for the serialized device-command gate, attempts HSSP stop with a separately bounded token, then disposes the captured client even if stop fails.
 - The stop request has no caller cancellation and is now independently bounded by the 10-second HSSP control budget. The shutdown path must keep that final stop attempt independent of the already-canceled application lifetime token.
 
 ## Request-path characterization (M1.1)
@@ -54,7 +54,7 @@ Prefer operation-scoped timeout cancellation linked with the caller token so use
 2. Cancel pending debounced writes and cancel active Handy REST/hosting operations for the captured client before waiting on the command gate.
 3. Drain serialized work. Active HTTP operations observe cancellation; already queued commands recheck client identity/readiness after acquiring the gate and exit without sending stale play/seek requests. The longest normal request budget is 60 seconds, while cancellation should make the drain finish sooner.
 4. If the captured client owns an installed/running HSSP script, make one bounded stop attempt using a separate token that bypasses the canceled request lifetime and remains bounded by the HSSP control budget.
-5. Record a safe log message if stop cannot be confirmed. Do not show a shutdown error dialog. Continue cleanup and dispose the client only after its in-flight request work has completed or been canceled and observed.
+5. Record a safe log message if stop cannot be confirmed, including unexpected stop failures without logging raw transport exception text. Do not show a shutdown error dialog. Continue cleanup and dispose the client only after its in-flight request work has completed or been canceled and observed.
 6. Complete disconnect/close predictably. The UI must not report a confirmed physical stop when the request failed or timed out.
 
 Communication loss can prevent a physical stop; the software can promise only a bounded attempt and honest reporting.

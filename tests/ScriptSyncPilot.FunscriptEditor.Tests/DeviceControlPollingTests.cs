@@ -153,6 +153,32 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectContinuesCleanupAfterUnexpectedStopFailure()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) =>
+            throw new InvalidOperationException("synthetic-secret-from-transport"));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
+        disconnect.GetAwaiter().GetResult();
+        PumpFor(TimeSpan.FromMilliseconds(20));
+
+        Assert.IsNull(GetPrivateField(form, "_handy"));
+        Assert.IsFalse((bool)GetPrivateField(form, "_handyDisconnecting")!);
+        Assert.AreEqual("not connected", ((Label)GetPrivateField(form, "_offsetState")!).Text);
+        Assert.AreEqual("Idle", ((Label)GetPrivateField(form, "_status")!).Text);
+        var logText = ((TextBox)GetPrivateField(form, "_log")!).Text;
+        Assert.IsTrue(logText.Contains("Could not stop Handy playback", StringComparison.Ordinal));
+        Assert.IsTrue(logText.Contains("device state is unknown", StringComparison.Ordinal));
+        Assert.IsFalse(logText.Contains("synthetic-secret-from-transport", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
     public void PendingWritesRecheckFirmwareSupportAfterAcquiringGate()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

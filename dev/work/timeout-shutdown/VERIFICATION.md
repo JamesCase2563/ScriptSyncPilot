@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Focused request-timeout, connect-flow, play-timeout, and M3.1–M3.3 behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Focused request-timeout, connect-flow, play-timeout, and M3.1–M3.4 behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
@@ -20,6 +20,7 @@ Record each run with the exact command, environment, result, and relevant test n
 | New offset/stroke writes while stop is in progress | Disconnect does not admit new device-control writes. | Passed |
 | In-flight play and queued seek at disconnect | Active request is canceled, queued seek is skipped, and stop is attempted after the gate drains. | Passed |
 | Disconnect stop after request lifetime cancellation | Stop starts despite canceled client request lifetime and is canceled by its own control timeout if stalled. | Passed |
+| Stop failure during disconnect | Failure is logged without transport exception details; client and local disconnect cleanup still complete. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Pending |
 | Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Passed for blocked play and queued seek |
 | Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Passed for the M3.2 blocked-play flow |
@@ -67,6 +68,14 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 ```
 
 Result: **Passed, 1/1**. After canceling the client's normal request lifetime, the stop request still started; the injected control timeout canceled its stalled transport and returned the safe `hssp/stop: request timed out.` failure.
+
+M3.4 cleanup after stop failure command:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~DisconnectContinuesCleanupAfterUnexpectedStopFailure" --verbosity minimal
+```
+
+Result: **Passed, 1/1**. The stop transport threw an unexpected exception containing synthetic secret text; disconnect logged a safe failure, cleared the active client and UI disconnect state, and completed normally. The M3.2 blocked-play test separately verifies that canceled serialized work completes before stop begins and before disconnect completes.
 
 ## Manual verification
 

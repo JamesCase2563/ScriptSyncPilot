@@ -715,6 +715,10 @@ public sealed class MainForm : Form
         {
             Log($"Could not stop Handy playback: {ex.Message}");
         }
+        catch (Exception)
+        {
+            Log("Could not stop Handy playback: request failed; device state is unknown.");
+        }
         finally
         {
             client?.Dispose();

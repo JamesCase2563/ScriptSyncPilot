@@ -193,7 +193,9 @@ public sealed class DeviceControlPollingTests
         disconnect.GetAwaiter().GetResult();
 
         Assert.IsTrue(disconnectTimer.Elapsed < TimeSpan.FromSeconds(1));
-        Assert.IsFalse(play.IsCompleted, "The disconnect caller must not wait indefinitely for a non-cooperative request.");
+        Assert.IsTrue(play.IsCompleted, "Cancellation must end the command wait even while the transport remains pending.");
+        Assert.AreEqual(0, ((SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!).CurrentCount,
+            "The command gate must remain owned until the underlying transport completes.");
         Assert.IsFalse(handler.IsDisposed, "The client must remain alive while the active command can still use it.");
         Assert.IsFalse(handler.Requests.Any(request => request.Path == "hssp/stop"),
             "Stop must wait until the serialized command releases the gate.");
@@ -290,7 +292,8 @@ public sealed class DeviceControlPollingTests
 
         var teardownTimer = Stopwatch.StartNew();
         var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
-        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
+        PumpUntil(() => disconnect.IsCompleted && !(bool)GetPrivateField(form, "_handyDisconnecting")!,
+            TimeSpan.FromSeconds(3));
         disconnect.GetAwaiter().GetResult();
 
         Assert.IsTrue(teardownTimer.Elapsed < TimeSpan.FromSeconds(3));
@@ -306,6 +309,13 @@ public sealed class DeviceControlPollingTests
 
     [STATestMethod]
     public void DisconnectStopThatIgnoresCancellationRemainsPendingUntilDeferredTeardownReleasesGate()
+        => VerifyNonCooperativeStopTeardown(TimeSpan.FromSeconds(10));
+
+    [STATestMethod]
+    public void DisconnectStopHardRequestTimeoutRetainsGateUntilUnderlyingTransportCompletes()
+        => VerifyNonCooperativeStopTeardown(TimeSpan.FromMilliseconds(100));
+
+    private static void VerifyNonCooperativeStopTeardown(TimeSpan controlTimeout)
     {
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -317,7 +327,8 @@ public sealed class DeviceControlPollingTests
             await releaseStop.Task; // Deliberately ignore cancellation to exercise the independent hard wait.
             return JsonResponse("{\"result\":\"ok\"}");
         });
-        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"),
+            controlRequestTimeout: controlTimeout);
         using var form = new ScriptSyncPilot.HandySync.MainForm();
         InitializeWritableForm(form, client);
         SetPrivateField(form, "_installedScriptClient", client);

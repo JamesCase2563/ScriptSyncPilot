@@ -392,7 +392,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _deviceCommandGate.Release();
+            ReleaseDeviceCommandGate(client);
         }
     }
 
@@ -509,7 +509,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
 
             if (!isConnected)
@@ -525,7 +525,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
             Log("Device set to HSSP mode.");
 
@@ -538,7 +538,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
 
@@ -581,7 +581,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
 
             var modelName = string.IsNullOrWhiteSpace(info.ModelName)
@@ -725,7 +725,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            if (gateAcquired) _deviceCommandGate.Release();
+            if (gateAcquired) ReleaseDeviceCommandGate(client);
         }
 
         if (_deviceControlsSupported && ReferenceEquals(_handy, client) && !_handyDisconnecting
@@ -812,6 +812,12 @@ public sealed class MainForm : Form
         }
         finally
         {
+            if (!teardownDeferred && client is not null && !client.PendingRequestsCompleted.IsCompleted)
+            {
+                Log("Handy request is still pending after cancellation; retaining the client and command gate until transport completion.");
+                teardownDeferred = true;
+                _ = FinishDeferredStopAndDisposeAsync(Task.CompletedTask, client);
+            }
             if (!teardownDeferred) DisposeDisconnectedClientAndReleaseGate(client);
         }
         return !teardownDeferred;
@@ -829,6 +835,7 @@ public sealed class MainForm : Form
         }
         finally
         {
+            await client.PendingRequestsCompleted.ConfigureAwait(false);
             DisposeDisconnectedClientAndReleaseGate(client);
             CompleteDeferredDisconnectUiState();
         }
@@ -864,6 +871,16 @@ public sealed class MainForm : Form
         }
         catch (Exception) { Log("Could not dispose the disconnected Handy client."); }
         finally { _deviceCommandGate.Release(); }
+    }
+
+    private void ReleaseDeviceCommandGate(HandyApiClient client)
+    {
+        var drain = client.PendingRequestsCompleted;
+        if (drain.IsCompleted)
+            _deviceCommandGate.Release();
+        else
+            _ = drain.ContinueWith(_ => _deviceCommandGate.Release(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     private void CompleteDisconnectUiState(bool teardownPending)
@@ -968,7 +985,7 @@ public sealed class MainForm : Form
             finally
             {
                 _offsetWriteInFlight = false;
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -1040,7 +1057,7 @@ public sealed class MainForm : Form
             finally
             {
                 _strokeWriteInFlight = false;
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -1194,7 +1211,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _deviceCommandGate.Release();
+            ReleaseDeviceCommandGate(client);
             _devicePollBusy = false;
         }
     }
@@ -1260,7 +1277,7 @@ public sealed class MainForm : Form
                 }
                 finally
                 {
-                    _deviceCommandGate.Release();
+                    ReleaseDeviceCommandGate(client);
                 }
 
                 Log($"Seek detected, resynced at {pos:F1}s.");
@@ -1380,7 +1397,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
@@ -1413,7 +1430,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
@@ -1473,7 +1490,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
 

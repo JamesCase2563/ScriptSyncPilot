@@ -45,7 +45,17 @@ public sealed class HandyApiClient : IDisposable
     private readonly TimeSpan _serverTimeRequestTimeout;
     private readonly TimeSpan _scriptUploadTimeout;
     private readonly CancellationTokenSource _pendingRequestsCts = new();
+    private readonly object _requestLock = new();
+    private readonly HashSet<Task> _activeRequests = [];
     private int _disposed;
+
+    internal Task PendingRequestsCompleted
+    {
+        get
+        {
+            lock (_requestLock) return Task.WhenAll(_activeRequests);
+        }
+    }
 
     public HandyApiClient(string connectionKey)
         : this(connectionKey, new HttpClientHandler(), new Uri(BaseUrl))
@@ -69,8 +79,8 @@ public sealed class HandyApiClient : IDisposable
 
     public Task<bool> IsConnectedAsync(CancellationToken ct) => WithRequestTimeoutAsync("connected", _controlRequestTimeout, ct, async token =>
     {
-        using var resp = await GetAsync("connected", token);
-        var body = await ReadBodyAsync("connected", resp, token);
+        using var resp = await GetAsync("connected", token).ConfigureAwait(false);
+        var body = await ReadBodyAsync("connected", resp, token).ConfigureAwait(false);
         var parsed = ParseResponse<DeviceResponse<ConnectedResult>>("connected", body);
         ThrowIfDeviceError("connected", parsed?.Error);
         return parsed?.Result?.Connected ?? false;
@@ -78,8 +88,8 @@ public sealed class HandyApiClient : IDisposable
 
     public Task<long> GetServerTimeMsAsync(CancellationToken ct) => WithRequestTimeoutAsync("servertime", _serverTimeRequestTimeout, ct, async token =>
     {
-        using var resp = await GetAsync("servertime", token);
-        var body = await ReadBodyAsync("servertime", resp, token);
+        using var resp = await GetAsync("servertime", token).ConfigureAwait(false);
+        var body = await ReadBodyAsync("servertime", resp, token).ConfigureAwait(false);
         var parsed = ParseResponse<ServerTimeResponse>("servertime", body);
         return parsed?.ServerTime ?? throw new HandyApiException("servertime: empty response.");
     });
@@ -97,7 +107,7 @@ public sealed class HandyApiClient : IDisposable
         for (var i = 0; i < samples; i++)
         {
             var tSend = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var serverTime = await GetServerTimeMsAsync(ct);
+            var serverTime = await GetServerTimeMsAsync(ct).ConfigureAwait(false);
             var tReceive = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var rtd = tReceive - tSend;
             var tsEst = serverTime + rtd / 2;
@@ -111,7 +121,7 @@ public sealed class HandyApiClient : IDisposable
 
     public Task<int> GetOffsetAsync(CancellationToken ct) =>
         WithRequestTimeoutAsync("hstp/offset", _controlRequestTimeout, ct,
-            async token => (await GetResultAsync<OffsetResult>("hstp/offset", token)).Offset);
+            async token => (await GetResultAsync<OffsetResult>("hstp/offset", token).ConfigureAwait(false)).Offset);
 
     public Task SetOffsetAsync(int offsetMs, CancellationToken ct) =>
         WithRequestTimeoutAsync("hstp/offset", _controlRequestTimeout, ct,
@@ -147,11 +157,11 @@ public sealed class HandyApiClient : IDisposable
         content.Add(fileContent, "file", "script.csv");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, HostingUploadUrl) { Content = content };
-        using var resp = await SendAsync(_hostingHttp, "script upload", request, token);
+        using var resp = await SendAsync(_hostingHttp, "script upload", request, token).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode)
             throw new HandyApiException($"script upload failed: {(int)resp.StatusCode}.");
 
-        var body = await ReadBodyAsync("script upload", resp, token);
+        var body = await ReadBodyAsync("script upload", resp, token).ConfigureAwait(false);
         var parsed = ParseResponse<UploadResponse>("script upload", body);
         if (string.IsNullOrWhiteSpace(parsed?.Url))
             throw new HandyApiException("script upload: no url in response.");
@@ -194,14 +204,24 @@ public sealed class HandyApiClient : IDisposable
         CancellationToken callerToken, Func<CancellationToken, Task<T>> sendAndRead,
         bool ignorePendingRequestCancellation = false)
     {
-        using var requestCts = ignorePendingRequestCancellation
-            ? CancellationTokenSource.CreateLinkedTokenSource(callerToken)
-            : CancellationTokenSource.CreateLinkedTokenSource(callerToken, _pendingRequestsCts.Token);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
-        timeoutCts.CancelAfter(timeout);
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenSource requestCts;
+        lock (_requestLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            requestCts = ignorePendingRequestCancellation
+                ? CancellationTokenSource.CreateLinkedTokenSource(callerToken)
+                : CancellationTokenSource.CreateLinkedTokenSource(callerToken, _pendingRequestsCts.Token);
+            _activeRequests.Add(completion.Task);
+        }
+        var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
+        Task<T>? requestTask = null;
         try
         {
-            var result = await sendAndRead(timeoutCts.Token);
+            timeoutCts.CancelAfter(timeout);
+            timeoutCts.Token.ThrowIfCancellationRequested();
+            requestTask = sendAndRead(timeoutCts.Token);
+            var result = await requestTask.WaitAsync(timeoutCts.Token).ConfigureAwait(false);
             timeoutCts.Token.ThrowIfCancellationRequested();
             return result;
         }
@@ -217,33 +237,41 @@ public sealed class HandyApiClient : IDisposable
         {
             throw new HandyApiTimeoutException(operation, callerToken);
         }
+        finally
+        {
+            if (requestTask is { IsCompleted: false })
+            {
+                _ = requestTask.ContinueWith(
+                    task => CompleteRequest(task, requestCts, timeoutCts, completion),
+                    CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }
+            else
+            {
+                CompleteRequest(requestTask, requestCts, timeoutCts, completion);
+            }
+        }
     }
 
-    private async Task WithRequestTimeoutAsync(string operation, TimeSpan timeout,
+    private Task WithRequestTimeoutAsync(string operation, TimeSpan timeout,
         CancellationToken callerToken, Func<CancellationToken, Task> sendAndRead,
-        bool ignorePendingRequestCancellation = false)
+        bool ignorePendingRequestCancellation = false) =>
+        WithRequestTimeoutAsync(operation, timeout, callerToken, async token =>
+        {
+            await sendAndRead(token).ConfigureAwait(false);
+            return true;
+        }, ignorePendingRequestCancellation);
+
+    private void CompleteRequest(Task? requestTask, CancellationTokenSource requestCts,
+        CancellationTokenSource timeoutCts, TaskCompletionSource completion)
     {
-        using var requestCts = ignorePendingRequestCancellation
-            ? CancellationTokenSource.CreateLinkedTokenSource(callerToken)
-            : CancellationTokenSource.CreateLinkedTokenSource(callerToken, _pendingRequestsCts.Token);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(requestCts.Token);
-        timeoutCts.CancelAfter(timeout);
-        try
+        // A late transport failure is superseded by the timeout/cancellation already reported.
+        if (requestTask is { IsFaulted: true }) _ = requestTask.Exception;
+        timeoutCts.Dispose();
+        requestCts.Dispose();
+        lock (_requestLock)
         {
-            await sendAndRead(timeoutCts.Token);
-            timeoutCts.Token.ThrowIfCancellationRequested();
-        }
-        catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
-        {
-            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
-        }
-        catch (OperationCanceledException) when (!ignorePendingRequestCancellation && _pendingRequestsCts.IsCancellationRequested)
-        {
-            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
-        }
-        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
-        {
-            throw new HandyApiTimeoutException(operation, callerToken);
+            _activeRequests.Remove(completion.Task);
+            completion.SetResult();
         }
     }
 
@@ -251,36 +279,36 @@ public sealed class HandyApiClient : IDisposable
     {
         using var req = new HttpRequestMessage(HttpMethod.Put, path);
         if (body != null) req.Content = JsonContent.Create(body);
-        using var resp = await SendAsync(_http, path, req, ct);
-        await EnsureSuccessAsync(path, resp, ct);
-        await EnsureNoDeviceErrorAsync(path, resp, ct);
+        using var resp = await SendAsync(_http, path, req, ct).ConfigureAwait(false);
+        await EnsureSuccessAsync(path, resp, ct).ConfigureAwait(false);
+        await EnsureNoDeviceErrorAsync(path, resp, ct).ConfigureAwait(false);
     }
 
     private async Task<T> PutResultAsync<T>(string path, object body, CancellationToken ct) where T : class
     {
         using var req = new HttpRequestMessage(HttpMethod.Put, path) { Content = JsonContent.Create(body) };
-        using var resp = await SendAsync(_http, path, req, ct);
-        await EnsureSuccessAsync(path, resp, ct);
-        return await ReadResultAsync<T>(path, resp, ct);
+        using var resp = await SendAsync(_http, path, req, ct).ConfigureAwait(false);
+        await EnsureSuccessAsync(path, resp, ct).ConfigureAwait(false);
+        return await ReadResultAsync<T>(path, resp, ct).ConfigureAwait(false);
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        var resp = await SendAsync(_http, path, request, ct);
-        await EnsureSuccessAsync(path, resp, ct);
+        var resp = await SendAsync(_http, path, request, ct).ConfigureAwait(false);
+        await EnsureSuccessAsync(path, resp, ct).ConfigureAwait(false);
         return resp;
     }
 
     private async Task<T> GetResultAsync<T>(string path, CancellationToken ct) where T : class
     {
-        using var response = await GetAsync(path, ct);
-        return await ReadResultAsync<T>(path, response, ct);
+        using var response = await GetAsync(path, ct).ConfigureAwait(false);
+        return await ReadResultAsync<T>(path, response, ct).ConfigureAwait(false);
     }
 
     private static async Task<T> ReadResultAsync<T>(string path, HttpResponseMessage response, CancellationToken ct) where T : class
     {
-        var body = await ReadBodyAsync(path, response, ct);
+        var body = await ReadBodyAsync(path, response, ct).ConfigureAwait(false);
         DeviceResponse<T>? parsed;
         try { parsed = System.Text.Json.JsonSerializer.Deserialize<DeviceResponse<T>>(body); }
         catch (System.Text.Json.JsonException)
@@ -294,7 +322,7 @@ public sealed class HandyApiClient : IDisposable
 
     private static async Task EnsureNoDeviceErrorAsync(string path, HttpResponseMessage response, CancellationToken ct)
     {
-        var body = await ReadBodyAsync(path, response, ct);
+        var body = await ReadBodyAsync(path, response, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(body)) return;
 
         System.Text.Json.JsonDocument document;
@@ -345,7 +373,7 @@ public sealed class HandyApiClient : IDisposable
     private static async Task<HttpResponseMessage> SendAsync(
         HttpClient client, string operation, HttpRequestMessage request, CancellationToken ct)
     {
-        try { return await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct); }
+        try { return await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false); }
         catch (HttpRequestException ex)
         {
             throw new HandyApiException(ex.StatusCode is { } status
@@ -361,7 +389,7 @@ public sealed class HandyApiClient : IDisposable
 
     private static async Task<string> ReadBodyAsync(string operation, HttpResponseMessage response, CancellationToken ct)
     {
-        try { return await response.Content.ReadAsStringAsync(ct); }
+        try { return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
         catch (HttpRequestException) { throw new HandyApiException($"{operation}: response read failed."); }
         catch (IOException) { throw new HandyApiException($"{operation}: response I/O failed."); }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -372,8 +400,23 @@ public sealed class HandyApiClient : IDisposable
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        Task drain;
+        lock (_requestLock)
+        {
+            if (_disposed != 0) return;
+            _disposed = 1;
+            drain = Task.WhenAll(_activeRequests);
+        }
         _pendingRequestsCts.Cancel();
+        if (drain.IsCompleted)
+            DisposeHttpClients();
+        else
+            _ = drain.ContinueWith(_ => DisposeHttpClients(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private void DisposeHttpClients()
+    {
         _http.Dispose();
         _hostingHttp.Dispose();
         _pendingRequestsCts.Dispose();

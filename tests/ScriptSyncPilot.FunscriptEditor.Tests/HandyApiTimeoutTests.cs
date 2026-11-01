@@ -17,6 +17,100 @@ public sealed class HandyApiTimeoutTests
     private static readonly TimeSpan ShortTimeout = TimeSpan.FromMilliseconds(100);
     private const string SyntheticSecret = "synthetic-handler-secret";
 
+    [DataTestMethod]
+    [DataRow("connected", false)]
+    [DataRow("servertime", false)]
+    [DataRow("script upload", false)]
+    [DataRow("hssp/play", false)]
+    [DataRow("hssp/play", true)]
+    public async Task NonCooperativeTransport_HasHardBudget_AndDefersDisposal(string operation, bool failLate)
+    {
+        using var handler = new NonCooperativeHandler(failLate);
+        using var unusedHandler = new NeverUsedHandler();
+        using var client = operation == "script upload"
+            ? CreateClient(unusedHandler, handler, uploadTimeout: ShortTimeout)
+            : CreateClient(handler, controlTimeout: ShortTimeout, serverTimeTimeout: ShortTimeout);
+        var stopwatch = Stopwatch.StartNew();
+        var request = operation switch
+        {
+            "connected" => client.IsConnectedAsync(CancellationToken.None),
+            "servertime" => client.GetServerTimeMsAsync(CancellationToken.None),
+            "script upload" => client.UploadScriptCsvAsync("0,0", CancellationToken.None),
+            _ => client.HsspPlayAsync(0, 0)
+        };
+        try
+        {
+            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
+                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.AreEqual($"{operation}: request timed out.", error.Message);
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+            Assert.IsFalse(client.PendingRequestsCompleted.IsCompleted);
+            client.Dispose();
+            Assert.IsFalse(handler.Disposed.Task.IsCompleted, "Dispose must not interrupt late transport work.");
+        }
+        finally
+        {
+            handler.Release.TrySetResult();
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        await handler.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.IsFalse(request.IsCompletedSuccessfully, "Late success or failure must not replace the timeout.");
+    }
+
+    [DataTestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task NonCooperativeTransport_CancellationHasHardWait_AndIsNotTimeout(bool cancelLifetime)
+    {
+        using var handler = new NonCooperativeHandler();
+        using var client = CreateClient(handler, controlTimeout: TimeSpan.FromSeconds(5));
+        using var cancellation = new CancellationTokenSource();
+        var request = client.IsConnectedAsync(cancellation.Token);
+        try
+        {
+            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            if (cancelLifetime) client.CancelPendingRequests();
+            else cancellation.Cancel();
+            var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(
+                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.AreEqual("connected: request canceled.", error.Message);
+            Assert.AreEqual(cancellation.Token, error.CancellationToken);
+            Assert.IsFalse(client.PendingRequestsCompleted.IsCompleted);
+        }
+        finally
+        {
+            handler.Release.TrySetResult();
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    [TestMethod]
+    public async Task NonCooperativeResponseRead_HasHardBudget_AndRetainsContentUntilCompletion()
+    {
+        using var content = new NonCooperativeContent();
+        using var handler = new ContentHandler(content);
+        using var client = CreateClient(handler, controlTimeout: ShortTimeout);
+        var request = client.GetInfoAsync(CancellationToken.None);
+        try
+        {
+            await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
+                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.AreEqual("info: request timed out.", error.Message);
+            client.Dispose();
+            Assert.IsFalse(content.Disposed, "The response must remain alive while its body is being read.");
+            Assert.IsFalse(client.PendingRequestsCompleted.IsCompleted);
+        }
+        finally
+        {
+            content.Release.TrySetResult();
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        Assert.IsTrue(content.Disposed);
+        Assert.IsFalse(request.IsCompletedSuccessfully);
+    }
+
     [TestMethod]
     public async Task RestRequestTimeout_CancelsTransport_AndReturnsSafeTimeoutMessage()
     {
@@ -27,7 +121,7 @@ public sealed class HandyApiTimeoutTests
         await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
-        Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("connected", error.Operation);
         Assert.AreEqual("connected: request timed out.", error.Message);
         Assert.IsNull(error.InnerException, "Transport exception details must not be retained in the public timeout error.");
@@ -46,7 +140,7 @@ public sealed class HandyApiTimeoutTests
         await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
-        Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("hssp/stop: request timed out.", error.Message);
         Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
@@ -80,7 +174,7 @@ public sealed class HandyApiTimeoutTests
         await hostingHandler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
-        Assert.IsTrue(hostingHandler.CancellationObserved.Task.IsCompleted);
+        await hostingHandler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("script upload: request timed out.", error.Message);
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
     }
@@ -96,7 +190,7 @@ public sealed class HandyApiTimeoutTests
         await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
 
-        Assert.IsTrue(content.CancellationObserved.Task.IsCompleted);
+        await content.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("info: request timed out.", error.Message);
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
     }
@@ -113,10 +207,89 @@ public sealed class HandyApiTimeoutTests
         cancellation.Cancel();
         var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
 
-        Assert.IsTrue(handler.CancellationObserved.Task.IsCompleted);
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("connected: request canceled.", error.Message);
         Assert.IsFalse(error.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void NonCooperativeConnectTimeout_ReturnsWithClientAndGateRetainedUntilTransportCompletes()
+    {
+        using var handler = new NonCooperativeHandler();
+        using var hostingHandler = new NeverUsedHandler();
+        using var client = CreateClient(handler, hostingHandler, controlTimeout: ShortTimeout);
+        using var form = CreateConnectForm(client, ShortTimeout);
+        var gate = GetField<SemaphoreSlim>(form, "_deviceCommandGate");
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+            InvokeAndPumpConnect(form);
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+            Assert.IsFalse(hostingHandler.RequestStarted);
+            Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+            Assert.IsTrue(GetField<bool>(form, "_handyDisconnecting"));
+            Assert.IsFalse(GetField<Button>(form, "_connectButton").Enabled);
+            Assert.AreEqual(0, gate.CurrentCount);
+            Assert.IsFalse(handler.Disposed.Task.IsCompleted);
+            Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("connected: request timed out.", StringComparison.Ordinal));
+        }
+        finally
+        {
+            handler.Release.TrySetResult();
+            var stopwatch = Stopwatch.StartNew();
+            while ((!handler.Disposed.Task.IsCompleted || GetField<bool>(form, "_handyDisconnecting"))
+                   && stopwatch.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                Application.DoEvents();
+                Thread.Sleep(1);
+            }
+        }
+        Assert.IsTrue(handler.Disposed.Task.IsCompleted);
+        Assert.IsFalse(GetField<bool>(form, "_handyDisconnecting"));
+        Assert.AreEqual(1, gate.CurrentCount);
+    }
+
+    [STATestMethod]
+    public void NonCooperativePlayTimeout_DrainsAndReleasesGateAfterUiDisposalWithoutPumping()
+    {
+        using var handler = new NonCooperativeHandler(failLate: true);
+        using var client = CreateClient(handler, controlTimeout: ShortTimeout);
+        using var session = new MpvSession();
+        typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, false);
+        typeof(MpvSession).GetProperty(nameof(MpvSession.Speed))!.SetValue(session, 1.0);
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        var gate = GetField<SemaphoreSlim>(form, "_deviceCommandGate");
+        try
+        {
+            var operation = (Task)typeof(ScriptSyncPilot.HandySync.MainForm)
+                .GetMethod("OnMpvPauseChangedAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(form, [session, false])!;
+            var stopwatch = Stopwatch.StartNew();
+            while (!operation.IsCompleted && stopwatch.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                Application.DoEvents();
+                Thread.Sleep(1);
+            }
+            Assert.IsTrue(operation.IsCompleted);
+            operation.GetAwaiter().GetResult();
+            Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+            Assert.AreEqual(0, gate.CurrentCount);
+            form.Dispose();
+            client.Dispose();
+            Assert.IsFalse(handler.Disposed.Task.IsCompleted);
+        }
+        finally
+        {
+            var drain = client.PendingRequestsCompleted;
+            handler.Release.TrySetResult();
+            Assert.IsTrue(drain.Wait(TimeSpan.FromSeconds(2)), "Late transport cleanup must not require the disposed UI context.");
+        }
+        Assert.IsTrue(SpinWait.SpinUntil(() => gate.CurrentCount == 1 && handler.Disposed.Task.IsCompleted,
+            TimeSpan.FromSeconds(2)));
     }
 
     [STATestMethod]
@@ -225,10 +398,10 @@ public sealed class HandyApiTimeoutTests
         Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/synctime: request timed out.", StringComparison.Ordinal));
     }
 
-    private static ScriptSyncPilot.HandySync.MainForm CreateConnectForm(HandyApiClient client)
+    private static ScriptSyncPilot.HandySync.MainForm CreateConnectForm(HandyApiClient client, TimeSpan? drainTimeout = null)
     {
         var form = new ScriptSyncPilot.HandySync.MainForm(
-            new AppSettings { ConnectionKey = "synthetic-connection-key" }, _ => client, _ => { }, _ => { });
+            new AppSettings { ConnectionKey = "synthetic-connection-key" }, _ => client, _ => { }, _ => { }, drainTimeout);
         _ = form.Handle;
         typeof(ScriptSyncPilot.HandySync.MainForm).GetField("_script", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(form, new Funscript());
@@ -281,6 +454,53 @@ public sealed class HandyApiTimeoutTests
             }
 
             throw new InvalidOperationException("The blocking handler should only finish through cancellation.");
+        }
+    }
+
+    private sealed class NonCooperativeHandler(bool failLate = false) : HttpMessageHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Disposed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Release.Task.ConfigureAwait(false);
+            if (failLate) throw new HttpRequestException(SyntheticSecret);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Disposed.TrySetResult();
+            base.Dispose(disposing);
+        }
+    }
+
+    private sealed class NonCooperativeContent : HttpContent
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool Disposed { get; private set; }
+
+        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            Started.TrySetResult();
+            await Release.Task.ConfigureAwait(false);
+            await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"result\":{}}"));
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Disposed = true;
+            base.Dispose(disposing);
         }
     }
 

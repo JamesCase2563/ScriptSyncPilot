@@ -387,9 +387,11 @@ public sealed class MainForm : Form
 
     private async Task EnsureCurrentScriptInstalledAsync(HandyApiClient client, CancellationToken cancellationToken)
     {
-        await _deviceCommandGate.WaitAsync(cancellationToken);
+        var gateAcquired = false;
         try
         {
+            await _deviceCommandGate.WaitAsync(cancellationToken);
+            gateAcquired = true;
             while (ReferenceEquals(_handy, client))
             {
                 var script = _script;
@@ -417,7 +419,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            ReleaseDeviceCommandGate(client);
+            if (gateAcquired) ReleaseDeviceCommandGate(client);
         }
     }
 

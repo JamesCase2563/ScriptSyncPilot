@@ -395,6 +395,36 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void CanceledScriptInstallGateWaitDoesNotReleaseUnownedPermit()
+    {
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => { }, TimeSpan.FromMilliseconds(100));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_script", new ScriptSyncPilot.Common.Funscript());
+        var deviceGate = (SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!;
+        Assert.IsTrue(deviceGate.Wait(0));
+
+        using var queuedCancellation = new CancellationTokenSource();
+        var queued = InvokePrivateTask(form, "EnsureCurrentScriptInstalledAsync", client, queuedCancellation.Token);
+        Assert.IsFalse(queued.IsCompleted);
+        queuedCancellation.Cancel();
+        PumpUntil(() => queued.IsCompleted, TimeSpan.FromSeconds(2));
+        Assert.IsTrue(queued.IsCanceled);
+
+        var alreadyCanceled = InvokePrivateTask(form, "EnsureCurrentScriptInstalledAsync", client, new CancellationToken(true));
+        PumpUntil(() => alreadyCanceled.IsCompleted, TimeSpan.FromSeconds(2));
+        Assert.IsTrue(alreadyCanceled.IsCanceled);
+
+        PumpFor(TimeSpan.FromMilliseconds(100));
+        Assert.AreEqual(0, deviceGate.CurrentCount, "A canceled wait must not release the permit held by another owner.");
+        deviceGate.Release();
+        Assert.AreEqual(1, deviceGate.CurrentCount);
+        Assert.AreEqual(0, handler.Requests.Count);
+    }
+
+    [STATestMethod]
     public void ShutdownDeadlineAbandonsDetachWithoutPostCloseUiOrDeviceWork()
     {
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

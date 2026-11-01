@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Complete 2026-11-01. All planned fake-transport scenarios passed, including clock sampling, unavailable-service disconnect/close, non-cooperative transport drain deadline, and repeated disconnect; the full solution build and test suite passed (279/279). This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Complete 2026-11-01. The latest current-code isolated-output build succeeded with 0 warnings/errors, and the full solution test suite passed (281/281). Coverage includes clock sampling, sync/play timeout state resets, unavailable-service disconnect/close, non-cooperative drain and stop transports, deferred teardown, and repeated disconnect. Earlier 279/279 runs below are retained as historical runs and superseded by the latest result. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
@@ -14,6 +14,7 @@ Record each run with the exact command, environment, result, and relevant test n
 | Firmware prerequisite read times out during connect | Connect aborts before mode change, upload, setup, or play. | Passed |
 | Hosting upload exceeds its budget | Upload is bounded and dependent HSSP setup/play does not run. | Passed |
 | HSSP play times out | Ready state and periodic sync are cleared; status reports unknown device state, not successful playback. | Passed |
+| Periodic HSSP sync times out | Ready state is cleared, periodic sync stops, and status reports unknown device state. | Passed |
 | REST/upload response body stalls | Body read is bounded and reported as failure. | Passed |
 | Caller cancels before budget | Cancellation remains cancellation and is not mislabeled as timeout. | Passed |
 | Pending offset/stroke writes at disconnect | Both debounced writes are canceled before they send. | Passed |
@@ -21,6 +22,7 @@ Record each run with the exact command, environment, result, and relevant test n
 | In-flight play and queued seek at disconnect | Active request is canceled, queued seek is skipped, and stop is attempted after the gate drains. | Passed |
 | Non-cooperative transport exceeds drain deadline | Disconnect returns at the configured hard gate-wait deadline; captured client remains alive, reconnect is blocked, and deferred stop/disposal occur after the operation releases the gate. Late request completion is not reported as successful. | Passed |
 | Disconnect stop after request lifetime cancellation | Stop starts despite canceled client request lifetime and is canceled by its own control timeout if stalled. | Passed |
+| Stop transport ignores cancellation past the caller hard wait | Disconnect returns from the stop wait but remains pending; the captured client and command gate stay retained until the stop task completes, then teardown disposes/releases. | Passed |
 | Stop failure during disconnect | Failure is logged without transport exception details; client and local disconnect cleanup still complete. | Passed |
 | Application close during stop failure | Close completes after best-effort teardown; no shutdown error dialog is shown. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Passed |
@@ -133,6 +135,31 @@ dotnet test ScriptSyncPilot.slnx --no-restore -m:1 --verbosity minimal
 
 Result: **Passed, 279/279** (Common.Tests 88/88; FunscriptEditor.Tests 191/191). The solution test command built all projects successfully before running tests; this run includes the non-cooperative transport deadline test.
 
+Non-cooperative stop hard-wait regression test:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~DisconnectStopThatIgnoresCancellationRemainsPendingUntilDeferredTeardownReleasesGate" --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
+```
+
+Result: **Passed, 1/1**. The fake stop transport ignored cancellation and stayed pending beyond the 2-second caller wait. Disconnect remained pending, the client stayed undisposed, and the command gate remained held. Releasing the transport completed deferred teardown, disposed the client, released the gate, and cleared the pending state.
+
+Periodic sync-timeout state regression test:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~SyncTimeout_ClearsReadyStateAndStopsPeriodicSync" --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
+```
+
+Result: **Passed, 1/1**. A stalled `hssp/synctime` request timed out, cleared `_hsspReady`, stopped `_syncTimer`, and reported unknown device state.
+
+Latest current-code isolated-output solution build and test:
+
+```powershell
+dotnet build ScriptSyncPilot.slnx --no-restore -m:1 --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
+dotnet test ScriptSyncPilot.slnx --no-build --no-restore -m:1 --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
+```
+
+Result: **Build succeeded, 0 warnings, 0 errors. Tests passed 281/281** (Common.Tests 88/88; FunscriptEditor.Tests 193/193). Run 2026-11-01 on Windows, .NET 9, Debug configuration, with output isolated under `.verification/bin/` to avoid overwriting assemblies loaded by the running application. This supersedes the earlier 279/279 full runs above.
+
 ## Manual verification
 
 Not performed. Reviewed against the shutdown acceptance criteria: manual observation is supplementary, not required, because automated WinForms close tests exercise asynchronous close completion after stop failure/timeout with bounded fake transports. These tests do not exercise a real Windows session-end notification (`CloseReason.WindowsShutDown`), which is outside the documented application-close guarantee.
@@ -141,7 +168,7 @@ Not performed. Reviewed against the shutdown acceptance criteria: manual observa
 
 - A timeout bounds the client's wait; it cannot prove the remote service did not process a request after the client stopped waiting.
 - If communication is lost, HandySync cannot guarantee that the physical device stopped. User-facing limitations must continue to say this clearly.
-- If a non-cooperative transport never completes, the UI close remains bounded at the 60-second gate-wait deadline, but final stop/disposal cannot safely run and remain deferred; the captured client is retained rather than disposed while in use. The fake test verifies the client is later stopped/disposed after the operation releases the gate.
+- If a non-cooperative command holds the gate, UI disconnect/close proceeds after the 60-second gate-wait deadline and final stop/disposal remain deferred. If the stop transport itself never completes after the gate drains, disconnect remains pending, while close proceeds after the independent 2-second stop-task wait; in both cases the captured client and command gate remain retained rather than being disposed while in use. The new fake test verifies eventual stop-task completion releases the gate and permits disposal.
 - The lifecycle tests drive `MainForm` through its private disconnect/close entry points with fake transports; they do not exercise a real Windows session close (`CloseReason.WindowsShutDown`) or a live service outage. Those cases are outside the documented application-close guarantee and are not release blockers for this work item.
 - Automated verification is complete; this evidence is linked from the priority 1 row in the [production-readiness PLAN](../production-readiness/PLAN.md). The Reliability and data preservation gate itself remains open until its full scope is reviewed there.
 

@@ -305,6 +305,45 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectStopThatIgnoresCancellationRemainsPendingUntilDeferredTeardownReleasesGate()
+    {
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, _) =>
+        {
+            if (request.RequestUri!.AbsolutePath != "/api/hssp/stop")
+                throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+            stopStarted.TrySetResult();
+            await releaseStop.Task; // Deliberately ignore cancellation to exercise the independent hard wait.
+            return JsonResponse("{\"result\":\"ok\"}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => stopStarted.Task.IsCompleted, TimeSpan.FromSeconds(3));
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(4));
+        disconnect.GetAwaiter().GetResult();
+
+        Assert.IsFalse(handler.IsDisposed, "The client must remain alive while the stop transport is still using it.");
+        Assert.IsTrue((bool)GetPrivateField(form, "_handyDisconnecting")!,
+            "Disconnect must remain pending until deferred stop teardown releases the gate.");
+        Assert.IsTrue(((Label)GetPrivateField(form, "_status")!).Text.Contains("Disconnect pending", StringComparison.Ordinal));
+        Assert.AreEqual(0, ((SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!).CurrentCount,
+            "The command gate must remain owned while the stop transport is pending.");
+
+        releaseStop.TrySetResult();
+        PumpUntil(() => handler.IsDisposed && !(bool)GetPrivateField(form, "_handyDisconnecting")!, TimeSpan.FromSeconds(3));
+
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"));
+        Assert.AreEqual(1, ((SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!).CurrentCount,
+            "Deferred teardown releases the command gate after disposing the client.");
+    }
+
+    [STATestMethod]
     public void ClosingCompletesWhenStopTimesOutAgainstUnavailableServiceWithoutShutdownDialog()
     {
         var shutdownDialogCount = 0;

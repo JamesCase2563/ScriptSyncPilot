@@ -190,6 +190,41 @@ public sealed class HandyApiTimeoutTests
         session.Dispose();
     }
 
+    [STATestMethod]
+    public void SyncTimeout_ClearsReadyStateAndStopsPeriodicSync()
+    {
+        using var handler = new BlockingHandler();
+        using var hostingHandler = new NeverUsedHandler();
+        using var client = CreateClient(handler, hostingHandler, controlTimeout: ShortTimeout);
+        using var session = new MpvSession();
+        typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, false);
+        typeof(MpvSession).GetProperty(nameof(MpvSession.Speed))!.SetValue(session, 1.0);
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        GetField<System.Windows.Forms.Timer>(form, "_syncTimer").Start();
+
+        var operation = (Task)typeof(ScriptSyncPilot.HandySync.MainForm)
+            .GetMethod("OnSyncTickAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, null)!;
+        var timer = Stopwatch.StartNew();
+        while (!operation.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+        Assert.IsTrue(operation.IsCompleted, "Sync operation did not finish within the test bound.");
+        operation.GetAwaiter().GetResult();
+        Application.DoEvents();
+
+        Assert.IsTrue(handler.Started.Task.IsCompleted);
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsFalse(GetField<System.Windows.Forms.Timer>(form, "_syncTimer").Enabled);
+        Assert.IsTrue(GetField<Label>(form, "_status").Text.Contains("device state is unknown", StringComparison.Ordinal));
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/synctime: request timed out.", StringComparison.Ordinal));
+    }
+
     private static ScriptSyncPilot.HandySync.MainForm CreateConnectForm(HandyApiClient client)
     {
         var form = new ScriptSyncPilot.HandySync.MainForm(

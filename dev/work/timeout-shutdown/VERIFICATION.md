@@ -97,13 +97,21 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 
 Result: **Passed, 1/1**. The first close event was deferred for asynchronous teardown; despite a failed stop request the form closed, and the shutdown error callback was never invoked.
 
-Typed timeout classification follow-up:
+Typed timeout classification follow-up (original run):
 
 ```powershell
 dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~HandyApiTimeoutTests" --verbosity minimal
 ```
 
-Result: **Passed, 9/9** on 2026-11-01. Budget expiration now raises `HandyApiTimeoutException`, while caller cancellation remains an ordinary `TaskCanceledException`; `MainForm` classifies the typed exception without inspecting message text.
+Result: **Passed, 9/9** on 2026-11-01. This run predates the later `SyncTimeout_ClearsReadyStateAndStopsPeriodicSync` test. Budget expiration now raises `HandyApiTimeoutException`, while caller cancellation remains an ordinary `TaskCanceledException`; `MainForm` classifies the typed exception without inspecting message text.
+
+Latest current `HandyApiTimeoutTests` class rerun:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~HandyApiTimeoutTests" --verbosity minimal -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\bin\
+```
+
+Result: **Passed, 10/10** on 2026-11-01. This rerun includes `DisconnectStop_IgnoresCanceledRequestLifetime_ButKeepsControlTimeout` and the later-added `SyncTimeout_ClearsReadyStateAndStopsPeriodicSync`.
 
 M4 remaining-scenario command (per-sample clock bound, disconnect/close against an unavailable service, repeated disconnect):
 

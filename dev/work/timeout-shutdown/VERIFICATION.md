@@ -1,10 +1,10 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Focused request-timeout, connect-flow, and play-timeout behavior passed; teardown and full acceptance verification remain incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Focused request-timeout, connect-flow, play-timeout, and M3.1 disconnect behavior passed; remaining teardown and full acceptance verification are incomplete. This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
-`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven tests passed in the out-of-sandbox run recorded below.
+`HandyApiTimeoutTests` covers a stalled REST request, stalled hosting upload, stalled response-body read, caller cancellation, transport cancellation observation, safe timeout messages, connect aborts on firmware-read/upload timeout, and play-timeout state reporting. The tests use short injected budgets and synthetic secret text. All seven timeout tests passed in the out-of-sandbox run recorded below.
 
 Record each run with the exact command, environment, result, and relevant test names. Use fake transports and controlled delays; do not use real connection keys, hosted-script URLs, or live device/service dependencies.
 
@@ -16,6 +16,8 @@ Record each run with the exact command, environment, result, and relevant test n
 | HSSP play times out | Ready state and periodic sync are cleared; status reports unknown device state, not successful playback. | Passed |
 | REST/upload response body stalls | Body read is bounded and reported as failure. | Passed |
 | Caller cancels before budget | Cancellation remains cancellation and is not mislabeled as timeout. | Passed |
+| Pending offset/stroke writes at disconnect | Both debounced writes are canceled before they send. | Passed |
+| New offset/stroke writes while stop is in progress | Disconnect does not admit new device-control writes. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Pending |
 | Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Pending |
 | Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Pending |
@@ -39,6 +41,14 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 ```
 
 Result: **Passed, 7/7** (REST timeout, hosting upload timeout, response-body read timeout, caller cancellation, firmware-read timeout aborts connect, upload timeout prevents setup/play, and play timeout clears ready state and avoids success status). The final focused run completed in 909 ms. An earlier normal-output build attempt had encountered a file lock on `src/ScriptSyncPilot.FunscriptEditor/bin/Debug/net9.0-windows/ScriptSyncPilot.Common.dll`; that lock was later released and did not prevent the successful run.
+
+M3.1 focused lifecycle command:
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~PendingOffsetAndStrokeWritesAreCancelledWhenDisconnectBegins|FullyQualifiedName~DisconnectRejectsNewWritesWhileStopIsInProgress" --verbosity minimal
+```
+
+Result: **Passed, 2/2**. Both pending debounced writes were absent from the request log after disconnect, and no new control writes were issued while the stop request was held open.
 
 ## Manual verification
 

@@ -39,23 +39,61 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
-    public void PendingStrokeWriteIsCancelledWhenDisconnectBegins()
+    public void PendingOffsetAndStrokeWritesAreCancelledWhenDisconnectBegins()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
         using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
         using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
         InitializeWritableForm(form, client);
         var slider = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
         _ = form.Handle;
 
         slider.SetValues(15, 85);
+        offset.SetValues(150, 0);
+        InvokePrivate(form, "ScheduleOffsetWrite");
         InvokePrivate(form, "ScheduleStrokeWrite");
         var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
         PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
         disconnect.GetAwaiter().GetResult();
         PumpFor(TimeSpan.FromMilliseconds(300));
 
-        Assert.AreEqual(0, handler.Requests.Count(request => request.Path == "slider/stroke"));
+        Assert.AreEqual(0, handler.Requests.Count(request => request.Method == "PUT"));
+    }
+
+    [STATestMethod]
+    public void DisconnectRejectsNewWritesWhileStopIsInProgress()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, cancellationToken) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/hssp/stop")
+            {
+                stopStarted.TrySetResult();
+                await releaseStop.Task.WaitAsync(cancellationToken);
+                return JsonResponse("{\"result\":\"ok\"}");
+            }
+
+            throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_installedScriptClient", client);
+        _ = form.Handle;
+
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => stopStarted.Task.IsCompleted, TimeSpan.FromSeconds(3));
+        InvokePrivate(form, "ScheduleOffsetWrite");
+        InvokePrivate(form, "ScheduleStrokeWrite");
+        releaseStop.TrySetResult();
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(3));
+        disconnect.GetAwaiter().GetResult();
+        PumpFor(TimeSpan.FromMilliseconds(300));
+
+        Assert.AreEqual(1, handler.Requests.Count(request => request.Path == "hssp/stop"));
+        Assert.AreEqual(0, handler.Requests.Count(request => request.Method == "PUT" && request.Path != "hssp/stop"));
     }
 
     [STATestMethod]

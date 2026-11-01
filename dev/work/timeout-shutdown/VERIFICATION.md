@@ -1,6 +1,6 @@
 # HandySync Request Timeouts and Shutdown Verification
 
-**Status:** Complete 2026-11-01. All planned fake-transport scenarios passed, including clock sampling, unavailable-service disconnect/close, and repeated disconnect; the full solution build and test suite passed (278/278). This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
+**Status:** Complete 2026-11-01. All planned fake-transport scenarios passed, including clock sampling, unavailable-service disconnect/close, non-cooperative transport drain deadline, and repeated disconnect; the full solution build and test suite passed (279/279). This document records acceptance evidence for the [plan](PLAN.md); the production-readiness reliability gate remains open until evidence is reviewed there.
 
 ## Automated verification
 
@@ -19,11 +19,12 @@ Record each run with the exact command, environment, result, and relevant test n
 | Pending offset/stroke writes at disconnect | Both debounced writes are canceled before they send. | Passed |
 | New offset/stroke writes while stop is in progress | Disconnect does not admit new device-control writes. | Passed |
 | In-flight play and queued seek at disconnect | Active request is canceled, queued seek is skipped, and stop is attempted after the gate drains. | Passed |
+| Non-cooperative transport exceeds drain deadline | Disconnect returns at the configured hard gate-wait deadline; captured client remains alive, reconnect is blocked, and deferred stop/disposal occur after the operation releases the gate. Late request completion is not reported as successful. | Passed |
 | Disconnect stop after request lifetime cancellation | Stop starts despite canceled client request lifetime and is canceled by its own control timeout if stalled. | Passed |
 | Stop failure during disconnect | Failure is logged without transport exception details; client and local disconnect cleanup still complete. | Passed |
 | Application close during stop failure | Close completes after best-effort teardown; no shutdown error dialog is shown. | Passed |
 | Clock sampling | Each sample is bounded; total estimate duration matches documented sample-count bound. | Passed |
-| Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Passed for blocked play and queued seek |
+| Disconnect with blocked serialized command | Teardown progresses within its bound; no stale play/seek follows disconnect; client disposal waits for or observes canceled work. | Passed for cooperative cancellation and a non-cooperative late completion |
 | Disconnect with installed script and available service | One stop attempt is made before disposal; teardown completes; result is accurately represented. | Passed for the M3.2 blocked-play flow |
 | Disconnect/close with unavailable service | Stop attempt times out within budget, failure is logged safely without a shutdown dialog, cleanup completes, and no confirmed-stop claim is made. | Passed |
 | Repeated disconnect/close path | No duplicate unsafe disposal, unobserved task failure, or command after teardown. | Passed |
@@ -61,6 +62,14 @@ dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funscrip
 ```
 
 Result: **Passed, 3/3**. Disconnect canceled the blocked play operation, the queued seek sent no request after disconnect began, and the bounded stop request ran after the command gate drained.
+
+Hard drain-deadline command (review follow-up):
+
+```powershell
+dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~DisconnectDrainHasHardDeadlineAndRetainsClientUntilLateWorkCompletes" --verbosity minimal
+```
+
+Result: **Passed, 1/1**. A fake play transport ignored cancellation and remained blocked past an injected 100 ms drain deadline. Disconnect returned within the hard bound, kept reconnect disabled and the client undisposed, then after release rejected the late play completion as canceled, attempted stop, and disposed only after the gate drained.
 
 M3.3 bounded independent disconnect-stop command:
 
@@ -114,7 +123,15 @@ dotnet build ScriptSyncPilot.slnx --verbosity minimal
 dotnet test ScriptSyncPilot.slnx --no-build -m:1 --verbosity minimal
 ```
 
-Result: **Build succeeded, 0 warnings, 0 errors. Tests passed 278/278** (ScriptSyncPilot.Common.Tests 88/88 in 460 ms; ScriptSyncPilot.FunscriptEditor.Tests 190/190 in 5 s). Run 2026-11-01 on Windows, .NET 9, Debug configuration, outside the sandbox.
+Result: **Build succeeded, 0 warnings, 0 errors. Tests passed 279/279** (ScriptSyncPilot.Common.Tests 88/88; ScriptSyncPilot.FunscriptEditor.Tests 191/191). Run 2026-11-01 on Windows, .NET 9, Debug configuration, outside the sandbox.
+
+Hard-drain review follow-up full solution build/test command:
+
+```powershell
+dotnet test ScriptSyncPilot.slnx --no-restore -m:1 --verbosity minimal
+```
+
+Result: **Passed, 279/279** (Common.Tests 88/88; FunscriptEditor.Tests 191/191). The solution test command built all projects successfully before running tests; this run includes the non-cooperative transport deadline test.
 
 ## Manual verification
 
@@ -124,6 +141,7 @@ Not performed. Reviewed against the shutdown acceptance criteria: manual observa
 
 - A timeout bounds the client's wait; it cannot prove the remote service did not process a request after the client stopped waiting.
 - If communication is lost, HandySync cannot guarantee that the physical device stopped. User-facing limitations must continue to say this clearly.
+- If a non-cooperative transport never completes, the UI close remains bounded at the 60-second gate-wait deadline, but final stop/disposal cannot safely run and remain deferred; the captured client is retained rather than disposed while in use. The fake test verifies the client is later stopped/disposed after the operation releases the gate.
 - The lifecycle tests drive `MainForm` through its private disconnect/close entry points with fake transports; they do not exercise a real Windows session close (`CloseReason.WindowsShutDown`) or a live service outage. Those cases are outside the documented application-close guarantee and are not release blockers for this work item.
 - Automated verification is complete; this evidence is linked from the priority 1 row in the [production-readiness PLAN](../production-readiness/PLAN.md). The Reliability and data preservation gate itself remains open until its full scope is reviewed there.
 

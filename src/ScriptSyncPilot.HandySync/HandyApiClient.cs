@@ -201,7 +201,9 @@ public sealed class HandyApiClient : IDisposable
         timeoutCts.CancelAfter(timeout);
         try
         {
-            return await sendAndRead(timeoutCts.Token);
+            var result = await sendAndRead(timeoutCts.Token);
+            timeoutCts.Token.ThrowIfCancellationRequested();
+            return result;
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {
@@ -229,6 +231,7 @@ public sealed class HandyApiClient : IDisposable
         try
         {
             await sendAndRead(timeoutCts.Token);
+            timeoutCts.Token.ThrowIfCancellationRequested();
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {

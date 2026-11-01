@@ -153,6 +153,66 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void DisconnectDrainHasHardDeadlineAndRetainsClientUntilLateWorkCompletes()
+    {
+        var playStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePlay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (request, _, _) =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/hssp/play")
+            {
+                playStarted.TrySetResult();
+                await releasePlay.Task; // Deliberately ignore cancellation to model a non-cooperative transport.
+                return JsonResponse("{\"result\":\"ok\"}");
+            }
+
+            if (request.RequestUri!.AbsolutePath == "/api/hssp/stop")
+                return JsonResponse("{\"result\":\"ok\"}");
+
+            throw new InvalidOperationException($"Unexpected request during disconnect: {request.RequestUri}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var session = new ScriptSyncPilot.Common.MpvSession();
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.IsPaused))!
+            .SetValue(session, false);
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+            .SetValue(session, 1.0);
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new ScriptSyncPilot.HandySync.AppSettings(),
+            _ => client, _ => { }, _ => { }, TimeSpan.FromMilliseconds(100));
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_hsspReady", true);
+        SetPrivateField(form, "_installedScriptClient", client);
+        SetPrivateField(form, "_mpv", session);
+        _ = form.Handle;
+
+        var play = InvokePrivateTask(form, "OnMpvPauseChangedAsync", session, false);
+        PumpUntil(() => playStarted.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        var disconnectTimer = Stopwatch.StartNew();
+        var disconnect = InvokePrivateTask(form, "DisconnectHandyAsync");
+        PumpUntil(() => disconnect.IsCompleted, TimeSpan.FromSeconds(2));
+        disconnect.GetAwaiter().GetResult();
+
+        Assert.IsTrue(disconnectTimer.Elapsed < TimeSpan.FromSeconds(1));
+        Assert.IsFalse(play.IsCompleted, "The disconnect caller must not wait indefinitely for a non-cooperative request.");
+        Assert.IsFalse(handler.IsDisposed, "The client must remain alive while the active command can still use it.");
+        Assert.IsFalse(handler.Requests.Any(request => request.Path == "hssp/stop"),
+            "Stop must wait until the serialized command releases the gate.");
+        Assert.IsTrue((bool)GetPrivateField(form, "_handyDisconnecting")!,
+            "Reconnect remains blocked while deferred teardown owns the captured client.");
+        Assert.IsTrue(((Label)GetPrivateField(form, "_status")!).Text.Contains("Disconnect pending", StringComparison.Ordinal));
+
+        releasePlay.TrySetResult();
+        PumpUntil(() => play.IsCompleted && handler.IsDisposed, TimeSpan.FromSeconds(3));
+        play.GetAwaiter().GetResult();
+        PumpUntil(() => !(bool)GetPrivateField(form, "_handyDisconnecting")!, TimeSpan.FromSeconds(2));
+
+        CollectionAssert.AreEqual(new[] { "hssp/play", "hssp/stop" }, handler.Requests.Select(request => request.Path).ToArray());
+        Assert.IsTrue(handler.IsDisposed, "The captured client is disposed after the late operation is observed and stop is attempted.");
+        Assert.IsFalse(((TextBox)GetPrivateField(form, "_log")!).Text.Contains("Playback resumed; device started.", StringComparison.Ordinal),
+            "The late transport completion must not be reported as successful play after disconnect.");
+    }
+
+    [STATestMethod]
     public void DisconnectContinuesCleanupAfterUnexpectedStopFailure()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -951,6 +1011,7 @@ public sealed class DeviceControlPollingTests
     private sealed class RecordingHandler(Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
     {
         public List<RequestRecord> Requests { get; } = [];
+        public bool IsDisposed { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -958,6 +1019,12 @@ public sealed class DeviceControlPollingTests
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             Requests.Add(new RequestRecord(request.Method.Method, request.RequestUri!.AbsolutePath.TrimStart('/').Replace("api/", "", StringComparison.Ordinal), body));
             return await respond(request, count, cancellationToken);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) IsDisposed = true;
+            base.Dispose(disposing);
         }
     }
 

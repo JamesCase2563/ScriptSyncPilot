@@ -14,6 +14,9 @@ namespace ScriptSyncPilot.HandySync;
 /// </summary>
 public sealed class MainForm : Form
 {
+    private static readonly TimeSpan DisconnectDrainTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan DisconnectStopWaitTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ShutdownSessionTransitionTimeout = TimeSpan.FromSeconds(2);
     private readonly TextBox _connectionKeyBox = new() { PlaceholderText = "Device connection key" };
     private readonly TextBox _mpvPipeBox = new() { PlaceholderText = @"mpv IPC pipe, e.g. \\.\pipe\vrheadtrack" };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -52,6 +55,7 @@ public sealed class MainForm : Form
     private readonly Func<string, HandyApiClient> _createHandyClient;
     private readonly Action<AppSettings> _saveSettings;
     private readonly Action<string> _showSettingsError;
+    private readonly TimeSpan _disconnectDrainTimeout;
 
     private HandyApiClient? _handy;
     private readonly SemaphoreSlim _deviceCommandGate = new(1, 1);
@@ -92,6 +96,7 @@ public sealed class MainForm : Form
     private bool _mpvAttachInProgress;
     private bool _mpvDetaching;
     private bool _handyDisconnecting;
+    private Task? _handyDisconnectTask;
     private bool _isClosing;
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -99,13 +104,15 @@ public sealed class MainForm : Form
     public MainForm() : this(AppSettings.Load(), key => new HandyApiClient(key)) { }
 
     internal MainForm(AppSettings settings, Func<string, HandyApiClient> createHandyClient,
-        Action<AppSettings>? saveSettings = null, Action<string>? showSettingsError = null)
+        Action<AppSettings>? saveSettings = null, Action<string>? showSettingsError = null,
+        TimeSpan? disconnectDrainTimeout = null)
     {
         _settings = settings;
         _createHandyClient = createHandyClient;
         _saveSettings = saveSettings ?? (value => value.Save());
         _showSettingsError = showSettingsError ?? (message => MessageBox.Show(this, message,
             "Settings not saved", MessageBoxButtons.OK, MessageBoxIcon.Error));
+        _disconnectDrainTimeout = disconnectDrainTimeout ?? DisconnectDrainTimeout;
         Text = "ScriptSyncPilot – Handy Sync";
         Width = 720;
         Height = 560;
@@ -240,21 +247,96 @@ public sealed class MainForm : Form
             }
 
             _lifetimeCts.Cancel();
-            await DetachMpvAsync(stopDevice: false);
-            await DisconnectHandyAsync();
-            _allowClose = true;
-            Close();
+            try
+            {
+                await DetachMpvForShutdownAsync();
+            }
+            catch (Exception)
+            {
+                Log("Could not fully detach mpv during shutdown; continuing cleanup.");
+            }
+
+            try
+            {
+                await DisconnectHandyAsync();
+            }
+            catch (Exception)
+            {
+                Log("Handy shutdown cleanup failed; closing the application.");
+            }
+            finally
+            {
+                _allowClose = true;
+                Close();
+            }
         };
+    }
+
+    private async Task DetachMpvForShutdownAsync()
+    {
+        var gateAcquired = false;
+        try
+        {
+            gateAcquired = await _sessionTransitionGate.WaitAsync(ShutdownSessionTransitionTimeout);
+            if (!gateAcquired)
+            {
+                Log("mpv transition did not finish before the shutdown deadline; continuing Handy cleanup.");
+                return;
+            }
+
+            await DetachMpvCoreAsync(stopDevice: false);
+        }
+        finally
+        {
+            if (gateAcquired) _sessionTransitionGate.Release();
+        }
     }
 
     private void Log(string message)
     {
         AppLog.Write(message);
-        if (!IsDisposed && IsHandleCreated)
-            BeginInvoke(() => _log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}"));
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!_isClosing && !IsDisposed && IsHandleCreated && !_log.IsDisposed)
+                    _log.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // The handle can be destroyed after the checks above while deferred cleanup is logging.
+        }
     }
 
-    private void SetStatus(string text) => BeginInvoke(() => _status.Text = text);
+    private void SetStatus(string text)
+    {
+        if (_isClosing || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!_isClosing && !IsDisposed) _status.Text = text;
+            });
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+    }
+
+    private bool ShutdownStarted => _lifetimeCts.IsCancellationRequested;
+
+    // A transition that outlived the shutdown deadline must release mpv without touching the closed form.
+    private void ReleaseMpvAfterShutdown()
+    {
+        _syncTimer.Stop();
+        _hsspReady = false;
+        _mpvAttached = false;
+        _videoTransportPending = false;
+        var session = _mpv;
+        _mpv = null;
+        session?.Dispose();
+    }
 
     private void LoadScript(string path)
     {
@@ -305,9 +387,11 @@ public sealed class MainForm : Form
 
     private async Task EnsureCurrentScriptInstalledAsync(HandyApiClient client, CancellationToken cancellationToken)
     {
-        await _deviceCommandGate.WaitAsync(cancellationToken);
+        var gateAcquired = false;
         try
         {
+            await _deviceCommandGate.WaitAsync(cancellationToken);
+            gateAcquired = true;
             while (ReferenceEquals(_handy, client))
             {
                 var script = _script;
@@ -335,7 +419,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _deviceCommandGate.Release();
+            if (gateAcquired) ReleaseDeviceCommandGate(client);
         }
     }
 
@@ -380,11 +464,20 @@ public sealed class MainForm : Form
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
             session.DurationChanged += seconds => OnMpvDurationChanged(session, seconds);
             session.SpeedChanged += _ => OnMpvSpeedChanged(session);
-            session.Disconnected += () => BeginInvoke(() =>
+            session.Disconnected += () =>
             {
-                if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
-            });
+                if (ShutdownStarted || IsDisposed || !IsHandleCreated) return;
+                try
+                {
+                    BeginInvoke(() =>
+                    {
+                        if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
+                    });
+                }
+                catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+            };
             await session.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
+            if (ShutdownStarted) return;
             Log("Attached to mpv IPC pipe.");
 
             _mpvAttached = true;
@@ -397,12 +490,14 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is IOException or TaskCanceledException or ArgumentException)
         {
+            if (ShutdownStarted) return;
             Log($"Error: {ex.Message}");
             SetStatus("Error");
             await DetachMpvCoreAsync();
         }
         finally
         {
+            if (ShutdownStarted) ReleaseMpvAfterShutdown();
             _sessionTransitionGate.Release();
             _mpvAttachInProgress = false;
             UpdateVideoTransportButtons(_mpv);
@@ -425,10 +520,12 @@ public sealed class MainForm : Form
         }
 
         _connectButton.Enabled = false;
+        HandyApiClient? connectingClient = null;
         try
         {
             SetStatus("Connecting to Handy…");
             var client = _createHandyClient(_connectionKeyBox.Text.Trim());
+            connectingClient = client;
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
@@ -450,7 +547,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
 
             if (!isConnected)
@@ -466,7 +563,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
             Log("Device set to HSSP mode.");
 
@@ -479,7 +576,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
             Log($"Estimated client-server clock offset: {_clockOffsetMs} ms.");
 
@@ -498,6 +595,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
+            if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
             SetStatus("Handy error");
             await DisconnectHandyAsync();
@@ -521,7 +619,7 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
 
             var modelName = string.IsNullOrWhiteSpace(info.ModelName)
@@ -543,6 +641,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
         {
+            if (IsRequestTimeout(ex)) throw;
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
@@ -558,6 +657,9 @@ public sealed class MainForm : Form
         return Version.TryParse(versionText, out var version) && version.Major >= 4
                && firmwareStatus is int status && status != 2;
     }
+
+    private static bool IsRequestTimeout(Exception ex) =>
+        ex is HandyApiTimeoutException;
 
     private async Task ReadAndAdoptDeviceControlsAsync(HandyApiClient client)
     {
@@ -576,6 +678,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _hasDeviceSlider = true;
                 Log($"Could not read device capabilities: {ex.Message}");
             }
@@ -597,6 +700,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _temperatureHighTrigger = null;
                 _temperatureHysteresis = null;
                 _deviceToolTip.SetToolTip(_strokeSlider, string.Empty);
@@ -617,6 +721,7 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
+                if (IsRequestTimeout(ex)) throw;
                 _offsetInitialReadFailed = true;
                 _offsetInitialReadEditVersion = _offsetEditVersion;
                 _offsetWriteFailed = false;
@@ -644,6 +749,7 @@ public sealed class MainForm : Form
                 }
                 catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
                 {
+                    if (IsRequestTimeout(ex)) throw;
                     _strokeInitialReadFailed = true;
                     _strokeInitialReadEditVersion = _strokeEditVersion;
                     _strokeWriteFailed = false;
@@ -657,7 +763,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            if (gateAcquired) _deviceCommandGate.Release();
+            if (gateAcquired) ReleaseDeviceCommandGate(client);
         }
 
         if (_deviceControlsSupported && ReferenceEquals(_handy, client) && !_handyDisconnecting
@@ -669,7 +775,14 @@ public sealed class MainForm : Form
         }
     }
 
-    private async Task DisconnectHandyAsync()
+    private Task DisconnectHandyAsync()
+    {
+        if (_handyDisconnectTask is { IsCompleted: false }) return _handyDisconnectTask;
+        if (_handyDisconnecting) return Task.CompletedTask;
+        return _handyDisconnectTask = DisconnectHandyCoreAsync();
+    }
+
+    private async Task DisconnectHandyCoreAsync()
     {
         _handyDisconnecting = true;
         _devicePollTimer.Stop();
@@ -685,23 +798,132 @@ public sealed class MainForm : Form
         _disconnectButton.Enabled = false;
         _connectButton.Enabled = false;
 
-        await _deviceCommandGate.WaitAsync();
+        client?.CancelPendingRequests();
+        var gateWait = _deviceCommandGate.WaitAsync();
+        try
+        {
+            await gateWait.WaitAsync(_disconnectDrainTimeout);
+        }
+        catch (TimeoutException)
+        {
+            Log("Disconnect drain exceeded its time budget; retaining the client until in-flight work releases the command gate.");
+            CompleteDisconnectUiState(teardownPending: true);
+            _ = FinishDeferredDisconnectAsync(gateWait, client, shouldStopDevice);
+            return;
+        }
+
+        var teardownCompleted = await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice);
+        CompleteDisconnectUiState(teardownPending: !teardownCompleted);
+    }
+
+    private async Task FinishDeferredDisconnectAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
+    {
+        var teardownCompleted = await StopAndDisposeAfterDrainAsync(gateWait, client, shouldStopDevice).ConfigureAwait(false);
+        if (teardownCompleted) CompleteDeferredDisconnectUiState();
+    }
+
+    private async Task<bool> StopAndDisposeAfterDrainAsync(Task gateWait, HandyApiClient? client, bool shouldStopDevice)
+    {
+        await gateWait.ConfigureAwait(false);
+        Task? stopTask = null;
+        var teardownDeferred = false;
         try
         {
             if (client is not null && shouldStopDevice)
-                await client.HsspStopAsync(CancellationToken.None);
-        }
-        catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
-        {
-            Log($"Could not stop Handy playback: {ex.Message}");
+            {
+                stopTask = client.HsspStopForDisconnectAsync();
+                try
+                {
+                    await stopTask.WaitAsync(DisconnectStopWaitTimeout);
+                }
+                catch (TimeoutException)
+                {
+                    Log("Handy stop exceeded its disconnect time budget; retaining the client until the request completes.");
+                    teardownDeferred = true;
+                    _ = FinishDeferredStopAndDisposeAsync(stopTask, client);
+                }
+                catch (Exception ex)
+                {
+                    LogStopFailure(ex);
+                }
+            }
         }
         finally
         {
-            client?.Dispose();
-            _deviceCommandGate.Release();
+            if (!teardownDeferred && client is not null && !client.PendingRequestsCompleted.IsCompleted)
+            {
+                Log("Handy request is still pending after cancellation; retaining the client and command gate until transport completion.");
+                teardownDeferred = true;
+                _ = FinishDeferredStopAndDisposeAsync(Task.CompletedTask, client);
+            }
+            if (!teardownDeferred) DisposeDisconnectedClientAndReleaseGate(client);
         }
+        return !teardownDeferred;
+    }
 
-        _handyDisconnecting = false;
+    private async Task FinishDeferredStopAndDisposeAsync(Task stopTask, HandyApiClient client)
+    {
+        try
+        {
+            await stopTask.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogStopFailure(ex);
+        }
+        finally
+        {
+            await client.PendingRequestsCompleted.ConfigureAwait(false);
+            DisposeDisconnectedClientAndReleaseGate(client);
+            CompleteDeferredDisconnectUiState();
+        }
+    }
+
+    private void CompleteDeferredDisconnectUiState()
+    {
+        if (IsDisposed || _isClosing || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!IsDisposed && !_isClosing)
+                    CompleteDisconnectUiState(teardownPending: false);
+            });
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
+    }
+
+    private void LogStopFailure(Exception ex)
+    {
+        if (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
+            Log($"Could not stop Handy playback: {ex.Message}");
+        else
+            Log("Could not stop Handy playback: request failed; device state is unknown.");
+    }
+
+    private void DisposeDisconnectedClientAndReleaseGate(HandyApiClient? client)
+    {
+        try
+        {
+            client?.Dispose();
+        }
+        catch (Exception) { Log("Could not dispose the disconnected Handy client."); }
+        finally { _deviceCommandGate.Release(); }
+    }
+
+    private void ReleaseDeviceCommandGate(HandyApiClient client)
+    {
+        var drain = client.PendingRequestsCompleted;
+        if (drain.IsCompleted)
+            _deviceCommandGate.Release();
+        else
+            _ = drain.ContinueWith(_ => _deviceCommandGate.Release(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    private void CompleteDisconnectUiState(bool teardownPending)
+    {
+        if (!teardownPending) _handyDisconnecting = false;
         _offsetState.Text = "not connected";
         _strokeState.Text = "not connected";
         _offsetSlider.Enabled = true;
@@ -716,8 +938,10 @@ public sealed class MainForm : Form
         _temperatureValue.ForeColor = SystemColors.ControlText;
         _temperatureValue.BackColor = SystemColors.Control;
         _temperatureBand = DeviceTemperatureBand.Normal;
-        if (!_isClosing) _connectButton.Enabled = true;
-        SetStatus(_mpv is null ? "Idle" : "Playing (no Handy)");
+        if (!_isClosing && !teardownPending) _connectButton.Enabled = true;
+        SetStatus(teardownPending
+            ? "Disconnect pending; waiting for in-flight request"
+            : _mpv is null ? "Idle" : "Playing (no Handy)");
     }
 
     private void OnMpvDurationChanged(MpvSession session, double seconds)
@@ -799,7 +1023,7 @@ public sealed class MainForm : Form
             finally
             {
                 _offsetWriteInFlight = false;
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -871,7 +1095,7 @@ public sealed class MainForm : Form
             finally
             {
                 _strokeWriteInFlight = false;
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -1025,7 +1249,7 @@ public sealed class MainForm : Form
         }
         finally
         {
-            _deviceCommandGate.Release();
+            ReleaseDeviceCommandGate(client);
             _devicePollBusy = false;
         }
     }
@@ -1091,14 +1315,14 @@ public sealed class MainForm : Form
                 }
                 finally
                 {
-                    _deviceCommandGate.Release();
+                    ReleaseDeviceCommandGate(client);
                 }
 
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
-                Log($"Resync failed: {ex.Message}");
+                HandlePlaybackCommandFailure(session, client, "Resync failed", ex);
             }
         }
     }
@@ -1149,7 +1373,7 @@ public sealed class MainForm : Form
 
     private void UpdateVideoTransportButtons(MpvSession? session)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || Disposing) return;
         if (InvokeRequired)
         {
             try { BeginInvoke(() => UpdateVideoTransportButtons(session)); }
@@ -1205,15 +1429,29 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            Log($"Play/stop failed: {ex.Message}");
-            if (ReferenceEquals(_mpv, session) && session.Speed != 1.0)
+            if (HandlePlaybackCommandFailure(session, client, "Play/stop failed", ex) && !IsRequestTimeout(ex)
+                && session.Speed != 1.0)
                 SetStatus("Device stop failed: pause mpv and disconnect Handy");
         }
+    }
+
+    // Late failures from a replaced mpv session or Handy client must not alter or report on the current target.
+    private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex)
+    {
+        if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)) return false;
+        Log($"{prefix}: {ex.Message}");
+        if (IsRequestTimeout(ex))
+        {
+            _hsspReady = false;
+            _syncTimer.Stop();
+            SetStatus("Handy request timed out; device state is unknown");
+        }
+        return true;
     }
 
     private async Task OnSyncTickAsync()
@@ -1232,12 +1470,12 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            Log($"Drift correction failed: {ex.Message}");
+            HandlePlaybackCommandFailure(session, client, "Drift correction failed", ex);
         }
     }
 
@@ -1250,7 +1488,8 @@ public sealed class MainForm : Form
         await _sessionTransitionGate.WaitAsync();
         try
         {
-            await DetachMpvCoreAsync(stopDevice);
+            if (ShutdownStarted) ReleaseMpvAfterShutdown();
+            else await DetachMpvCoreAsync(stopDevice);
         }
         finally
         {
@@ -1274,7 +1513,9 @@ public sealed class MainForm : Form
 
         if (stopDevice && client is not null)
         {
-            await _deviceCommandGate.WaitAsync();
+            // Once shutdown starts, its Handy teardown owns the final stop.
+            try { await _deviceCommandGate.WaitAsync(_lifetimeCts.Token); }
+            catch (OperationCanceledException) when (ShutdownStarted) { return; }
             try
             {
                 if (ReferenceEquals(_handy, client))
@@ -1286,9 +1527,11 @@ public sealed class MainForm : Form
             }
             finally
             {
-                _deviceCommandGate.Release();
+                ReleaseDeviceCommandGate(client);
             }
         }
+
+        if (ShutdownStarted) return;
 
         if (stopDevice && client is not null && ReferenceEquals(_handy, client) && _script is not null)
         {
@@ -1298,13 +1541,15 @@ public sealed class MainForm : Form
             }
             catch (Exception ex) when (ex is HandyApiException or IOException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
-                if (ReferenceEquals(_handy, client))
+                if (!ShutdownStarted && ReferenceEquals(_handy, client))
                 {
                     Log($"Could not install the selected script after stopping: {ex.Message}");
                     await DisconnectHandyAsync();
                 }
             }
         }
+
+        if (ShutdownStarted) return;
 
         _hsspReady = stopDevice
                      && client is not null

@@ -31,7 +31,7 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Multiple Saved Connection Keys | Deferred | New management UI is not required; retain protected storage and current first-key behavior |
 | Authoring Review Comments During Playback | Deferred | New local review workflow; project/comment-track format and persistence remain to be designed |
 | Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
-| Request Timeouts and Retries | In scope / Deferred | Verify bounded requests and shutdown; add timeout fixes where necessary. Expanded automatic retries/backoff are deferred |
+| Request Timeouts and Retries | In scope / Deferred | Bounded requests and shutdown implemented and verified 2026-11-01 (see the [work plan](../work/timeout-shutdown/PLAN.md)). Expanded automatic retries/backoff are deferred |
 | Desired State and Command Coalescing | Deferred | Preserve command serialization and existing debouncing; fix stale-command/lifecycle defects if found, without requiring a new desired-state system |
 | Connection Events | Deferred | SSE and additional event-driven status are not release requirements; preserve current polling |
 | Firmware and Capabilities | In scope / Deferred / Excluded | Verify existing gates and accurate compatibility reporting; additional model-specific validation is deferred. Firmware installation/update flows are excluded |
@@ -65,7 +65,7 @@ so typing time does not move the note away from the moment being reviewed.
 
 ## Reconnect and HSSP Recovery
 
-**Priority:** High. **Status:** Proposed.
+**Priority:** High. **Status:** Deferred; not selected for the initial release. Only the separate bounded-request and shutdown prerequisite is implemented (see [Request Timeouts and Retries](#request-timeouts-and-retries) and the [completed work plan](../work/timeout-shutdown/PLAN.md)). Unavailable/recovering states, takeover/reboot detection, automatic reconnect, HSSP restoration and retries/backoff remain unimplemented; future recovery should build on the existing request budgets.
 
 Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
 
@@ -84,11 +84,11 @@ Do not depend on synctime to restart stopped playback. Log whether setup was reu
 
 ## Request Timeouts and Retries
 
-**Priority:** High. **Status:** Proposed.
+**Priority:** High. **Status:** Timeout and shutdown bounds implemented and verified 2026-11-01; see the [completed work plan](../work/timeout-shutdown/PLAN.md). Automatic retries/backoff remain proposed and deferred.
 
-Use explicit budgets: connectivity/status and HSSP control 5-10 seconds, time samples 3-5 seconds, upload 30-60 seconds. Shutdown must still finish if the network is unavailable.
+Implemented budgets use the upper end of the planned ranges: connectivity/status and HSSP control 10 seconds, each time sample 5 seconds, upload 60 seconds. Shutdown finishes if the network is unavailable, making one bounded stop attempt.
 
-Retry transient resets, timeouts, DNS failures, HTTP 408/429/5xx. Respect Retry-After/rate-limit information. Do not blindly retry authentication failures, invalid requests, or malformed scripts.
+Deferred retry work: retry transient resets, timeouts, DNS failures, HTTP 408/429/5xx. Respect Retry-After/rate-limit information. Do not blindly retry authentication failures, invalid requests, or malformed scripts.
 
 ## Desired State and Command Coalescing
 

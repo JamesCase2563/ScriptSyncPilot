@@ -1,6 +1,6 @@
 # Error Reporting Design
 
-**Status:** Proposed; investigation and verification not started.
+**Status:** Approved by the maintainer on 2026-11-02; investigation and verification not started.
 **Affected projects:** HandySync primarily; Common or FunscriptEditor only if a shared reporting defect is shown to affect the release gate.
 **Production-readiness priority:** 2, error reporting.
 

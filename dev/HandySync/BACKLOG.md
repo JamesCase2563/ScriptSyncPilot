@@ -31,10 +31,10 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Multiple Saved Connection Keys | Deferred | New management UI is not required; retain protected storage and current first-key behavior |
 | Authoring Review Comments During Playback | Deferred | New local review workflow; project/comment-track format and persistence remain to be designed |
 | Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
-| Request Timeouts and Retries | In scope / Deferred | Bounded requests and shutdown implemented and verified 2026-11-01 (see the [work plan](../work/timeout-shutdown/PLAN.md)). Expanded automatic retries/backoff are deferred |
-| Desired State and Command Coalescing | Deferred | Preserve command serialization and existing debouncing; fix stale-command/lifecycle defects if found, without requiring a new desired-state system |
+| Request Timeouts and Retries | In scope / Deferred | Bounded requests and shutdown implemented and verified 2026-11-01 (see the [archived work plan](../archive/2026-11-timeout-shutdown/PLAN.md)). Expanded automatic retries/backoff are deferred |
+| Desired State and Command Coalescing | Deferred; lifecycle verification active | Preserve command serialization and existing debouncing. Stale-command/session-replacement verification is tracked separately in [command-ordering](../work/command-ordering/PLAN.md); command coalescing and desired-state machinery remain deferred |
 | Connection Events | Deferred | SSE and additional event-driven status are not release requirements; preserve current polling |
-| Firmware and Capabilities | In scope / Deferred / Excluded | Verify existing gates and accurate compatibility reporting; additional model-specific validation is deferred. Firmware installation/update flows are excluded |
+| Firmware and Capabilities | In scope / Deferred / Excluded; verification active | Verify existing gates and accurate compatibility reporting in [firmware-capabilities](../work/firmware-capabilities/PLAN.md); additional model-specific validation is deferred. Firmware installation/update flows are excluded |
 | Timing and Diagnostics | In scope / Deferred | Preserve useful, secret-free diagnostics, including connection hardware information; expanded drift/RTT metrics and clock-refresh strategies are deferred |
 | Offset Feedback | Deferred | Reset/range extensions are not required; preserve existing device-side offset controls |
 | Playback Speed Sync | Excluded | Non-1x device playback is outside initial scope; existing stop/suppress behavior and resumption at confirmed 1x remain in scope |
@@ -65,7 +65,7 @@ so typing time does not move the note away from the moment being reviewed.
 
 ## Reconnect and HSSP Recovery
 
-**Priority:** High. **Status:** Deferred; not selected for the initial release. Only the separate bounded-request and shutdown prerequisite is implemented (see [Request Timeouts and Retries](#request-timeouts-and-retries) and the [completed work plan](../work/timeout-shutdown/PLAN.md)). Unavailable/recovering states, takeover/reboot detection, automatic reconnect, HSSP restoration and retries/backoff remain unimplemented; future recovery should build on the existing request budgets.
+**Priority:** High. **Status:** Deferred; not selected for the initial release. Only the separate bounded-request and shutdown prerequisite is implemented (see [Request Timeouts and Retries](#request-timeouts-and-retries) and the [archived completed work plan](../archive/2026-11-timeout-shutdown/PLAN.md)). Unavailable/recovering states, takeover/reboot detection, automatic reconnect, HSSP restoration and retries/backoff remain unimplemented; future recovery should build on the existing request budgets.
 
 Introduce explicit unavailable/recovering/ready states for transient HTTP failures, device disconnects, failed play, failed synctime, and takeover by another app. Keep observing mpv throughout recovery.
 
@@ -84,7 +84,7 @@ Do not depend on synctime to restart stopped playback. Log whether setup was reu
 
 ## Request Timeouts and Retries
 
-**Priority:** High. **Status:** Timeout and shutdown bounds implemented and verified 2026-11-01; see the [completed work plan](../work/timeout-shutdown/PLAN.md). Automatic retries/backoff remain proposed and deferred.
+**Priority:** High. **Status:** Timeout and shutdown bounds implemented and verified 2026-11-01; see the [archived completed work plan](../archive/2026-11-timeout-shutdown/PLAN.md). Automatic retries/backoff remain proposed and deferred.
 
 Implemented budgets use the upper end of the planned ranges: connectivity/status and HSSP control 10 seconds, each time sample 5 seconds, upload 60 seconds. Shutdown finishes if the network is unavailable, making one bounded stop attempt.
 
@@ -92,7 +92,7 @@ Deferred retry work: retry transient resets, timeouts, DNS failures, HTTP 408/42
 
 ## Desired State and Command Coalescing
 
-**Priority:** Medium. **Status:** Proposed; serialization implemented.
+**Priority:** Medium. **Status:** Coalescing proposed and deferred; lifecycle/order verification active in [command-ordering](../work/command-ordering/PLAN.md). Serialization is implemented.
 
 Keep the single device-command gate. Add newest-desired-state handling to suppress duplicate play/pause, coalesce rapid seeks, supersede stale sync/offset requests, and reduce unnecessary traffic. Record command type/result. A semaphore alone does not provide coalescing or a recovery state machine; no separate controller host is required.
 
@@ -106,7 +106,7 @@ Feed device warnings into the main-form device status area from [main-form devic
 
 ## Firmware and Capabilities
 
-**Priority:** Medium. **Status:** Broader setup validation and additional model-specific capabilities remain; control-specific gates are implemented.
+**Priority:** Medium. **Status:** Control-specific gates are implemented; release-baseline verification is active in [firmware-capabilities](../work/firmware-capabilities/PLAN.md). Broader setup validation and additional model-specific capabilities remain subject to that review; firmware update flows remain excluded.
 
 The main-form offset/stroke controls call `/info` and are enabled only for firmware 4+ with `fw_status` other than update-required. `/capabilities` is read on connect; stroke controls are disabled and stroke requests are suppressed when `slider` is zero. This is a control-specific gate, not a gate on the rest of HSSP setup. Remaining work is broader firmware/capability validation before setup, if required, and handling additional model-specific capabilities. Vendor documentation requires firmware 4 or newer for API v3. Script loading stays independent of device availability.
 
@@ -165,7 +165,9 @@ does not authorize expanding support to other vendors.
 
 Use the [shared test backlog](../BACKLOG.md) for fake-transport ordering, replacement, recovery, and idempotent teardown tests. Preserve current lifecycle guarantees when adding SSE/retries; background failures must not escape after close.
 
-Suggested order: verify the initial-release timeout, error-reporting and lifecycle baseline; then prioritize local Handy BLE/Intiface feasibility and backend work for privacy ahead of deferred automatic HSSP recovery, expanded coalescing, SSE and richer timing diagnostics/offset feedback. The local backend remains outside the initial-release gate unless separately approved. This is not a dated delivery commitment.
+The initial-release failure-reporting, command-ordering, and firmware/capability verification work is tracked in [error-reporting](../work/error-reporting/PLAN.md), [command-ordering](../work/command-ordering/PLAN.md), and [firmware-capabilities](../work/firmware-capabilities/PLAN.md), respectively. These are bounded release-gate verification efforts; they do not select automatic recovery, coalescing, SSE, or richer timing diagnostics.
+
+Suggested later order: prioritize local Handy BLE/Intiface feasibility and backend work for privacy ahead of deferred automatic HSSP recovery, expanded coalescing, SSE and richer timing diagnostics/offset feedback. The local backend remains outside the initial-release gate unless separately approved. This is not a dated delivery commitment.
 
 ## Completed
 

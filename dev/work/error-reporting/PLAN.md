@@ -17,7 +17,7 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 ### 1. Characterize
 
 - [x] Read current HandySync error handling and related tests; record implementation paths and existing coverage in [DESIGN.md](DESIGN.md) (M1.1).
-- [ ] Reuse the archived credential/URL and timeout/shutdown evidence where applicable; identify cases it does not cover.
+- [x] Reuse the archived credential/URL and timeout/shutdown evidence where applicable; record coverage boundaries and remaining cases in [DESIGN.md](DESIGN.md) (M1.2).
 - [ ] Fill out the grouped [error-message inventory](ERROR-MESSAGE-INVENTORY.md), covering user-visible result, log text, readiness/state outcome, dependent work, next step, and sensitive-data risk.
 
 ### 2. Resolve verified gaps

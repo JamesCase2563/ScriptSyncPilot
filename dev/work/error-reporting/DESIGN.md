@@ -33,6 +33,18 @@ Reviewed `src/ScriptSyncPilot.HandySync/MainForm.cs`, `HandyApiClient.cs`, and t
 
 This is a path/test map, not a conclusion that each message is adequate. Record exact current text, UI surface, resulting state, next step, and sensitive-data assessment in the grouped [error-message inventory](ERROR-MESSAGE-INVENTORY.md). M1.1 is complete; the message-by-message characterization remains for the next M1 task.
 
+## M1.2 Reused evidence and remaining gaps
+
+Reviewed the archived [credential/URL protection verification](../../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md) and [timeout/shutdown verification](../../archive/2026-11-timeout-shutdown/VERIFICATION.md). Reuse their completed evidence as follows; it is scoped to the listed scenarios and does not establish every current error message is adequate.
+
+| Prior evidence | Reuse for this work item | Cases it does not establish |
+| --- | --- | --- |
+| Credential/URL protection: API error normalization, upload/setup failure safety, and actual visible/persistent log checks | Keys and hosted-script URLs are not included in the covered error/log messages. Upload/setup HTTP, malformed-response, and device-error cases preserve safe operation/status/code details without raw bodies or untrusted error text. Synthetic HTTP/I/O/cancellation exception details are removed. | Manual upload/setup failure was not exercised; automated tests inspect actual UI and persistent logs for setup/replacement scenarios. This does not prove that unrelated connect, playback, device-control, mpv, or shutdown messages are equally safe/useful. Historical logs and backups are outside the sanitization guarantee. |
+| Timeout/shutdown: REST and hosting deadlines, response-body reads, cancellation classification, and dependent-operation suppression | A timeout is distinguished from caller cancellation; firmware-read and upload timeouts abort connect before dependent requests; play/synctime timeouts clear readiness and stop periodic sync; stale timeout results do not alter replacement targets. | These are timeout/lifecycle cases, not a general review of ordinary HTTP/device errors or all message wording. They do not evaluate routine non-timeout failures during connect, play, seek, reads, or writes. |
+| Timeout/shutdown: disconnect stop failure/timeout, drain deadline, deferred teardown, repeated disconnect, and close flow | Stop failures/timeouts are logged safely, local cleanup continues, a failed stop is not claimed as confirmed, pending work retains the client until safe teardown, and close proceeds without a shutdown error dialog. | This does not review mpv attach/video-control failures, optional device reads, ordinary offset/stroke write failures, or the usefulness of non-shutdown error messages. A physical stop during network loss is not guaranteed. |
+
+Accordingly, the remaining review must characterize the actual signal, state, and safe next step for non-timeout failures across connect/setup, playback/seek/sync, optional firmware/capability/control reads, offset/stroke writes, polling, and mpv attach/video transport. Existing automated tests may be cited per row in the [inventory](ERROR-MESSAGE-INVENTORY.md); new verification is only needed for gaps or behavior changed by this work. M1.2 is complete.
+
 ## Proposed approach
 
 1. Inventory failure paths for connect/setup, capability and device reads, upload, play/pause/seek/synctime, offset/stroke controls, disconnect/stop, and application close in the separate [error-message inventory](ERROR-MESSAGE-INVENTORY.md).

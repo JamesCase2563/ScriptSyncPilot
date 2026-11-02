@@ -24,8 +24,8 @@ public sealed class MainForm : Form
     private readonly Label _timeLabel = new() { AutoSize = true, Text = "0.000 / 0.000 s", MinimumSize = new Size(140, 0) };
     private readonly NumericUpDown _speedInput = new()
     {
-        Minimum = 0.25m,
-        Maximum = 2.00m,
+        Minimum = 0.10m,
+        Maximum = 5.00m,
         DecimalPlaces = 2,
         Increment = 0.05m,
         Value = 1.00m,

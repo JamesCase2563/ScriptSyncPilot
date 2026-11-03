@@ -45,6 +45,10 @@ Reviewed the archived [credential/URL protection verification](../../archive/202
 
 Accordingly, the remaining review must characterize the actual signal, state, and safe next step for non-timeout failures across connect/setup, playback/seek/sync, optional firmware/capability/control reads, offset/stroke writes, polling, and mpv attach/video transport. Existing automated tests may be cited per row in the [inventory](ERROR-MESSAGE-INVENTORY.md); new verification is only needed for gaps or behavior changed by this work. M1.2 is complete.
 
+## M2.1 Confirmed behavior corrections
+
+Applied narrowly to confirmed issues in the inventory: failed firmware reads now report `firmware unknown`; uncertain offset/stroke write results report `not confirmed`; any current-target play/stop/seek/sync command failure clears HSSP readiness, stops periodic sync, and reports unknown device state (timeout keeps its distinct status); failed temperature polling clears the stale reading and marks it unavailable; mpv and local script errors use safe, actionable fixed text instead of raw OS exception/path details; missing prerequisites and settings-save/load errors report through the current form's log/status instead of modal message boxes. Startup settings-load failure uses temporary default UI state while preserving the unreadable settings file and skips saving defaults over it. The inventory records the resulting behavior. M2.1 is complete; M2.2/M2.3 and focused verification remain open.
+
 ## Proposed approach
 
 1. Inventory failure paths for connect/setup, capability and device reads, upload, play/pause/seek/synctime, offset/stroke controls, disconnect/stop, and application close in the separate [error-message inventory](ERROR-MESSAGE-INVENTORY.md).

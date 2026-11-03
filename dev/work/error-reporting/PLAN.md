@@ -1,6 +1,6 @@
 # Error Reporting Plan
 
-**Status:** Approved by the maintainer on 2026-11-02; no implementation or verification claimed.
+**Status:** Approved by the maintainer on 2026-11-02; implementation in progress (M2.1 complete; M2.2, regression tests, and verification remain open).
 **Goal:** Close production-readiness reliability priority 2 by verifying safe, truthful, useful reporting of failed operations.
 **Owner/source of truth:** This work item coordinates verification; component behavior remains owned by the [HandySync backlog](../../HandySync/BACKLOG.md).
 
@@ -22,7 +22,7 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 
 ### 2. Resolve verified gaps
 
-- [ ] Fix only confirmed misleading, hidden, unsafe, or non-actionable failure behavior within this scope.
+- [x] Fix confirmed misleading, hidden, unsafe, or non-actionable failure behavior within this scope (M2.1; see current behavior in the [inventory](ERROR-MESSAGE-INVENTORY.md)).
 - [ ] Keep timeout distinct from caller/lifecycle cancellation and keep unknown remote state explicit.
 - [ ] Add focused regression tests for each changed behavior.
 

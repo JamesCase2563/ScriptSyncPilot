@@ -1476,12 +1476,20 @@ public sealed class MainForm : Form
     private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex)
     {
         if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)) return false;
+        if (ex is HandyApiRequestCanceledException { IsLifecycleCancellation: true }
+            || (_lifetimeCts.IsCancellationRequested && ex is OperationCanceledException and not HandyApiTimeoutException))
+            return false;
+
         Log($"{prefix}: {ex.Message}");
         _hsspReady = false;
         _syncTimer.Stop();
         if (IsRequestTimeout(ex))
         {
             SetStatus("Handy request timed out; device state is unknown");
+        }
+        else if (ex is HandyApiRequestCanceledException)
+        {
+            SetStatus("Handy command canceled; device state is unknown");
         }
         else
         {

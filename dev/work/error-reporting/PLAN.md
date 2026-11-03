@@ -1,6 +1,6 @@
 # Error Reporting Plan
 
-**Status:** Approved by the maintainer on 2026-11-02; implementation in progress (M2.1 complete; M2.2, regression tests, and verification remain open).
+**Status:** Approved by the maintainer on 2026-11-02; M2.1–M2.3 are complete and the full automated suite passes; final message-safety and release-gate review remain open.
 **Goal:** Close production-readiness reliability priority 2 by verifying safe, truthful, useful reporting of failed operations.
 **Owner/source of truth:** This work item coordinates verification; component behavior remains owned by the [HandySync backlog](../../HandySync/BACKLOG.md).
 
@@ -23,12 +23,12 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 ### 2. Resolve verified gaps
 
 - [x] Fix confirmed misleading, hidden, unsafe, or non-actionable failure behavior within this scope (M2.1; see current behavior in the [inventory](ERROR-MESSAGE-INVENTORY.md)).
-- [ ] Keep timeout distinct from caller/lifecycle cancellation and keep unknown remote state explicit.
-- [ ] Add focused regression tests for each changed behavior.
+- [x] Keep timeout distinct from caller/lifecycle cancellation and keep unknown remote state explicit (M2.2; timeouts retain their dedicated status, caller cancellation reports canceled with unknown device state, and lifecycle cancellation is silent).
+- [x] Add focused regression tests for each changed behavior (M2.3; see [`HandyApiTimeoutTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandyApiTimeoutTests.cs) and [`DeviceControlPollingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/DeviceControlPollingTests.cs)).
 
 ### 3. Verify and close
 
-- [ ] Run focused tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
+- [x] Run tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (full suite: 304 passed, 0 failed).
 - [ ] Review messages for credentials, private hosted-script URLs, raw response bodies, and unsafe exception text.
 - [ ] Record unresolved limits and link completed evidence from the [production-readiness plan](../production-readiness/PLAN.md).
 - [ ] Mark complete only when the planned inventory and acceptance criteria are satisfied; archive only after completion.

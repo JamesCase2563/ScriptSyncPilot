@@ -6,7 +6,7 @@
 
 ## Goal
 
-Verify that failures in the supported HandySync workflows are presented as failures, give users a useful next step where one is known, and keep credentials, hosted-script URLs, response bodies, and unsafe transport exception text out of user-visible diagnostics. Fix only defects found against this goal.
+Verify that failures in the supported HandySync workflows are presented as failures on the current form, give users a useful next step where one is known, and keep credentials, hosted-script URLs, response bodies, and unsafe transport exception text out of user-visible diagnostics. Error feedback should be nonblocking: use the current form's log, status, or relevant control instead of modal message boxes. Fix only defects found against this goal.
 
 This is a verification work item, not a logging redesign. Preserve useful existing diagnostics and the current UI flow unless evidence shows it misleads users or hides an actionable failure.
 
@@ -56,6 +56,7 @@ Accordingly, the remaining review must characterize the actual signal, state, an
 ## Constraints
 
 - Never display or log connection keys, hosted-script URLs, private media paths where not needed, raw response bodies, or unreviewed exception text.
+- Keep error feedback nonmodal and visible on the current form (log, status, or relevant control); do not add blocking error message boxes.
 - A failed operation must not be described as successful. When the remote state cannot be known, say so plainly and prevent dependent commands from assuming success.
 - Do not add retries, recovery state machines, structured logging infrastructure, telemetry, or new support channels here.
 - Do not change normal successful behavior solely to make logs more verbose.

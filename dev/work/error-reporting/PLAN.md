@@ -36,6 +36,7 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 ## Acceptance criteria
 
 - Failures are apparent to the user or operator through the existing appropriate UI/log path.
+- Failure feedback is nonblocking and stays on the current form's log, status, or relevant control; error message boxes are not used.
 - No reviewed failure path reports success or permits dependent work to proceed as if a prerequisite succeeded.
 - Diagnostics contain only safe, bounded, useful information; no keys, hosted-script URLs, raw bodies, or arbitrary exception text.
 - Changed behavior has automated regression coverage, and evidence is recorded in `VERIFICATION.md`.

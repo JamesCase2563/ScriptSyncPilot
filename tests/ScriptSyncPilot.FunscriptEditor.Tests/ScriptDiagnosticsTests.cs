@@ -82,6 +82,39 @@ public sealed class ScriptDiagnosticsTests
         }
     }
 
+    [STATestMethod]
+    public void ConnectionInfoBoundsAndEscapesRemoteHardwareAndFirmwareText()
+    {
+        var untrusted = new string('F', 120) + "\r\nforged log entry";
+        var response = JsonSerializer.Serialize(new
+        {
+            result = new
+            {
+                fw_status = 2,
+                fw_version = untrusted,
+                hw_model_name = untrusted
+            }
+        });
+        using var handler = new Handler(_ => Response(response));
+        using var client = new HandyApiClient(Secret, handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings(), _ => client);
+        _ = form.Handle;
+        SetField(form, "_handy", client);
+
+        var check = (Task)form.GetType().GetMethod("CheckDeviceFirmwareAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, [client])!;
+        Complete(check);
+
+        var log = GetField<TextBox>(form, "_log").Text;
+        var bounded = JsonSerializer.Serialize(new string('F', 80) + "…");
+        StringAssert.Contains(log, $"model name {bounded}");
+        StringAssert.Contains(log, $"firmware {bounded}");
+        Assert.IsFalse(log.Contains("\r\nforged log entry", StringComparison.Ordinal));
+        Assert.IsFalse(log.Contains(new string('F', 81), StringComparison.Ordinal));
+        AssertSafe(log);
+        SetField(form, "_handy", null);
+    }
+
     [DataTestMethod]
     [DataRow("io")]
     [DataRow("cancel")]

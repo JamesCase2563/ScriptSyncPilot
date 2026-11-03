@@ -1,6 +1,6 @@
 # Error Reporting Plan
 
-**Status:** Approved by the maintainer on 2026-11-02; M2.1–M2.3 are complete and the full automated suite passes; final message-safety and release-gate review remain open.
+**Status:** Complete 2026-11-03. M1–M3 are complete; the full automated suite passes (312/312) and final message-safety review is recorded in [VERIFICATION.md](VERIFICATION.md). The production-readiness release gate remains coordinated by its parent plan.
 **Goal:** Close production-readiness reliability priority 2 by verifying safe, truthful, useful reporting of failed operations.
 **Owner/source of truth:** This work item coordinates verification; component behavior remains owned by the [HandySync backlog](../../HandySync/BACKLOG.md).
 
@@ -24,14 +24,14 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 
 - [x] Fix confirmed misleading, hidden, unsafe, or non-actionable failure behavior within this scope (M2.1; see current behavior in the [inventory](ERROR-MESSAGE-INVENTORY.md)).
 - [x] Keep timeout distinct from caller/lifecycle cancellation and keep unknown remote state explicit (M2.2; timeouts retain their dedicated status, caller cancellation reports canceled with unknown device state, and lifecycle cancellation is silent).
-- [x] Add focused regression tests for each changed behavior (M2.3; see [`HandyApiTimeoutTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandyApiTimeoutTests.cs) and [`DeviceControlPollingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/DeviceControlPollingTests.cs)).
+- [x] Add focused regression tests for changed behavior (M2.3; see [`HandyApiTimeoutTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandyApiTimeoutTests.cs), [`DeviceControlPollingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/DeviceControlPollingTests.cs), [`ScriptDiagnosticsTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptDiagnosticsTests.cs), and [`HandySyncErrorReportingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandySyncErrorReportingTests.cs)).
 
 ### 3. Verify and close
 
-- [x] Run tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (full suite: 304 passed, 0 failed).
-- [ ] Review messages for credentials, private hosted-script URLs, raw response bodies, and unsafe exception text.
-- [ ] Record unresolved limits and link completed evidence from the [production-readiness plan](../production-readiness/PLAN.md).
-- [ ] Mark complete only when the planned inventory and acceptance criteria are satisfied; archive only after completion.
+- [x] Run tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (full suite: 312 passed, 0 failed).
+- [x] Review messages for credentials, private hosted-script URLs, raw response bodies, and unsafe exception text; findings and limits are recorded in [VERIFICATION.md](VERIFICATION.md).
+- [x] Record unresolved limits and link completed evidence from the [production-readiness plan](../production-readiness/PLAN.md).
+- [x] Mark the work item complete after confirming the planned inventory and acceptance criteria are satisfied; archival may follow completion.
 
 ## Acceptance criteria
 

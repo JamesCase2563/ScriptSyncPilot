@@ -1,0 +1,156 @@
+using System.Reflection;
+using System.Net;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ScriptSyncPilot.Common;
+using ScriptSyncPilot.HandySync;
+using System.Windows.Forms;
+
+namespace ScriptSyncPilot.FunscriptEditor.Tests;
+
+[TestClass]
+public sealed class HandySyncErrorReportingTests
+{
+    private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+
+    [STATestMethod]
+    [DataRow("", "Connection key required", "Cannot connect to Handy: enter a connection key first.")]
+    [DataRow("synthetic-key", "Funscript required", "Cannot connect to Handy: load a funscript first.")]
+    public void ConnectPrerequisiteFailureIsReportedInline(string key, string expectedStatus, string expectedLog)
+    {
+        var createClientCalls = 0;
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { ConnectionKey = key }, _ =>
+        {
+            createClientCalls++;
+            throw new AssertFailedException("A client must not be created for invalid prerequisites.");
+        });
+        _ = form.Handle;
+
+        InvokeAndPump(form, "ConnectHandyAsync");
+
+        Assert.AreEqual(0, createClientCalls);
+        Assert.AreEqual(expectedStatus, GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text, expectedLog);
+    }
+
+    [STATestMethod]
+    public void FailedConnectRetainsErrorStatusAfterDisconnectCleanup()
+    {
+        using var handler = new ServiceUnavailableHandler();
+        using var client = new HandyApiClient("synthetic-key", handler, new Uri("https://example.test/api/"));
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { ConnectionKey = "synthetic-key" }, _ => client);
+        SetField(form, "_script", new Funscript());
+        _ = form.Handle;
+
+        InvokeAndPump(form, "ConnectHandyAsync");
+
+        Assert.AreEqual("Handy error; see log", GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text, "Handy error: connected failed: 503.");
+        Assert.IsNull(GetField<object?>(form, "_handy"));
+    }
+
+    [STATestMethod]
+    public void InvalidScriptFailureKeepsCurrentScriptAndDoesNotLogLocalPath()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"scriptsync-invalid-{Guid.NewGuid():N}.funscript");
+        File.WriteAllText(path, "{invalid json");
+        try
+        {
+            using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings(), _ => throw new AssertFailedException("No client expected."));
+            var currentScript = new Funscript();
+            SetField(form, "_script", currentScript);
+            _ = form.Handle;
+
+            typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("LoadScript", PrivateInstance)!.Invoke(form, [path]);
+            Application.DoEvents();
+
+            Assert.AreSame(currentScript, GetField<Funscript>(form, "_script"));
+            var log = GetField<TextBox>(form, "_log").Text;
+            StringAssert.Contains(log, "Could not load script. Check that the file is accessible and contains valid funscript data.");
+            Assert.IsFalse(log.Contains(path, StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [STATestMethod]
+    public void FailedMpvAttachLeavesActionableStatusAfterCleanup()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { MpvIpcPipe = "" }, _ => throw new AssertFailedException("No Handy client expected."));
+        SetField(form, "_script", new Funscript());
+        _ = form.Handle;
+
+        InvokeAndPump(form, "AttachMpvAsync");
+        Application.DoEvents();
+
+        Assert.AreEqual("mpv attach failed; see log", GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text,
+            "Could not attach to mpv; check that it is running and the configured IPC pipe is available.");
+        Assert.IsNull(GetField<object?>(form, "_mpv"));
+    }
+
+    [STATestMethod]
+    public void StartupSettingsErrorIsVisibleAndDefaultsAreNotSavedOnClose()
+    {
+        const string safeError = "Settings could not be read. The existing file has not been changed.";
+        var saveCalls = 0;
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings(), _ => throw new AssertFailedException("No client expected."),
+            _ => saveCalls++, settingsLoadError: safeError);
+        _ = form.Handle;
+
+        typeof(Form).GetMethod("OnShown", PrivateInstance)!.Invoke(form, [EventArgs.Empty]);
+        Application.DoEvents();
+        Assert.AreEqual("Settings not loaded; see log", GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text, safeError);
+
+        var closing = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        typeof(Form).GetMethod("OnFormClosing", PrivateInstance)!.Invoke(form, [closing]);
+        Application.DoEvents();
+
+        Assert.AreEqual(0, saveCalls, "Fallback defaults must not overwrite unreadable settings.");
+    }
+
+    [STATestMethod]
+    public void LegacyPlaintextKeyReentryIsShownInlineWithoutLoggingTheKey()
+    {
+        const string plaintextKey = "synthetic-legacy-plaintext-key";
+        var settings = AppSettings.Deserialize("{\"ConnectionKey\":\"" + plaintextKey + "\"}");
+        using var form = new ScriptSyncPilot.HandySync.MainForm(settings, _ => throw new AssertFailedException("No client expected."));
+        _ = form.Handle;
+
+        typeof(Form).GetMethod("OnShown", PrivateInstance)!.Invoke(form, [EventArgs.Empty]);
+        Application.DoEvents();
+
+        Assert.AreEqual("Connection key required", GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text, "Please re-enter your Handy connection key.");
+        Assert.IsFalse(GetField<TextBox>(form, "_log").Text.Contains(plaintextKey, StringComparison.Ordinal));
+        Assert.AreEqual(string.Empty, GetField<TextBox>(form, "_connectionKeyBox").Text);
+    }
+
+    private static void InvokeAndPump(Form form, string method)
+    {
+        var task = (Task)typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod(method, PrivateInstance)!.Invoke(form, null)!;
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (!task.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+        Assert.IsTrue(task.IsCompleted, $"{method} did not complete within the test bound.");
+        task.GetAwaiter().GetResult();
+        Application.DoEvents();
+    }
+
+    private static T GetField<T>(object target, string name) =>
+        (T)target.GetType().GetField(name, PrivateInstance)!.GetValue(target)!;
+
+    private static void SetField(object target, string name, object? value) =>
+        target.GetType().GetField(name, PrivateInstance)!.SetValue(target, value);
+
+    private sealed class ServiceUnavailableHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+    }
+}

@@ -513,8 +513,8 @@ public sealed class MainForm : Form
         {
             if (ShutdownStarted) return;
             Log("Could not attach to mpv; check that it is running and the configured IPC pipe is available.");
-            SetStatus("mpv attach failed; see log");
             await DetachMpvCoreAsync();
+            SetStatus("mpv attach failed; see log");
         }
         finally
         {
@@ -620,8 +620,8 @@ public sealed class MainForm : Form
         {
             if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
-            SetStatus("Handy error; see log");
             await DisconnectHandyAsync();
+            SetStatus("Handy error; see log");
         }
         finally
         {
@@ -645,21 +645,20 @@ public sealed class MainForm : Form
                 ReleaseDeviceCommandGate(client);
             }
 
-            var modelName = string.IsNullOrWhiteSpace(info.ModelName)
-                ? "not reported"
-                : System.Text.Json.JsonSerializer.Serialize(info.ModelName);
+            var modelName = FormatDeviceDiagnosticValue(info.ModelName);
             Log($"Device hardware: model name {modelName}, model number {info.ModelNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}, model variant {info.ModelVariant?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}.");
 
+            var firmwareVersion = FormatDeviceDiagnosticValue(info.FirmwareVersion);
             _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
             if (!_deviceControlsSupported)
             {
                 _offsetState.Text = "firmware unknown";
                 _strokeState.Text = "firmware unknown";
-                Log($"Device controls unsupported: firmware {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+                Log($"Device controls unsupported: firmware {firmwareVersion}, status {info.FirmwareStatus}.");
             }
             else
             {
-                Log($"Device firmware supported: {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+                Log($"Device firmware supported: {firmwareVersion}, status {info.FirmwareStatus}.");
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
@@ -679,6 +678,14 @@ public sealed class MainForm : Form
         var versionText = firmwareVersion.Split('+', 2)[0];
         return Version.TryParse(versionText, out var version) && version.Major >= 4
                && firmwareStatus is int status && status != 2;
+    }
+
+    private static string FormatDeviceDiagnosticValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "not reported";
+        const int maxLength = 80;
+        var bounded = value.Length <= maxLength ? value : value[..maxLength] + "…";
+        return System.Text.Json.JsonSerializer.Serialize(bounded);
     }
 
     private static bool IsRequestTimeout(Exception ex) =>

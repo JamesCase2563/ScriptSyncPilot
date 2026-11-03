@@ -1,6 +1,6 @@
 # Error Reporting Verification
 
-**Status:** Full automated suite passed (304/304); final message-safety and release-gate review remain open.
+**Status:** Error-reporting verification complete 2026-11-03; full automated suite passed (312/312). The parent production-readiness release gates remain open.
 
 ## Scope and result
 
@@ -10,11 +10,11 @@ Production-readiness priority 2: failures must be visible and safely described, 
 
 | Area | Scenario/evidence | Result | Notes |
 | --- | --- | --- | --- |
-| Connect/setup | Invalid credentials, failed prerequisite read, upload/setup failure | Not run | |
-| Playback/sync | Timeout, caller/lifecycle cancellation, ordinary failure state | Passed in full suite | Regression cases in `HandyApiTimeoutTests`; see 304-test run below. |
-| Device controls | Failed offset/stroke write and temperature read | Passed in full suite | Regression cases in `DeviceControlPollingTests`; see 304-test run below. |
+| Connect/setup | Missing prerequisites, ordinary connect failure, firmware failure, upload/setup failure | Passed; some optional-read presentation remains partial | Validation and connect status regressions in `HandySyncErrorReportingTests`; setup secrecy and dependent-work tests in `ScriptDiagnosticsTests` and `HandyApiTimeoutTests`. |
+| Playback/sync | Timeout, caller/lifecycle cancellation, ordinary failure state | Passed in full suite | Regression cases in `HandyApiTimeoutTests`; see 312-test run below. |
+| Device controls | Failed offset/stroke write and temperature read | Passed in full suite | Regression cases in `DeviceControlPollingTests`; see 312-test run below. |
 | Disconnect/close | Stop failure, timeout, cancellation, cleanup outcome | Partial prior evidence | See [timeout/shutdown verification](../../archive/2026-11-timeout-shutdown/VERIFICATION.md); identify remaining error-reporting checks. |
-| Secret safety | Keys, hosted URLs, response bodies, unsafe exception text | Partial prior evidence | See [credential/URL protection verification](../../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md); inspect any additional paths. |
+| Secret safety | Keys, hosted URLs, response bodies, unsafe exception text | Reviewed; automated checks passed | API errors expose normalized operation/status/code only; upload URLs are passed to setup and not logged; response bodies and device error names/messages are omitted. Remote firmware/model diagnostic fields are JSON-escaped and capped at 80 characters. Current visible and persistent-log secret checks are in `ScriptDiagnosticsTests`; archived credential evidence is [here](../../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md). |
 
 ## Runs
 
@@ -27,10 +27,13 @@ Record date, source revision, environment, exact command, discovered/passed coun
 | 2026-11-03 | User-provided test output for this worktree | `Tests\bin\Debug\net9.0-windows\ScriptSyncPilot.FunscriptEditor.Tests.dll` | Pre-fix run: 304 total, 296 passed, 8 failed. All eight reported failures were traced to cancellation assertion type, missing WinForms handles in new assertions, an incorrectly invoked temperature failure path, or a missing form handle for write logs. |
 | 2026-11-03 | Windows, .NET SDK 10.0.401; current worktree after fixes | Focused rerun of the seven reported/new cases with normal `bin` output | Build succeeded; the local test host again stopped after discovery without results. Post-fix pass/fail count is unknown. |
 | 2026-11-03 | Windows, .NET SDK 10.0.401; elevated execution outside sandbox from `F:\Users\email\repos\ScriptSyncPilot` | `dotnet test` | Passed: 304 total, 0 failed, 304 succeeded, 0 skipped (88 Common tests and 216 FunscriptEditor tests); FunscriptEditor test duration 12s. This post-fix full-suite run supersedes the earlier stalled sandboxed runs. |
+| 2026-11-03 | Windows, .NET SDK 10.0.401; elevated execution outside sandbox from `F:\Users\email\repos\ScriptSyncPilot` | `dotnet test` after M3 status fixes and final form-level regressions | Passed: 311 total, 0 failed, 311 succeeded, 0 skipped (88 Common tests and 223 FunscriptEditor tests); FunscriptEditor test duration 12s. |
+| 2026-11-03 | Windows, .NET SDK 10.0.401; elevated execution outside sandbox from `F:\Users\email\repos\ScriptSyncPilot` | `dotnet test` after remote metadata sanitization regression | Passed: 312 total, 0 failed, 312 succeeded, 0 skipped (88 Common tests and 224 FunscriptEditor tests); FunscriptEditor test duration 12s. |
 
 ## Findings and closure
 
-- Confirmed defects: M2.1 and M2.2 corrections are implemented; focused regression tests cover cancellation classification and unknown-state reporting, offset/stroke write failure, and stale temperature clearing. The earlier 8 test failures were corrected; the full post-fix suite passes.
-- Changes and regression tests: full automated suite passed with 304/304 tests.
-- Limitations: mpv attach/video failure presentation and several connect/optional-read UI paths still lack focused form-level tests.
-- Release-gate conclusion: open; this work item is not verified complete.
+- Message-safety review: API errors include only normalized operation names, numeric HTTP/device codes, and fixed transport/parse text. Response bodies, device error names/messages, connection keys, and hosted-script URLs are not logged. The upload URL is only passed into the setup request. Settings errors use fixed `SettingsException` messages; local script and mpv attach failures use static messages rather than raw paths/pipe exceptions. Hardware model and firmware values are JSON-escaped and capped at 80 characters; synthetic control-character, oversized-metadata, and private-session sentinels are checked in `ScriptDiagnosticsTests`.
+- Confirmed defects corrected: caller/lifecycle cancellation was typed separately from timeout; unknown Handy state remains explicit; temperature, offset, and stroke failure state is truthful; mpv attach and Handy connect error statuses now survive cleanup; remote firmware/model text is escaped and bounded before logging.
+- Changes and regression tests: full automated suite passed with 312/312 tests.
+- Unresolved limits: form-level tests do not cover mpv play/pause transport failure or exact text for every recoverable optional-read failure. These paths were reviewed in code; existing fixed/normalized reporting remains visible, and no known failure-reporting defect remains. Broader clean-checkout/CI coverage and other release gates remain tracked by the parent production-readiness plan.
+- Release-gate conclusion: this error-reporting work item is complete. The overall production-readiness decision remains open.

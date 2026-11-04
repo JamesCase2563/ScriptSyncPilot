@@ -98,6 +98,7 @@ public sealed class MainForm : Form
     private bool _mpvDetaching;
     private bool _handyDisconnecting;
     private Task? _handyDisconnectTask;
+    private string? _disconnectCompletionStatus;
     private bool _isClosing;
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -620,8 +621,10 @@ public sealed class MainForm : Form
         {
             if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
+            const string connectFailureStatus = "Handy error; see log";
+            _disconnectCompletionStatus = connectFailureStatus;
             await DisconnectHandyAsync();
-            SetStatus("Handy error; see log");
+            SetStatus(connectFailureStatus);
         }
         finally
         {
@@ -969,9 +972,14 @@ public sealed class MainForm : Form
         _temperatureValue.BackColor = SystemColors.Control;
         _temperatureBand = DeviceTemperatureBand.Normal;
         if (!_isClosing && !teardownPending) _connectButton.Enabled = true;
-        SetStatus(teardownPending
-            ? "Disconnect pending; waiting for in-flight request"
-            : _mpv is null ? "Idle" : "Playing (no Handy)");
+        if (teardownPending)
+        {
+            SetStatus(_disconnectCompletionStatus ?? "Disconnect pending; waiting for in-flight request");
+            return;
+        }
+        var completionStatus = _disconnectCompletionStatus;
+        _disconnectCompletionStatus = null;
+        SetStatus(completionStatus ?? (_mpv is null ? "Idle" : "Playing (no Handy)"));
     }
 
     private void OnMpvDurationChanged(MpvSession session, double seconds)

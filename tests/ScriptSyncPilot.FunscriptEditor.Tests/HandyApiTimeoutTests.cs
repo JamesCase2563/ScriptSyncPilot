@@ -236,6 +236,7 @@ public sealed class HandyApiTimeoutTests
             Assert.AreEqual(0, gate.CurrentCount);
             Assert.IsFalse(handler.Disposed.Task.IsCompleted);
             Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("connected: request timed out.", StringComparison.Ordinal));
+            Assert.AreEqual("Handy error; see log", GetField<Label>(form, "_status").Text);
         }
         finally
         {
@@ -251,6 +252,10 @@ public sealed class HandyApiTimeoutTests
         Assert.IsTrue(handler.Disposed.Task.IsCompleted);
         Assert.IsFalse(GetField<bool>(form, "_handyDisconnecting"));
         Assert.AreEqual(1, gate.CurrentCount);
+        Assert.IsTrue(GetField<Button>(form, "_connectButton").Enabled);
+        Assert.AreEqual("Handy error; see log", GetField<Label>(form, "_status").Text,
+            "Completing deferred teardown must keep the connect-failure status instead of reporting Idle.");
+        Assert.IsNull(GetField<string?>(form, "_disconnectCompletionStatus"));
     }
 
     [STATestMethod]

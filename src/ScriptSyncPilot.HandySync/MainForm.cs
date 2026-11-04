@@ -655,8 +655,8 @@ public sealed class MainForm : Form
             _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
             if (!_deviceControlsSupported)
             {
-                _offsetState.Text = "firmware unknown";
-                _strokeState.Text = "firmware unknown";
+                _offsetState.Text = "unsupported firmware";
+                _strokeState.Text = "unsupported firmware";
                 Log($"Device controls unsupported: firmware {firmwareVersion}, status {info.FirmwareStatus}.");
             }
             else

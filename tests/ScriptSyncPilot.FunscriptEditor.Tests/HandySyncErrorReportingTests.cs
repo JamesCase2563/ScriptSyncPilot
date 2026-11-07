@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Net;
+using System.IO.Pipes;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ScriptSyncPilot.Common;
 using ScriptSyncPilot.HandySync;
@@ -91,6 +93,35 @@ public sealed class HandySyncErrorReportingTests
     }
 
     [STATestMethod]
+    public void FailedMpvSeekLogsFixedMessageWithoutPipePath()
+    {
+        var pipeName = $"scriptsync-seek-private-{Guid.NewGuid():N}";
+        var pipePath = @"\\.\pipe\" + pipeName;
+        using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        var connection = server.WaitForConnectionAsync();
+        pipe.Connect(1000);
+        connection.GetAwaiter().GetResult();
+        using var session = new MpvSession();
+        SetField(session, "_pipe", pipe);
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { MpvIpcPipe = pipePath },
+            _ => throw new AssertFailedException("No Handy client expected."));
+        SetField(form, "_mpv", session);
+        _ = form.Handle;
+        server.Dispose();
+        Assert.IsTrue(pipe.IsConnected, "The seek must attempt a write rather than skip a disconnected pipe.");
+
+        InvokeAndPump(form, "SeekMpvAsync", 12.5);
+
+        const string expectedMessage = "Could not seek mpv video; check that the player is still attached.";
+        var log = GetField<TextBox>(form, "_log").Text;
+        StringAssert.Matches(log, new Regex(@"\A\[\d{2}:\d{2}:\d{2}\] " + Regex.Escape(expectedMessage) + @"\r?\n\z"));
+        Assert.IsFalse(log.Contains(pipePath, StringComparison.Ordinal));
+        Assert.IsFalse(log.Contains(pipeName, StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
     public void StartupSettingsErrorIsVisibleAndDefaultsAreNotSavedOnClose()
     {
         const string safeError = "Settings could not be read. The existing file has not been changed.";
@@ -128,9 +159,9 @@ public sealed class HandySyncErrorReportingTests
         Assert.AreEqual(string.Empty, GetField<TextBox>(form, "_connectionKeyBox").Text);
     }
 
-    private static void InvokeAndPump(Form form, string method)
+    private static void InvokeAndPump(Form form, string method, params object?[] arguments)
     {
-        var task = (Task)typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod(method, PrivateInstance)!.Invoke(form, null)!;
+        var task = (Task)typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod(method, PrivateInstance)!.Invoke(form, arguments)!;
         var timer = System.Diagnostics.Stopwatch.StartNew();
         while (!task.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(5))
         {

@@ -172,6 +172,64 @@ public sealed class HandySyncErrorReportingTests
     }
 
     [STATestMethod]
+    public void MpvPlayFailureStatusSurvivesAutomaticDetachAfterPipeDisconnect()
+    {
+        var pipeName = $"scriptsync-disconnect-private-{Guid.NewGuid():N}";
+        var pipePath = @"\\.\pipe\" + pipeName;
+        using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var connection = server.WaitForConnectionAsync();
+        var commandDrain = Task.Run(async () =>
+        {
+            await connection;
+            var buffer = new byte[256];
+            try
+            {
+                while (await server.ReadAsync(buffer, 0, buffer.Length) > 0) { }
+            }
+            catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+            {
+            }
+        });
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { MpvIpcPipe = pipePath },
+            _ => throw new AssertFailedException("No Handy client expected."));
+        SetField(form, "_script", new Funscript());
+        _ = form.Handle;
+
+        InvokeAndPump(form, "AttachMpvAsync");
+        connection.GetAwaiter().GetResult();
+        Assert.IsTrue(GetField<bool>(form, "_mpvAttached"));
+
+        var transitionGate = GetField<SemaphoreSlim>(form, "_sessionTransitionGate");
+        Assert.IsTrue(transitionGate.Wait(TimeSpan.FromSeconds(1)));
+        try
+        {
+            server.Dispose();
+            InvokeAndPump(form, "SetVideoPausedAsync", false);
+        }
+        finally
+        {
+            transitionGate.Release();
+        }
+        commandDrain.GetAwaiter().GetResult();
+
+        var detachWait = System.Diagnostics.Stopwatch.StartNew();
+        while ((GetField<object?>(form, "_mpv") is not null || GetField<bool>(form, "_mpvDetaching"))
+               && detachWait.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            Application.DoEvents();
+            Thread.Sleep(1);
+        }
+        Application.DoEvents();
+
+        Assert.IsNull(GetField<object?>(form, "_mpv"), "The Disconnected callback must complete automatic detach.");
+        Assert.IsFalse(GetField<bool>(form, "_mpvDetaching"));
+        Assert.AreEqual("mpv play failed; player state may be unknown", GetField<Label>(form, "_status").Text);
+        StringAssert.Contains(GetField<TextBox>(form, "_log").Text,
+            "Could not play mpv video; the player may have disconnected.");
+    }
+
+    [STATestMethod]
     public void StartupSettingsErrorIsVisibleAndDefaultsAreNotSavedOnClose()
     {
         const string safeError = "Settings could not be read. The existing file has not been changed.";

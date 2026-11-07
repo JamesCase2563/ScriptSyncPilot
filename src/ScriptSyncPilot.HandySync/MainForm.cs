@@ -94,6 +94,7 @@ public sealed class MainForm : Form
     private bool _hsspReady;
     private bool _mpvAttached;
     private bool _videoTransportPending;
+    private string? _mpvTransportFailureStatus;
     private bool _mpvAttachInProgress;
     private bool _mpvDetaching;
     private bool _handyDisconnecting;
@@ -475,6 +476,7 @@ public sealed class MainForm : Form
             return;
         }
         _mpvAttachInProgress = true;
+        _mpvTransportFailureStatus = null;
         UpdateVideoTransportButtons(null);
         await _sessionTransitionGate.WaitAsync();
         try
@@ -1409,7 +1411,8 @@ public sealed class MainForm : Form
         {
             var action = paused ? "pause" : "play";
             Log($"Could not {action} mpv video; the player may have disconnected.");
-            SetStatus($"mpv {action} failed; player state may be unknown");
+            _mpvTransportFailureStatus = $"mpv {action} failed; player state may be unknown";
+            SetStatus(_mpvTransportFailureStatus);
         }
         finally
         {
@@ -1615,6 +1618,8 @@ public sealed class MainForm : Form
                      && ReferenceEquals(_handy, client)
                      && ReferenceEquals(_installedScriptClient, client)
                      && _installedScriptVersion == _scriptVersion;
-        SetStatus(_hsspReady ? "Handy ready" : "Idle");
+        var completionStatus = _mpvTransportFailureStatus ?? (_hsspReady ? "Handy ready" : "Idle");
+        _mpvTransportFailureStatus = null;
+        SetStatus(completionStatus);
     }
 }

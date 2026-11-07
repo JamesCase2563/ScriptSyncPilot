@@ -122,6 +122,44 @@ public sealed class HandySyncErrorReportingTests
     }
 
     [STATestMethod]
+    [DataRow(false, "play")]
+    [DataRow(true, "pause")]
+    public void FailedMpvPlayPauseLogsFixedMessageAndUnknownPlayerStatus(bool paused, string action)
+    {
+        var pipeName = $"scriptsync-transport-private-{Guid.NewGuid():N}";
+        var pipePath = @"\\.\pipe\" + pipeName;
+        using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        var connection = server.WaitForConnectionAsync();
+        pipe.Connect(1000);
+        connection.GetAwaiter().GetResult();
+        using var session = new MpvSession();
+        SetField(session, "_pipe", pipe);
+        typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, !paused);
+        using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { MpvIpcPipe = pipePath },
+            _ => throw new AssertFailedException("No Handy client expected."));
+        SetField(form, "_mpv", session);
+        SetField(form, "_mpvAttached", true);
+        _ = form.Handle;
+        server.Dispose();
+        Assert.IsTrue(pipe.IsConnected, "The command must attempt a write rather than skip a disconnected pipe.");
+
+        InvokeAndPump(form, "SetVideoPausedAsync", paused);
+
+        var expectedMessage = $"Could not {action} mpv video; the player may have disconnected.";
+        var log = GetField<TextBox>(form, "_log").Text;
+        StringAssert.Matches(log, new Regex(@"\A\[\d{2}:\d{2}:\d{2}\] " + Regex.Escape(expectedMessage) + @"\r?\n\z"));
+        Assert.IsFalse(log.Contains(pipePath, StringComparison.Ordinal));
+        Assert.IsFalse(log.Contains(pipeName, StringComparison.Ordinal));
+        Assert.AreEqual($"mpv {action} failed; player state may be unknown", GetField<Label>(form, "_status").Text);
+        Assert.AreEqual(!paused, session.IsPaused, "A failed command must not be treated as a confirmed state change.");
+        Assert.IsFalse(GetField<bool>(form, "_videoTransportPending"));
+        Assert.AreEqual(!paused, GetField<Button>(form, "_playVideoButton").Enabled);
+        Assert.AreEqual(paused, GetField<Button>(form, "_pauseVideoButton").Enabled);
+    }
+
+    [STATestMethod]
     public void StartupSettingsErrorIsVisibleAndDefaultsAreNotSavedOnClose()
     {
         const string safeError = "Settings could not be read. The existing file has not been changed.";

@@ -1,6 +1,6 @@
 # Command Ordering Plan
 
-**Status:** Proposed; no new implementation or verification claimed.
+**Status:** M1.1 characterization complete 2026-11-07; implementation and new verification have not started.
 **Goal:** Close production-readiness reliability priority 3 by verifying stale-command suppression across disconnect and session replacement.
 
 ## Scope
@@ -15,7 +15,7 @@ Out of scope: desired-state/coalescing machinery, automatic recovery, device tak
 
 ### 1. Characterize transitions
 
-- [ ] Map command producers, captured targets, and lifecycle gates in [DESIGN.md](DESIGN.md).
+- [x] Map command producers, captured targets, and lifecycle gates in [DESIGN.md](DESIGN.md) (M1.1).
 - [ ] Review existing lifecycle tests and archived [timeout/shutdown evidence](../../archive/2026-11-timeout-shutdown/VERIFICATION.md).
 - [ ] Identify missing deterministic scenarios, especially mpv session replacement during queued/in-flight work.
 

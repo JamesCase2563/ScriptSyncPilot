@@ -46,7 +46,7 @@ Play at 1.5-2x. Press `7` where device movement should begin and `3` where it sh
 
 ### 3. Tempo taps (0.5-1x, movement sections only)
 
-Filename: `<movie>.markers.funscript`
+Filename: `<movie>.tempo.funscript`
 
 Seek to each `7` marker and play at 1x, or 0.5-0.75x for fast movement. Press the key left of `1` once per full cycle, always at the same phase (the bottom of the stroke). Timestamps are recorded in video time, so slowed playback gives more precise taps without distorting tempo.
 

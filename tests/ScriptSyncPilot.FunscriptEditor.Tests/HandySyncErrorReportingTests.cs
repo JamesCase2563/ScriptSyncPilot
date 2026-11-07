@@ -93,24 +93,30 @@ public sealed class HandySyncErrorReportingTests
     }
 
     [STATestMethod]
-    public void FailedMpvSeekLogsFixedMessageWithoutPipePath()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void FailedMpvSeekLogsFixedMessageWithoutPipePath(bool pipeAlreadyDisconnected)
     {
         var pipeName = $"scriptsync-seek-private-{Guid.NewGuid():N}";
         var pipePath = @"\\.\pipe\" + pipeName;
-        using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+        using var server = pipeAlreadyDisconnected ? null : new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-        var connection = server.WaitForConnectionAsync();
-        pipe.Connect(1000);
-        connection.GetAwaiter().GetResult();
+        if (server is not null)
+        {
+            var connection = server.WaitForConnectionAsync();
+            pipe.Connect(1000);
+            connection.GetAwaiter().GetResult();
+        }
         using var session = new MpvSession();
         SetField(session, "_pipe", pipe);
         using var form = new ScriptSyncPilot.HandySync.MainForm(new AppSettings { MpvIpcPipe = pipePath },
             _ => throw new AssertFailedException("No Handy client expected."));
         SetField(form, "_mpv", session);
         _ = form.Handle;
-        server.Dispose();
-        Assert.IsTrue(pipe.IsConnected, "The seek must attempt a write rather than skip a disconnected pipe.");
+        if (server is not null) server.Dispose();
+        Assert.AreEqual(!pipeAlreadyDisconnected, pipe.IsConnected,
+            "The test must exercise either a connected pipe whose write fails or a pipe already disconnected before sending.");
 
         InvokeAndPump(form, "SeekMpvAsync", 12.5);
 
@@ -122,18 +128,23 @@ public sealed class HandySyncErrorReportingTests
     }
 
     [STATestMethod]
-    [DataRow(false, "play")]
-    [DataRow(true, "pause")]
-    public void FailedMpvPlayPauseLogsFixedMessageAndUnknownPlayerStatus(bool paused, string action)
+    [DataRow(false, "play", false)]
+    [DataRow(true, "pause", false)]
+    [DataRow(false, "play", true)]
+    [DataRow(true, "pause", true)]
+    public void FailedMpvPlayPauseLogsFixedMessageAndUnknownPlayerStatus(bool paused, string action, bool pipeAlreadyDisconnected)
     {
         var pipeName = $"scriptsync-transport-private-{Guid.NewGuid():N}";
         var pipePath = @"\\.\pipe\" + pipeName;
-        using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+        using var server = pipeAlreadyDisconnected ? null : new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-        var connection = server.WaitForConnectionAsync();
-        pipe.Connect(1000);
-        connection.GetAwaiter().GetResult();
+        if (server is not null)
+        {
+            var connection = server.WaitForConnectionAsync();
+            pipe.Connect(1000);
+            connection.GetAwaiter().GetResult();
+        }
         using var session = new MpvSession();
         SetField(session, "_pipe", pipe);
         typeof(MpvSession).GetProperty(nameof(MpvSession.IsPaused))!.SetValue(session, !paused);
@@ -142,8 +153,9 @@ public sealed class HandySyncErrorReportingTests
         SetField(form, "_mpv", session);
         SetField(form, "_mpvAttached", true);
         _ = form.Handle;
-        server.Dispose();
-        Assert.IsTrue(pipe.IsConnected, "The command must attempt a write rather than skip a disconnected pipe.");
+        if (server is not null) server.Dispose();
+        Assert.AreEqual(!pipeAlreadyDisconnected, pipe.IsConnected,
+            "The test must exercise either a connected pipe whose write fails or a pipe already disconnected before sending.");
 
         InvokeAndPump(form, "SetVideoPausedAsync", paused);
 

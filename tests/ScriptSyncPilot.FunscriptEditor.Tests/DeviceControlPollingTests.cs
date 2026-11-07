@@ -1051,6 +1051,66 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    public void TemperatureReadFailureClearsPreviousMeasurementAndRestoresNeutralColors()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var responseCount = 0;
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/slider/state" => responseCount++ == 0
+                ? JsonResponse("{\"result\":{\"motor_temp\":82}}")
+                : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
+            "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":125}}"),
+            "/api/slider/stroke" => JsonResponse("{\"result\":{\"min\":0.25,\"max\":0.75,\"min_absolute\":25,\"max_absolute\":85}}"),
+            _ => throw new InvalidOperationException("Unexpected polling request.")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+        SetPrivateField(form, "_temperatureHighTrigger", 80d);
+        SetPrivateField(form, "_temperatureHysteresis", 10d);
+        _ = form.Handle;
+
+        InvokePrivateTask(form, "UpdateTemperatureAsync", client).GetAwaiter().GetResult();
+        var temperature = (Label)GetPrivateField(form, "_temperatureValue")!;
+        Assert.AreEqual("Motor 82.0 °C (High)", temperature.Text);
+        Assert.AreEqual(DeviceTemperatureBand.Hot, GetPrivateField(form, "_temperatureBand"));
+
+        SetPrivateField(form, "_devicePollTick", 2);
+        InvokePrivateTask(form, "PollDeviceValuesAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual("Motor -- °C (unavailable)", temperature.Text);
+        Assert.AreEqual(DeviceTemperatureBand.Normal, GetPrivateField(form, "_temperatureBand"));
+        Assert.AreEqual(SystemColors.ControlText, temperature.ForeColor);
+        Assert.AreEqual(SystemColors.Control, temperature.BackColor);
+    }
+
+    [STATestMethod]
+    public void FailedOffsetAndStrokeWritesAreMarkedNotConfirmed()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializeWritableForm(form, client);
+        _ = form.Handle;
+        var offset = (DeviceSliderControl)GetPrivateField(form, "_offsetSlider")!;
+        var stroke = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        offset.SetValues(175, 0);
+        stroke.SetValues(25, 75);
+        InvokePrivate(form, "ScheduleOffsetWrite");
+        InvokePrivate(form, "ScheduleStrokeWrite");
+        var offsetState = (Label)GetPrivateField(form, "_offsetState")!;
+        var strokeState = (Label)GetPrivateField(form, "_strokeState")!;
+        PumpUntil(() => offsetState.Text == "not confirmed" && strokeState.Text == "not confirmed", TimeSpan.FromSeconds(4));
+
+        var log = (TextBox)GetPrivateField(form, "_log")!;
+        Assert.IsTrue(log.Text.Contains("Device offset write failed:", StringComparison.Ordinal));
+        Assert.IsTrue(log.Text.Contains("Device stroke write failed:", StringComparison.Ordinal));
+        Assert.IsTrue(handler.Requests.Any(request => request.Method == "PUT" && request.Path == "hstp/offset"));
+        Assert.IsTrue(handler.Requests.Any(request => request.Method == "PUT" && request.Path == "slider/stroke"));
+    }
+
+    [STATestMethod]
     public void FailedOptionalReadsLeaveControlsUsableAndNoSliderSuppressesStrokeRead()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();

@@ -54,8 +54,9 @@ public sealed class MainForm : Form
     private readonly AppSettings _settings;
     private readonly Func<string, HandyApiClient> _createHandyClient;
     private readonly Action<AppSettings> _saveSettings;
-    private readonly Action<string> _showSettingsError;
+    private readonly Action<string> _reportSettingsError;
     private readonly TimeSpan _disconnectDrainTimeout;
+    private readonly string? _settingsLoadError;
 
     private HandyApiClient? _handy;
     private readonly SemaphoreSlim _deviceCommandGate = new(1, 1);
@@ -93,10 +94,12 @@ public sealed class MainForm : Form
     private bool _hsspReady;
     private bool _mpvAttached;
     private bool _videoTransportPending;
+    private string? _mpvTransportFailureStatus;
     private bool _mpvAttachInProgress;
     private bool _mpvDetaching;
     private bool _handyDisconnecting;
     private Task? _handyDisconnectTask;
+    private string? _disconnectCompletionStatus;
     private bool _isClosing;
     private bool _allowClose;
     private readonly CancellationTokenSource _lifetimeCts = new();
@@ -104,24 +107,34 @@ public sealed class MainForm : Form
     public MainForm() : this(AppSettings.Load(), key => new HandyApiClient(key)) { }
 
     internal MainForm(AppSettings settings, Func<string, HandyApiClient> createHandyClient,
-        Action<AppSettings>? saveSettings = null, Action<string>? showSettingsError = null,
-        TimeSpan? disconnectDrainTimeout = null)
+        Action<AppSettings>? saveSettings = null, Action<string>? reportSettingsError = null,
+        TimeSpan? disconnectDrainTimeout = null, string? settingsLoadError = null)
     {
         _settings = settings;
         _createHandyClient = createHandyClient;
         _saveSettings = saveSettings ?? (value => value.Save());
-        _showSettingsError = showSettingsError ?? (message => MessageBox.Show(this, message,
-            "Settings not saved", MessageBoxButtons.OK, MessageBoxIcon.Error));
+        _reportSettingsError = reportSettingsError ?? (message => ReportSettingsErrorInline(message));
         _disconnectDrainTimeout = disconnectDrainTimeout ?? DisconnectDrainTimeout;
+        _settingsLoadError = settingsLoadError;
         Text = "ScriptSyncPilot – Handy Sync";
         Width = 720;
         Height = 560;
 
         _connectionKeyBox.Text = _settings.GetFirstConnectionKey() ?? _settings.ConnectionKey;
-        if (_settings.RequiresKeyReentry)
-            Shown += (_, _) => MessageBox.Show(this,
-                "Please re-enter your Handy connection key. Legacy plaintext keys are no longer loaded; the key will be protected when settings are saved.",
-                "Connection key required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        if (_settings.RequiresKeyReentry || _settingsLoadError is not null)
+            Shown += (_, _) =>
+            {
+                if (_settingsLoadError is not null)
+                {
+                    Log($"Settings could not be loaded. Existing settings were not changed. {_settingsLoadError}");
+                    SetStatus("Settings not loaded; see log");
+                }
+                else
+                {
+                    Log("Please re-enter your Handy connection key. Legacy plaintext keys are no longer loaded; the key will be protected when settings are saved.");
+                    SetStatus("Connection key required");
+                }
+            };
         _mpvPipeBox.Text = _settings.MpvIpcPipe;
         _scriptPathBox.Text = _settings.LastScriptPath;
         if (_scriptPathBox.Text.Length > 0 && File.Exists(_scriptPathBox.Text))
@@ -234,17 +247,20 @@ public sealed class MainForm : Form
             _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
             _settings.StrokeMinPercent = _strokeSlider.LowerValue;
             _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
-            try
+            if (_settingsLoadError is null)
             {
-                _saveSettings(_settings);
+                try
+                {
+                    _saveSettings(_settings);
+                }
+                catch (SettingsException ex)
+                {
+                    _isClosing = false;
+                    _reportSettingsError($"Settings not saved: {ex.Message}");
+                    return;
+                }
             }
-            catch (SettingsException ex)
-            {
-                Log(ex.Message);
-                _isClosing = false;
-                _showSettingsError(ex.Message);
-                return;
-            }
+            else Log("Settings were not saved because the existing settings could not be loaded.");
 
             _lifetimeCts.Cancel();
             try
@@ -324,6 +340,12 @@ public sealed class MainForm : Form
         catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
     }
 
+    private void ReportSettingsErrorInline(string message)
+    {
+        Log(message);
+        SetStatus("Settings not saved; see log");
+    }
+
     private bool ShutdownStarted => _lifetimeCts.IsCancellationRequested;
 
     // A transition that outlived the shutdown deadline must release mpv without touching the closed form.
@@ -349,7 +371,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
         {
-            Log($"Could not load script: {ex.Message}");
+            Log("Could not load script. Check that the file is accessible and contains valid funscript data.");
             return;
         }
 
@@ -449,10 +471,12 @@ public sealed class MainForm : Form
         if (_mpv is not null || _mpvAttachInProgress) return;
         if (_script is null)
         {
-            MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
+            Log("Cannot attach to mpv: load a funscript first.");
+            SetStatus("Funscript required");
             return;
         }
         _mpvAttachInProgress = true;
+        _mpvTransportFailureStatus = null;
         UpdateVideoTransportButtons(null);
         await _sessionTransitionGate.WaitAsync();
         try
@@ -491,9 +515,9 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is IOException or TaskCanceledException or ArgumentException)
         {
             if (ShutdownStarted) return;
-            Log($"Error: {ex.Message}");
-            SetStatus("Error");
+            Log("Could not attach to mpv; check that it is running and the configured IPC pipe is available.");
             await DetachMpvCoreAsync();
+            SetStatus("mpv attach failed; see log");
         }
         finally
         {
@@ -510,12 +534,14 @@ public sealed class MainForm : Form
         if (_handyDisconnecting) return;
         if (string.IsNullOrWhiteSpace(_connectionKeyBox.Text))
         {
-            MessageBox.Show(this, "Enter a Handy connection key before connecting.", "ScriptSyncPilot");
+            Log("Cannot connect to Handy: enter a connection key first.");
+            SetStatus("Connection key required");
             return;
         }
         if (_script is null)
         {
-            MessageBox.Show(this, "Pick a funscript first.", "ScriptSyncPilot");
+            Log("Cannot connect to Handy: load a funscript first.");
+            SetStatus("Funscript required");
             return;
         }
 
@@ -597,8 +623,10 @@ public sealed class MainForm : Form
         {
             if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
-            SetStatus("Handy error");
+            const string connectFailureStatus = "Handy error; see log";
+            _disconnectCompletionStatus = connectFailureStatus;
             await DisconnectHandyAsync();
+            SetStatus(connectFailureStatus);
         }
         finally
         {
@@ -622,21 +650,20 @@ public sealed class MainForm : Form
                 ReleaseDeviceCommandGate(client);
             }
 
-            var modelName = string.IsNullOrWhiteSpace(info.ModelName)
-                ? "not reported"
-                : System.Text.Json.JsonSerializer.Serialize(info.ModelName);
+            var modelName = FormatDeviceDiagnosticValue(info.ModelName);
             Log($"Device hardware: model name {modelName}, model number {info.ModelNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}, model variant {info.ModelVariant?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}.");
 
+            var firmwareVersion = FormatDeviceDiagnosticValue(info.FirmwareVersion);
             _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
             if (!_deviceControlsSupported)
             {
                 _offsetState.Text = "unsupported firmware";
                 _strokeState.Text = "unsupported firmware";
-                Log($"Device controls unsupported: firmware {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+                Log($"Device controls unsupported: firmware {firmwareVersion}, status {info.FirmwareStatus}.");
             }
             else
             {
-                Log($"Device firmware supported: {info.FirmwareVersion}, status {info.FirmwareStatus}.");
+                Log($"Device firmware supported: {firmwareVersion}, status {info.FirmwareStatus}.");
             }
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
@@ -645,8 +672,8 @@ public sealed class MainForm : Form
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
-            _offsetState.Text = "unsupported firmware";
-            _strokeState.Text = "unsupported firmware";
+            _offsetState.Text = "firmware unknown";
+            _strokeState.Text = "firmware unknown";
             Log($"Could not verify device firmware; device controls are disabled: {ex.Message}");
         }
     }
@@ -656,6 +683,14 @@ public sealed class MainForm : Form
         var versionText = firmwareVersion.Split('+', 2)[0];
         return Version.TryParse(versionText, out var version) && version.Major >= 4
                && firmwareStatus is int status && status != 2;
+    }
+
+    private static string FormatDeviceDiagnosticValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "not reported";
+        const int maxLength = 80;
+        var bounded = value.Length <= maxLength ? value : value[..maxLength] + "…";
+        return System.Text.Json.JsonSerializer.Serialize(bounded);
     }
 
     private static bool IsRequestTimeout(Exception ex) =>
@@ -939,9 +974,14 @@ public sealed class MainForm : Form
         _temperatureValue.BackColor = SystemColors.Control;
         _temperatureBand = DeviceTemperatureBand.Normal;
         if (!_isClosing && !teardownPending) _connectButton.Enabled = true;
-        SetStatus(teardownPending
-            ? "Disconnect pending; waiting for in-flight request"
-            : _mpv is null ? "Idle" : "Playing (no Handy)");
+        if (teardownPending)
+        {
+            SetStatus(_disconnectCompletionStatus ?? "Disconnect pending; waiting for in-flight request");
+            return;
+        }
+        var completionStatus = _disconnectCompletionStatus;
+        _disconnectCompletionStatus = null;
+        SetStatus(completionStatus ?? (_mpv is null ? "Idle" : "Playing (no Handy)"));
     }
 
     private void OnMpvDurationChanged(MpvSession session, double seconds)
@@ -968,7 +1008,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or TaskCanceledException)
         {
-            Log($"Seek failed: {ex.Message}");
+            Log("Could not seek mpv video; check that the player is still attached.");
         }
     }
 
@@ -1034,7 +1074,7 @@ public sealed class MainForm : Form
             if (ReferenceEquals(_offsetWriteCts, cancellation))
             {
                 _offsetWriteFailed = true;
-                _offsetState.Text = "not applied";
+                _offsetState.Text = "not confirmed";
                 Log($"Device offset write timed out: {ex.Message}");
             }
         }
@@ -1043,7 +1083,7 @@ public sealed class MainForm : Form
             if (!token.IsCancellationRequested && ReferenceEquals(_offsetWriteCts, cancellation))
             {
                 _offsetWriteFailed = true;
-                _offsetState.Text = "not applied";
+                _offsetState.Text = "not confirmed";
                 Log($"Device offset write failed: {ex.Message}");
             }
         }
@@ -1106,7 +1146,7 @@ public sealed class MainForm : Form
             if (ReferenceEquals(_strokeWriteCts, cancellation))
             {
                 _strokeWriteFailed = true;
-                _strokeState.Text = "not applied";
+                _strokeState.Text = "not confirmed";
                 Log($"Device stroke write timed out: {ex.Message}");
             }
         }
@@ -1115,7 +1155,7 @@ public sealed class MainForm : Form
             if (!token.IsCancellationRequested && ReferenceEquals(_strokeWriteCts, cancellation))
             {
                 _strokeWriteFailed = true;
-                _strokeState.Text = "not applied";
+                _strokeState.Text = "not confirmed";
                 Log($"Device stroke write failed: {ex.Message}");
             }
         }
@@ -1241,6 +1281,13 @@ public sealed class MainForm : Form
             {
                 Log($"Device value polling failed: {endpoint}: {ex.Message}");
             }
+            if (endpoint == "slider/state")
+            {
+                _temperatureValue.Text = "Motor -- °C (unavailable)";
+                _temperatureValue.ForeColor = SystemColors.ControlText;
+                _temperatureValue.BackColor = SystemColors.Control;
+                _temperatureBand = DeviceTemperatureBand.Normal;
+            }
             if (failureCount >= 3)
             {
                 if (endpoint == "hstp/offset" && !_offsetWriteFailed) _offsetState.Text = "device values unknown";
@@ -1362,7 +1409,10 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or TaskCanceledException)
         {
-            Log($"Could not {(paused ? "pause" : "play")} mpv video: {ex.Message}");
+            var action = paused ? "pause" : "play";
+            Log($"Could not {action} mpv video; the player may have disconnected.");
+            _mpvTransportFailureStatus = $"mpv {action} failed; player state may be unknown";
+            SetStatus(_mpvTransportFailureStatus);
         }
         finally
         {
@@ -1444,12 +1494,24 @@ public sealed class MainForm : Form
     private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex)
     {
         if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)) return false;
+        if (ex is HandyApiRequestCanceledException { IsLifecycleCancellation: true }
+            || (_lifetimeCts.IsCancellationRequested && ex is OperationCanceledException and not HandyApiTimeoutException))
+            return false;
+
         Log($"{prefix}: {ex.Message}");
+        _hsspReady = false;
+        _syncTimer.Stop();
         if (IsRequestTimeout(ex))
         {
-            _hsspReady = false;
-            _syncTimer.Stop();
             SetStatus("Handy request timed out; device state is unknown");
+        }
+        else if (ex is HandyApiRequestCanceledException)
+        {
+            SetStatus("Handy command canceled; device state is unknown");
+        }
+        else
+        {
+            SetStatus("Handy command failed; device state is unknown");
         }
         return true;
     }
@@ -1556,6 +1618,8 @@ public sealed class MainForm : Form
                      && ReferenceEquals(_handy, client)
                      && ReferenceEquals(_installedScriptClient, client)
                      && _installedScriptVersion == _scriptVersion;
-        SetStatus(_hsspReady ? "Handy ready" : "Idle");
+        var completionStatus = _mpvTransportFailureStatus ?? (_hsspReady ? "Handy ready" : "Idle");
+        _mpvTransportFailureStatus = null;
+        SetStatus(completionStatus);
     }
 }

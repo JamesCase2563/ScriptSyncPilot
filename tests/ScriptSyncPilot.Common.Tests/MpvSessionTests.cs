@@ -150,6 +150,22 @@ public sealed class MpvSessionTests
     }
 
     [TestMethod]
+    public async Task Commands_WhenPipeIsNotConnected_ThrowIOException()
+    {
+        using var session = new MpvSession();
+        await Assert.ThrowsExceptionAsync<IOException>(() => session.SeekAsync(1, CancellationToken.None));
+        await Assert.ThrowsExceptionAsync<IOException>(() => session.SetPauseAsync(true, CancellationToken.None));
+
+        using var pipe = new NamedPipeClientStream(".", $"ssp-mpv-disconnected-{Guid.NewGuid():N}",
+            PipeDirection.InOut, PipeOptions.Asynchronous);
+        typeof(MpvSession).GetField("_pipe", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(session, pipe);
+        Assert.IsFalse(pipe.IsConnected);
+        await Assert.ThrowsExceptionAsync<IOException>(() => session.SeekAsync(1, CancellationToken.None));
+        await Assert.ThrowsExceptionAsync<IOException>(() => session.SetPauseAsync(true, CancellationToken.None));
+    }
+
+    [TestMethod]
     public async Task LifetimeCancellation_EndsObservationWithoutHanging()
     {
         using var endpoint = new PipeEndpoint();

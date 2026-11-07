@@ -139,7 +139,7 @@ public sealed class HandyScriptTransferCharacterizationTests
         using var device = RespondWith(HttpStatusCode.OK, "{}");
         using var client = CreateClient(device, hosting);
 
-        await Assert.ThrowsExceptionAsync<TaskCanceledException>(
+        await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(
             () => client.UploadScriptCsvAsync("0,0", cancellation.Token));
         Assert.AreEqual(1, hosting.RequestCount);
         Assert.AreEqual(0, device.RequestCount);

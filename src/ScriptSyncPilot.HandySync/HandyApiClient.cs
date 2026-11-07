@@ -22,6 +22,19 @@ public sealed class HandyApiTimeoutException : TaskCanceledException
     public string Operation { get; }
 }
 
+public sealed class HandyApiRequestCanceledException : TaskCanceledException
+{
+    internal HandyApiRequestCanceledException(string operation, CancellationToken cancellationToken, bool lifecycleCancellation)
+        : base($"{operation}: request canceled.", null, cancellationToken)
+    {
+        Operation = operation;
+        IsLifecycleCancellation = lifecycleCancellation;
+    }
+
+    public string Operation { get; }
+    public bool IsLifecycleCancellation { get; }
+}
+
 /// <summary>
 /// Minimal Handy REST API v3 client covering exactly what HSSP-driven video
 /// sync needs: server time sampling for clock offset, script hosting upload,
@@ -227,11 +240,11 @@ public sealed class HandyApiClient : IDisposable
         }
         catch (OperationCanceledException) when (callerToken.IsCancellationRequested)
         {
-            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
+            throw new HandyApiRequestCanceledException(operation, callerToken, lifecycleCancellation: false);
         }
         catch (OperationCanceledException) when (!ignorePendingRequestCancellation && _pendingRequestsCts.IsCancellationRequested)
         {
-            throw new TaskCanceledException($"{operation}: request canceled.", null, callerToken);
+            throw new HandyApiRequestCanceledException(operation, callerToken, lifecycleCancellation: true);
         }
         catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
         {

@@ -9,14 +9,18 @@ public static class Program
     {
         AppLog.Init("ScriptSyncPilot.HandySync");
         ApplicationConfiguration.Initialize();
+        AppSettings settings;
+        string? settingsLoadError = null;
         try
         {
-            Application.Run(new MainForm());
+            settings = AppSettings.Load();
         }
         catch (SettingsException ex)
         {
-            AppLog.Write(ex.Message);
-            MessageBox.Show(ex.Message, "HandySync settings error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            settings = new AppSettings();
+            settingsLoadError = ex.Message;
         }
+
+        Application.Run(new MainForm(settings, key => new HandyApiClient(key), settingsLoadError: settingsLoadError));
     }
 }

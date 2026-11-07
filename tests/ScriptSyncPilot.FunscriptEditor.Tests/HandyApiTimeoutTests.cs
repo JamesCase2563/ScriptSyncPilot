@@ -72,10 +72,13 @@ public sealed class HandyApiTimeoutTests
             await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
             if (cancelLifetime) client.CancelPendingRequests();
             else cancellation.Cancel();
-            var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(
+            var error = await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(
                 () => request.WaitAsync(TimeSpan.FromSeconds(2)));
             Assert.AreEqual("connected: request canceled.", error.Message);
             Assert.AreEqual(cancellation.Token, error.CancellationToken);
+            Assert.IsInstanceOfType<HandyApiRequestCanceledException>(error);
+            Assert.AreEqual(cancelLifetime,
+                ((HandyApiRequestCanceledException)error).IsLifecycleCancellation);
             Assert.IsFalse(client.PendingRequestsCompleted.IsCompleted);
         }
         finally
@@ -205,7 +208,7 @@ public sealed class HandyApiTimeoutTests
         var request = client.IsConnectedAsync(cancellation.Token);
         await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
         cancellation.Cancel();
-        var error = await Assert.ThrowsExceptionAsync<TaskCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(() => request);
 
         await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.AreEqual("connected: request canceled.", error.Message);
@@ -233,6 +236,7 @@ public sealed class HandyApiTimeoutTests
             Assert.AreEqual(0, gate.CurrentCount);
             Assert.IsFalse(handler.Disposed.Task.IsCompleted);
             Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("connected: request timed out.", StringComparison.Ordinal));
+            Assert.AreEqual("Handy error; see log", GetField<Label>(form, "_status").Text);
         }
         finally
         {
@@ -248,6 +252,10 @@ public sealed class HandyApiTimeoutTests
         Assert.IsTrue(handler.Disposed.Task.IsCompleted);
         Assert.IsFalse(GetField<bool>(form, "_handyDisconnecting"));
         Assert.AreEqual(1, gate.CurrentCount);
+        Assert.IsTrue(GetField<Button>(form, "_connectButton").Enabled);
+        Assert.AreEqual("Handy error; see log", GetField<Label>(form, "_status").Text,
+            "Completing deferred teardown must keep the connect-failure status instead of reporting Idle.");
+        Assert.IsNull(GetField<string?>(form, "_disconnectCompletionStatus"));
     }
 
     [STATestMethod]
@@ -396,6 +404,94 @@ public sealed class HandyApiTimeoutTests
         Assert.IsFalse(GetField<System.Windows.Forms.Timer>(form, "_syncTimer").Enabled);
         Assert.IsTrue(GetField<Label>(form, "_status").Text.Contains("device state is unknown", StringComparison.Ordinal));
         Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/synctime: request timed out.", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void CallerCanceledPlaybackCommand_ReportsCanceledAndUnknownDeviceState()
+    {
+        using var handler = new BlockingHandler();
+        using var client = CreateClient(handler, controlTimeout: TimeSpan.FromSeconds(5));
+        using var cancellation = new CancellationTokenSource();
+        using var session = CreatePlayingSession();
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        _ = form.Handle;
+        var syncTimer = GetField<System.Windows.Forms.Timer>(form, "_syncTimer");
+        syncTimer.Start();
+
+        var request = client.HsspPlayAsync(100, 200, ct: cancellation.Token);
+        PumpUntil(() => handler.Started.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        PumpUntil(() => request.IsCompleted, TimeSpan.FromSeconds(2));
+        var error = Assert.ThrowsException<HandyApiRequestCanceledException>(() => request.GetAwaiter().GetResult());
+        Assert.IsFalse(error.IsLifecycleCancellation);
+
+        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, [session, client, "Play/stop failed", error]);
+
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsFalse(syncTimer.Enabled);
+        Application.DoEvents();
+        Assert.AreEqual("Handy command canceled; device state is unknown", GetField<Label>(form, "_status").Text);
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("hssp/play: request canceled.", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
+    public void LifecycleCanceledPlaybackCommand_IsSilentAndLeavesTeardownStateAlone()
+    {
+        using var handler = new BlockingHandler();
+        using var client = CreateClient(handler, controlTimeout: TimeSpan.FromSeconds(5));
+        using var session = CreatePlayingSession();
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        _ = form.Handle;
+        var syncTimer = GetField<System.Windows.Forms.Timer>(form, "_syncTimer");
+        syncTimer.Start();
+        var statusBefore = GetField<Label>(form, "_status").Text;
+        var logBefore = GetField<TextBox>(form, "_log").Text;
+
+        var request = client.HsspPlayAsync(100, 200);
+        PumpUntil(() => handler.Started.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        client.CancelPendingRequests();
+        PumpUntil(() => request.IsCompleted, TimeSpan.FromSeconds(2));
+        var error = Assert.ThrowsException<HandyApiRequestCanceledException>(() => request.GetAwaiter().GetResult());
+        Assert.IsTrue(error.IsLifecycleCancellation);
+
+        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, [session, client, "Play/stop failed", error]);
+
+        Assert.IsTrue(GetField<bool>(form, "_hsspReady"));
+        Assert.IsTrue(syncTimer.Enabled);
+        Assert.AreEqual(statusBefore, GetField<Label>(form, "_status").Text);
+        Assert.AreEqual(logBefore, GetField<TextBox>(form, "_log").Text);
+        syncTimer.Stop();
+    }
+
+    [STATestMethod]
+    public void OrdinaryPlaybackFailure_ReportsUnknownDeviceStateAndStopsSync()
+    {
+        using var client = CreateClient(new NeverUsedHandler());
+        using var session = CreatePlayingSession();
+        using var form = CreateConnectForm(client);
+        SetField(form, "_handy", client);
+        SetField(form, "_mpv", session);
+        SetField(form, "_hsspReady", true);
+        var syncTimer = GetField<System.Windows.Forms.Timer>(form, "_syncTimer");
+        syncTimer.Start();
+        var error = new HandyApiException("hssp/play: HTTP 503.");
+
+        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(form, [session, client, "Play/stop failed", error]);
+
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.IsFalse(syncTimer.Enabled);
+        Application.DoEvents();
+        Assert.AreEqual("Handy command failed; device state is unknown", GetField<Label>(form, "_status").Text);
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains(error.Message, StringComparison.Ordinal));
     }
 
     [STATestMethod]

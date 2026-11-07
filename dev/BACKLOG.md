@@ -28,14 +28,14 @@ to future feature priorities.
 
 ## Automated Tests and CI
 
-**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Focused initial-release verification plans are active for [error reporting](work/error-reporting/PLAN.md), [command ordering](work/command-ordering/PLAN.md), and [firmware/capabilities](work/firmware-capabilities/PLAN.md); these do not by themselves establish clean-checkout CI coverage.
+**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Focused initial-release verification plans remain active for [command ordering](work/command-ordering/PLAN.md) and [firmware/capabilities](work/firmware-capabilities/PLAN.md); the completed [error-reporting work](archive/2026-11-error-reporting/PLAN.md) is archived. These efforts do not by themselves establish clean-checkout CI coverage.
 
 Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 
 - mpv attachment failures, cancellation, observations, and disposal using a controlled local pipe server.
 - Session replacement and stale queued notifications in both applications; HandySync release-gate ordering is tracked in [command-ordering](work/command-ordering/PLAN.md).
 - Handy ordering, script selection during setup, draining requests, and stop-before-dispose with fake HTTP transport rather than hardware; existing timeout/shutdown evidence is archived in [its verification record](archive/2026-11-timeout-shutdown/VERIFICATION.md).
-- Safe, truthful failure reporting for supported operations is tracked in [error-reporting](work/error-reporting/PLAN.md); this does not replace the broader test matrix or CI requirement.
+- Safe, truthful failure reporting for supported operations was verified in the [archived error-reporting work item](archive/2026-11-error-reporting/PLAN.md); this does not replace the broader test matrix or CI requirement.
 - Timeline zoom/scroll limits, deletion during drag, and keyboard routing.
 
 ## UI and Session Logic Boundaries

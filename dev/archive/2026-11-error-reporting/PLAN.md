@@ -30,7 +30,7 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 
 - [x] Run tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (full suite: 312 passed, 0 failed).
 - [x] Review messages for credentials, private hosted-script URLs, raw response bodies, and unsafe exception text; findings and limits are recorded in [VERIFICATION.md](VERIFICATION.md).
-- [x] Record unresolved limits and link completed evidence from the [production-readiness plan](../production-readiness/PLAN.md).
+- [x] Record unresolved limits and link completed evidence from the [production-readiness plan](../../work/production-readiness/PLAN.md).
 - [x] Mark the work item complete after confirming the planned inventory and acceptance criteria are satisfied; archival may follow completion.
 
 ## Acceptance criteria

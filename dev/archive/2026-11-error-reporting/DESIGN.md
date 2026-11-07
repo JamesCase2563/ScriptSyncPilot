@@ -14,7 +14,7 @@ This is a verification work item, not a logging redesign. Preserve useful existi
 
 - The credential and hosted-script URL protection work is complete; see the archived [design](../../archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) and [verification](../../archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md).
 - Request-budget and shutdown failures have typed timeout handling and safe stop-failure reporting; see [timeout-shutdown verification](../../archive/2026-11-timeout-shutdown/VERIFICATION.md).
-- The production-readiness release gate requires visible/actionable failures, no false success, and secret-free diagnostics. See the [coordinating plan](../production-readiness/PLAN.md).
+- The production-readiness release gate requires visible/actionable failures, no false success, and secret-free diagnostics. See the [coordinating plan](../../work/production-readiness/PLAN.md).
 - Relevant implementation includes HandySync `MainForm` and `HandyApiClient`; inspect current code and existing tests before proposing a code change.
 
 ## M1.1 Characterization: implementation paths and existing coverage

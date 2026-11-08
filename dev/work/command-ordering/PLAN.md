@@ -1,6 +1,6 @@
 # Command Ordering Plan
 
-**Status:** M2.1 focused tests and confirmed stale-target fixes complete 2026-11-07; broader verification and closure remain open.
+**Status:** M2.3 focused verification complete 2026-11-08; full verification and closure remain open.
 **Goal:** Close production-readiness reliability priority 3 by verifying stale-command suppression across disconnect and session replacement.
 
 ## Scope
@@ -23,11 +23,11 @@ Out of scope: desired-state/coalescing machinery, automatic recovery, device tak
 
 - [x] Add focused fake-transport tests for uncovered transitions and late completions (queued callbacks, late play/resync success, and first sync after replacement; see [DESIGN.md](DESIGN.md)).
 - [x] Fix the confirmed stale-success reporting and stale sync-position defects while preserving the single command gate and manual reconnect flow.
-- [ ] Verify no old-target command is sent and no late old-target completion alters current UI/readiness.
+- [x] Verify no old-target command is sent and no late old-target completion alters current UI/readiness (M2.3; see [VERIFICATION.md](VERIFICATION.md)).
 
 ### 3. Close
 
-- [ ] Run focused tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
+- [ ] Run remaining focused/full tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
 - [ ] Record residual limits, including any guarantees that depend on cooperative transport cancellation.
 - [ ] Link evidence from the [production-readiness plan](../production-readiness/PLAN.md); archive only after acceptance criteria are met.
 

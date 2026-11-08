@@ -1,6 +1,6 @@
 # Command Ordering Design
 
-**Status:** M1 complete; M2.1 focused tests and confirmed stale-target fixes completed 2026-11-07. Broader transition verification remains open.
+**Status:** M1 complete; M2.1–M2.3 focused tests and verification completed 2026-11-08. Full verification and closure remain open.
 **Affected projects:** HandySync, with Common/mpv session integration only where needed to characterize target replacement.
 **Production-readiness priority:** 3, command ordering.
 
@@ -45,19 +45,19 @@ Reviewed the archived [timeout/shutdown verification](../../archive/2026-11-time
 | Queued seek playback-rate recheck: `HandySync_QueuedSeekRechecksRateBeforeStartingDevice` in [`PlaybackSpeedCommandTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/PlaybackSpeedCommandTests.cs). | A seek waiting at `_deviceCommandGate` rechecks the current 1x requirement before issuing HSSP play. | The changed condition is playback speed, not mpv session identity. |
 | Pipe transport: `ServerDisconnect_NotifiesOnceAndSpeedWriteReportsTransportFailure` and `Commands_WhenPipeIsNotConnected_ThrowIOException` in [`MpvSessionTests`](../../../tests/ScriptSyncPilot.Common.Tests/MpvSessionTests.cs). | Common reports a disconnected mpv pipe as a failed command rather than silently succeeding. | Common-layer pipe behavior does not test HandySync's captured-session checks or device-command ordering. |
 
-## M1.3 Gaps and M2.1 outcomes
+## M1.3 Gaps and M2.1–M2.3 outcomes
 
 M1.1 and M1.2 showed strong disconnect and late-timeout evidence but gaps around session replacement. M2.1 added fake-transport tests for the first three cases below. The initial failing assertions exposed stale success reporting and reuse of the previous session's sync position; both were corrected and the focused cases now pass.
 
 | Transition and timing | Deterministic scenario | M2.1 result and remaining boundary |
 | --- | --- | --- |
-| mpv replacement while an HSSP callback is queued | Hold `_deviceCommandGate`; queue position-resync, play/pause, or sync for session A; replace `_mpv` before releasing the gate. | `QueuedPlaybackCallbackIsSuppressedAfterMpvSessionReplacement` covers all three producers with a fake HTTP handler; all three cases pass without sending a request. The test directly replaces the captured target and does not run a full attach/detach transition. |
+| mpv replacement while an HSSP callback is queued | Hold `_deviceCommandGate`; queue position-resync, play/pause, or sync for session A; replace `_mpv` before releasing the gate. | `QueuedPlaybackCallbackIsSuppressedAfterMpvSessionReplacement` covers all three producers with a fake HTTP handler; all cases send no request and leave replacement readiness/status unchanged. The test directly replaces the captured target and does not run a full attach/detach transition. |
 | mpv replacement while an old HSSP command is in flight and succeeds | Block a fake HSSP play/resync response after request start, replace `_mpv`, then release a successful response. | `LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession` covers play and position-resync; both cases initially failed because stale success was logged/statused. Post-await session/client/readiness checks now suppress those effects. The test directly replaces the target; actual detach ordering is covered separately by lifecycle tests. |
 | First sync after mpv replacement | Seed an old cached position, give the replacement session a different current position, and invoke sync before any position callback updates the form cache. | `FirstSyncAfterMpvSessionReplacementUsesReplacementPosition` passes and asserts `hssp/synctime.current_time` comes from the captured session. `OnSyncTickAsync` now reads `session.PositionSeconds`; attach also resets the seek-delta baseline. |
 | mpv IPC seek during detach/replacement | Start a waveform `SeekMpvAsync` against A with a controlled pipe write, replace A before the operation completes, then complete or fail the old write. | Still untested. Existing form-level seek tests cover failure text, not the operation racing session replacement. This is separate from HSSP seek/resync ordering. |
 | Handy client replacement during teardown | Hold a serialized Handy request and attempt reconnect while disconnect is draining or deferred. | Existing lifecycle behavior blocks reconnect until the captured client's gate/requests are drained and teardown completes; archived timeout/shutdown tests cover the deferred case. No separate supported overlapping-client scenario is currently identified. |
 
-The three new tests use a controlled fake HTTP transport and completed successfully in the focused run. They cover the highest-priority queued and in-flight HSSP cases; waveform IPC seek replacement remains outside those assertions. These results do not replace the broader full-suite run planned for M3.
+The focused M2.3 run in [VERIFICATION.md](VERIFICATION.md) passed 11/11. It covers queued HSSP requests, late successful play/resync completion, stale timeout/failure handling, and disconnect suppression. Waveform IPC seek replacement remains outside those assertions, and the session replacement is simulated directly rather than by a full attach/detach transition. Full-suite verification remains for M3.
 
 ## Proposed approach
 

@@ -174,6 +174,7 @@ public sealed class DeviceControlPollingTests
         SetPrivateField(form, "_mpv", staleSession);
         SetPrivateField(form, "_hsspReady", true);
         _ = form.Handle;
+        var originalStatus = ((Label)GetPrivateField(form, "_status")!).Text;
 
         var gate = (SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!;
         Assert.IsTrue(gate.Wait(0));
@@ -191,6 +192,8 @@ public sealed class DeviceControlPollingTests
 
         Assert.AreSame(replacementSession, GetPrivateField(form, "_mpv"));
         Assert.IsTrue((bool)GetPrivateField(form, "_hsspReady")!);
+        Assert.AreEqual(originalStatus, ((Label)GetPrivateField(form, "_status")!).Text,
+            "A queued callback from the replaced session must not change the current status.");
         Assert.AreEqual(0, handler.Requests.Count, "A queued callback from the replaced session must send no HSSP command.");
     }
 

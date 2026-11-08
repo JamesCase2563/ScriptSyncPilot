@@ -227,6 +227,8 @@ public sealed class DeviceControlPollingTests
     [STATestMethod]
     [DataRow("play")]
     [DataRow("seek")]
+    [DataRow("rate-stop-session")]
+    [DataRow("rate-stop-client")]
     public void LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession(string producer)
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
@@ -239,6 +241,7 @@ public sealed class DeviceControlPollingTests
             return JsonResponse("{\"result\":\"ok\"}");
         });
         using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var replacementClient = new HandyApiClient("test-key");
         using var staleSession = new ScriptSyncPilot.Common.MpvSession();
         using var replacementSession = new ScriptSyncPilot.Common.MpvSession();
         foreach (var session in new[] { staleSession, replacementSession })
@@ -254,23 +257,31 @@ public sealed class DeviceControlPollingTests
         _ = form.Handle;
         var originalStatus = ((Label)GetPrivateField(form, "_status")!).Text;
 
-        var operation = producer == "play"
-            ? InvokePrivateTask(form, "OnMpvPauseChangedAsync", staleSession, false)
-            : InvokePrivateTask(form, "OnMpvPositionChangedAsync", staleSession, 10d);
+        if (producer.StartsWith("rate-stop", StringComparison.Ordinal))
+            typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+                .SetValue(staleSession, 0.5);
+        var operation = producer == "seek"
+            ? InvokePrivateTask(form, "OnMpvPositionChangedAsync", staleSession, 10d)
+            : InvokePrivateTask(form, "OnMpvPauseChangedAsync", staleSession, false);
         PumpUntil(() => requestStarted.Task.IsCompleted, TimeSpan.FromSeconds(2));
-        SetPrivateField(form, "_mpv", replacementSession);
+        if (producer == "rate-stop-client") SetPrivateField(form, "_handy", replacementClient);
+        else SetPrivateField(form, "_mpv", replacementSession);
         releaseRequest.TrySetResult();
         PumpUntil(() => operation.IsCompleted, TimeSpan.FromSeconds(3));
         operation.GetAwaiter().GetResult();
         Application.DoEvents();
 
-        Assert.AreSame(replacementSession, GetPrivateField(form, "_mpv"));
+        Assert.AreSame(producer == "rate-stop-client" ? staleSession : replacementSession, GetPrivateField(form, "_mpv"));
+        Assert.AreSame(producer == "rate-stop-client" ? replacementClient : client, GetPrivateField(form, "_handy"));
         Assert.IsTrue((bool)GetPrivateField(form, "_hsspReady")!);
         Assert.AreEqual(originalStatus, ((Label)GetPrivateField(form, "_status")!).Text,
             "A successful old-session command must not set status for the replacement session.");
         var log = ((TextBox)GetPrivateField(form, "_log")!).Text;
         Assert.IsFalse(log.Contains("Playback resumed; device started.", StringComparison.Ordinal));
         Assert.IsFalse(log.Contains("Seek detected, resynced", StringComparison.Ordinal));
+        Assert.IsFalse(log.Contains("Device synchronization suspended:", StringComparison.Ordinal));
+        if (producer.StartsWith("rate-stop", StringComparison.Ordinal))
+            Assert.AreEqual("hssp/stop", handler.Requests.Single().Path);
     }
 
     [STATestMethod]

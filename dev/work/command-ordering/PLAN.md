@@ -1,6 +1,6 @@
 # Command Ordering Plan
 
-**Status:** M1 characterization complete 2026-11-07; M2 implementation and new verification have not started.
+**Status:** M2.1 focused tests and confirmed stale-target fixes complete 2026-11-07; broader verification and closure remain open.
 **Goal:** Close production-readiness reliability priority 3 by verifying stale-command suppression across disconnect and session replacement.
 
 ## Scope
@@ -21,8 +21,8 @@ Out of scope: desired-state/coalescing machinery, automatic recovery, device tak
 
 ### 2. Verify and repair
 
-- [ ] Add focused fake-transport tests for uncovered transitions and late completions.
-- [ ] Fix only confirmed ordering/identity defects while preserving the single command gate and manual reconnect flow.
+- [x] Add focused fake-transport tests for uncovered transitions and late completions (queued callbacks, late play/resync success, and first sync after replacement; see [DESIGN.md](DESIGN.md)).
+- [x] Fix the confirmed stale-success reporting and stale sync-position defects while preserving the single command gate and manual reconnect flow.
 - [ ] Verify no old-target command is sent and no late old-target completion alters current UI/readiness.
 
 ### 3. Close

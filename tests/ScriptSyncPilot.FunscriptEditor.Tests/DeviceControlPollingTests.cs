@@ -153,6 +153,124 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
+    [DataRow("seek")]
+    [DataRow("play")]
+    [DataRow("sync")]
+    public void QueuedPlaybackCallbackIsSuppressedAfterMpvSessionReplacement(string producer)
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var staleSession = new ScriptSyncPilot.Common.MpvSession();
+        using var replacementSession = new ScriptSyncPilot.Common.MpvSession();
+        foreach (var session in new[] { staleSession, replacementSession })
+        {
+            typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.IsPaused))!
+                .SetValue(session, false);
+            typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+                .SetValue(session, 1.0);
+        }
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_mpv", staleSession);
+        SetPrivateField(form, "_hsspReady", true);
+        _ = form.Handle;
+
+        var gate = (SemaphoreSlim)GetPrivateField(form, "_deviceCommandGate")!;
+        Assert.IsTrue(gate.Wait(0));
+        Task queued = producer switch
+        {
+            "seek" => InvokePrivateTask(form, "OnMpvPositionChangedAsync", staleSession, 10d),
+            "play" => InvokePrivateTask(form, "OnMpvPauseChangedAsync", staleSession, false),
+            _ => InvokePrivateTask(form, "OnSyncTickAsync")
+        };
+        Assert.IsFalse(queued.IsCompleted, "The callback must be waiting behind the device-command gate.");
+        SetPrivateField(form, "_mpv", replacementSession);
+        gate.Release();
+        PumpUntil(() => queued.IsCompleted, TimeSpan.FromSeconds(3));
+        queued.GetAwaiter().GetResult();
+
+        Assert.AreSame(replacementSession, GetPrivateField(form, "_mpv"));
+        Assert.IsTrue((bool)GetPrivateField(form, "_hsspReady")!);
+        Assert.AreEqual(0, handler.Requests.Count, "A queued callback from the replaced session must send no HSSP command.");
+    }
+
+    [STATestMethod]
+    public void FirstSyncAfterMpvSessionReplacementUsesReplacementPosition()
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((_, _, _) => Task.FromResult(JsonResponse("{\"result\":\"ok\"}")));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var replacementSession = new ScriptSyncPilot.Common.MpvSession();
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.IsPaused))!
+            .SetValue(replacementSession, false);
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+            .SetValue(replacementSession, 1.0);
+        typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.PositionSeconds))!
+            .SetValue(replacementSession, 8.5);
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_mpv", replacementSession);
+        SetPrivateField(form, "_hsspReady", true);
+        SetPrivateField(form, "_lastKnownPos", 42d);
+
+        InvokePrivateTask(form, "OnSyncTickAsync").GetAwaiter().GetResult();
+
+        Assert.AreEqual(1, handler.Requests.Count);
+        Assert.AreEqual("hssp/synctime", handler.Requests[0].Path);
+        using var body = JsonDocument.Parse(handler.Requests[0].Body!);
+        Assert.AreEqual(8500L, body.RootElement.GetProperty("current_time").GetInt64(),
+            "A new mpv session's first sync must not reuse the previous session's cached position.");
+    }
+
+    [STATestMethod]
+    [DataRow("play")]
+    [DataRow("seek")]
+    public void LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession(string producer)
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new RecordingHandler(async (_, _, _) =>
+        {
+            requestStarted.TrySetResult();
+            await releaseRequest.Task;
+            return JsonResponse("{\"result\":\"ok\"}");
+        });
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        using var staleSession = new ScriptSyncPilot.Common.MpvSession();
+        using var replacementSession = new ScriptSyncPilot.Common.MpvSession();
+        foreach (var session in new[] { staleSession, replacementSession })
+        {
+            typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.IsPaused))!
+                .SetValue(session, false);
+            typeof(ScriptSyncPilot.Common.MpvSession).GetProperty(nameof(ScriptSyncPilot.Common.MpvSession.Speed))!
+                .SetValue(session, 1.0);
+        }
+        InitializeWritableForm(form, client);
+        SetPrivateField(form, "_mpv", staleSession);
+        SetPrivateField(form, "_hsspReady", true);
+        _ = form.Handle;
+        var originalStatus = ((Label)GetPrivateField(form, "_status")!).Text;
+
+        var operation = producer == "play"
+            ? InvokePrivateTask(form, "OnMpvPauseChangedAsync", staleSession, false)
+            : InvokePrivateTask(form, "OnMpvPositionChangedAsync", staleSession, 10d);
+        PumpUntil(() => requestStarted.Task.IsCompleted, TimeSpan.FromSeconds(2));
+        SetPrivateField(form, "_mpv", replacementSession);
+        releaseRequest.TrySetResult();
+        PumpUntil(() => operation.IsCompleted, TimeSpan.FromSeconds(3));
+        operation.GetAwaiter().GetResult();
+        Application.DoEvents();
+
+        Assert.AreSame(replacementSession, GetPrivateField(form, "_mpv"));
+        Assert.IsTrue((bool)GetPrivateField(form, "_hsspReady")!);
+        Assert.AreEqual(originalStatus, ((Label)GetPrivateField(form, "_status")!).Text,
+            "A successful old-session command must not set status for the replacement session.");
+        var log = ((TextBox)GetPrivateField(form, "_log")!).Text;
+        Assert.IsFalse(log.Contains("Playback resumed; device started.", StringComparison.Ordinal));
+        Assert.IsFalse(log.Contains("Seek detected, resynced", StringComparison.Ordinal));
+    }
+
+    [STATestMethod]
     public void DisconnectDrainHasHardDeadlineAndRetainsClientUntilLateWorkCompletes()
     {
         var playStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

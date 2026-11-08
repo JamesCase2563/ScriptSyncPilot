@@ -483,6 +483,8 @@ public sealed class MainForm : Form
         {
             SetStatus("Attaching to mpv video…");
             var session = new MpvSession();
+            _lastKnownPos = session.PositionSeconds;
+            _sincePosUpdate.Restart();
             _mpv = session;
             session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
@@ -1365,6 +1367,7 @@ public sealed class MainForm : Form
                     ReleaseDeviceCommandGate(client);
                 }
 
+                if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
@@ -1462,17 +1465,20 @@ public sealed class MainForm : Form
                     Log("Device synchronization suspended: mpv playback speed must be confirmed at 1x. Restore 1x to resume.");
                     SetStatus("Device sync suspended: requires 1x playback");
                     await client.HsspStopAsync(_lifetimeCts.Token);
+                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
                     SetStatus("Device stopped: requires 1x playback");
                 }
                 else if (session.IsPaused)
                 {
                     await client.HsspStopAsync(_lifetimeCts.Token);
+                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
                     Log("Playback paused; device stopped.");
                     SetStatus("Paused");
                 }
                 else
                 {
                     await client.HsspPlayAsync(DeviceTimeMs(session.PositionSeconds), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
                     Log("Playback resumed; device started.");
                     SetStatus("Playing");
                 }
@@ -1528,7 +1534,7 @@ public sealed class MainForm : Form
             {
                 if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session)
                     || session.IsPaused || session.Speed != 1.0) return;
-                await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                await client.HsspSyncTimeAsync(DeviceTimeMs(session.PositionSeconds), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
             }
             finally
             {

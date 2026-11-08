@@ -1,6 +1,6 @@
 # Command Ordering Plan
 
-**Status:** M2.3 focused verification complete 2026-11-08; full verification and closure remain open.
+**Status:** Complete 2026-11-08; full solution suite passed 326/326. Residual test boundaries are in [VERIFICATION.md](VERIFICATION.md).
 **Goal:** Close production-readiness reliability priority 3 by verifying stale-command suppression across disconnect and session replacement.
 
 ## Scope
@@ -27,9 +27,9 @@ Out of scope: desired-state/coalescing machinery, automatic recovery, device tak
 
 ### 3. Close
 
-- [ ] Run remaining focused/full tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
-- [ ] Record residual limits, including any guarantees that depend on cooperative transport cancellation.
-- [ ] Link evidence from the [production-readiness plan](../production-readiness/PLAN.md); archive only after acceptance criteria are met.
+- [x] Run focused and full tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (M2.3 focused run: 11/11; M3 full suite: 326/326).
+- [x] Record residual limits, including waveform IPC seek replacement and guarantees that depend on cooperative transport cancellation, in [VERIFICATION.md](VERIFICATION.md).
+- [x] Link evidence from the [production-readiness plan](../production-readiness/PLAN.md); the parent release decision remains open.
 
 ## Acceptance criteria
 

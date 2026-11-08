@@ -32,7 +32,7 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Authoring Review Comments During Playback | Deferred | New local review workflow; project/comment-track format and persistence remain to be designed |
 | Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
 | Request Timeouts and Retries | In scope / Deferred | Bounded requests and shutdown implemented and verified 2026-11-01 (see the [archived work plan](../archive/2026-11-timeout-shutdown/PLAN.md)). Expanded automatic retries/backoff are deferred |
-| Desired State and Command Coalescing | Deferred; lifecycle verification active | Preserve command serialization and existing debouncing. Stale-command/session-replacement verification is tracked separately in [command-ordering](../work/command-ordering/PLAN.md); command coalescing and desired-state machinery remain deferred |
+| Desired State and Command Coalescing | Deferred; lifecycle verification complete 2026-11-08 | Preserve command serialization and existing debouncing. Stale-command/session-replacement evidence is recorded in the completed [command-ordering plan](../work/command-ordering/PLAN.md) and [verification](../work/command-ordering/VERIFICATION.md); command coalescing and desired-state machinery remain deferred |
 | Connection Events | Deferred | SSE and additional event-driven status are not release requirements; preserve current polling |
 | Firmware and Capabilities | In scope / Deferred / Excluded; verification active | Verify existing gates and accurate compatibility reporting in [firmware-capabilities](../work/firmware-capabilities/PLAN.md); additional model-specific validation is deferred. Firmware installation/update flows are excluded |
 | Timing and Diagnostics | In scope / Deferred | Preserve useful, secret-free diagnostics, including connection hardware information; initial-release error-reporting review completed 2026-11-03 ([archived plan](../archive/2026-11-error-reporting/PLAN.md), [verification](../archive/2026-11-error-reporting/VERIFICATION.md)). Expanded drift/RTT metrics and clock-refresh strategies are deferred |
@@ -92,7 +92,7 @@ Deferred retry work: retry transient resets, timeouts, DNS failures, HTTP 408/42
 
 ## Desired State and Command Coalescing
 
-**Priority:** Medium. **Status:** Coalescing proposed and deferred; lifecycle/order verification active in [command-ordering](../work/command-ordering/PLAN.md). Serialization is implemented.
+**Priority:** Medium. **Status:** Coalescing proposed and deferred; lifecycle/order verification completed 2026-11-08 in [command-ordering](../work/command-ordering/PLAN.md). Serialization is implemented.
 
 Keep the single device-command gate. Add newest-desired-state handling to suppress duplicate play/pause, coalesce rapid seeks, supersede stale sync/offset requests, and reduce unnecessary traffic. Record command type/result. A semaphore alone does not provide coalescing or a recovery state machine; no separate controller host is required.
 

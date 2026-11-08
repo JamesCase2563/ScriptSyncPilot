@@ -1,6 +1,6 @@
 # Command Ordering Verification
 
-**Status:** M2.3 focused verification complete 2026-11-08; full verification and closure remain open.
+**Status:** Complete 2026-11-08; focused M2.3 tests and full solution suite passed.
 
 ## Scope and result
 
@@ -10,6 +10,7 @@ Production-readiness priority 3: suppress stale commands after disconnect or ses
 
 - [Timeout/shutdown verification](../../archive/2026-11-timeout-shutdown/VERIFICATION.md): disconnect rejects writes, cancels pending debounced writes and in-flight play, suppresses queued seek, prevents late stale success, and handles deferred drain/stop teardown.
 - This evidence does not by itself establish every mpv session replacement race; characterize coverage before treating priority 3 as complete.
+- M2.3 adds focused queued/in-flight HSSP session-replacement tests. Remaining limits are explicit in the scenario matrix; see the linked [design](DESIGN.md).
 
 ## Scenario matrix
 
@@ -28,10 +29,11 @@ Production-readiness priority 3: suppress stale commands after disconnect or ses
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
 | 2026-11-08 | Windows, .NET SDK 10.0.401; isolated output under `artifacts/command-ordering-m23/bin/` | `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --filter "FullyQualifiedName~QueuedPlaybackCallbackIsSuppressedAfterMpvSessionReplacement|FullyQualifiedName~LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession|FullyQualifiedName~FirstSyncAfterMpvSessionReplacementUsesReplacementPosition|FullyQualifiedName~StaleSeekTimeout_AfterSessionReplaced|FullyQualifiedName~StalePlayTimeout_AfterSessionReplaced|FullyQualifiedName~StaleSyncTimeout_AfterSessionReplaced|FullyQualifiedName~StaleSyncTimeout_AfterClientReplaced|FullyQualifiedName~DisconnectCancelsInflightPlayAndSkipsQueuedSeekBeforeStop" --verbosity minimal -p:BaseOutputPath=artifacts/command-ordering-m23/bin/` | Passed: 11/11; build succeeded. |
+| 2026-11-08 | Windows, .NET SDK 10.0.401; branch `work/command-ordering`, revision `bfd0022`; isolated output under `artifacts/command-ordering-m3/bin/` | `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/command-ordering-m3/bin/` | Passed: 326/326; build succeeded. |
 
 ## Findings and closure
 
 - Confirmed defects: stale play/resync success reporting after mpv replacement and use of the prior session's cached position for sync were fixed under M2.1; their regressions pass.
 - Changes and regression tests: queued callback suppression for three HSSP producers, late successful play/resync suppression, replacement-session sync position, and stale timeout/failure preservation passed in the M2.3 focused run.
-- Limitations: mpv IPC waveform seek replacement is not covered; queued/in-flight replacement tests assign the current session directly rather than driving a full attach/detach transition. The full solution suite remains to be run for M3.
-- Release-gate conclusion: command-ordering work remains open pending M3 verification and release-plan linkage.
+- Limitations: mpv IPC waveform seek replacement is not covered; queued/in-flight replacement tests assign the current session directly rather than driving a full attach/detach transition. Reused timeout/shutdown evidence covers cooperative cancellation and deferred retention for non-cooperative transports; a transport that never settles can leave disconnect pending, and physical stop cannot be guaranteed during communication loss.
+- Release-gate conclusion: command-ordering verification is complete and linked from the parent priority-3 row. The overall production-readiness decision remains open.

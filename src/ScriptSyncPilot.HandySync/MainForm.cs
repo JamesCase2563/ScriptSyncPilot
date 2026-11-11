@@ -1465,7 +1465,7 @@ public sealed class MainForm : Form
                     await client.HsspStopAsync(_lifetimeCts.Token);
                     if (!IsCurrentPlaybackContext(session, client)) return;
                     Log("Device synchronization suspended: mpv playback speed must be confirmed at 1x. Restore 1x to resume.");
-                    SetStatus("Device stopped: requires 1x playback");
+                    SetStatus("Sync suspended: requires 1x playback");
                 }
                 else if (session.IsPaused)
                 {

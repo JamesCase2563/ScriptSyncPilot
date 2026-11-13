@@ -1,6 +1,6 @@
 # Command Ordering Verification
 
-**Status:** Complete 2026-11-08; focused M2.3 tests and full solution suite passed.
+**Status:** Original verification complete 2026-11-08; code-review follow-up fix verified 2026-11-13.
 
 ## Scope and result
 
@@ -32,6 +32,8 @@ Production-readiness priority 3: suppress stale commands after disconnect or ses
 | 2026-11-08 | Windows, .NET SDK 10.0.401; branch `work/command-ordering`, revision `bfd0022`; isolated output under `artifacts/command-ordering-m3/bin/` | `dotnet test ScriptSyncPilot.slnx --verbosity minimal -p:BaseOutputPath=artifacts/command-ordering-m3/bin/` | Passed: 326/326; build succeeded. |
 
 ## Findings and closure
+
+- Code-review follow-up: an older playback failure could run after the device gate was released and suspend synchronization even if a newer same-target callback had already started. Playback failure updates now require the originating command generation to remain current. Regression test `DeviceControlPollingTests.StalePlaybackFailureDoesNotSuspendNewerQueuedCommand` passed 1/1 on 2026-11-13 with `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 --filter "FullyQualifiedName~StalePlaybackFailureDoesNotSuspendNewerQueuedCommand" --verbosity minimal`. The prior 326-test full-suite result predates this follow-up.
 
 - PR review follow-up: a non-1x stop queued suspension feedback before awaiting the request, leaving stale status/log text when either the mpv session or Handy client was replaced in flight. Both new `LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession` rate-stop cases reproduced this; feedback now follows the successful stop and current-target check. `dotnet test tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --filter "FullyQualifiedName~LateSuccessfulPlaybackCommandDoesNotReportForReplacementSession|FullyQualifiedName~PlaybackSpeedCommandTests" --verbosity minimal -p:BaseOutputPath=artifacts/rate-stop-verification/bin/` passed 13/13 on 2026-11-08 (Windows; current worktree). The 326-test full-suite result above predates this follow-up.
 - Confirmed defects: stale play/resync success reporting after mpv replacement and use of the prior session's cached position for sync were fixed under M2.1; their regressions pass.

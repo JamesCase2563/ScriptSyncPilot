@@ -1,6 +1,15 @@
 # Tested Environments
 
-**Status:** ENV-001 recorded; all listed workflows reported successful by the maintainer. HandySync connection, script upload and HSSP setup also corroborated by logs for two devices. Source/build qualifications are recorded below.
+**Status:** One historical environment record (ENV-001). The maintainer reported all listed workflows successful; logs corroborate HandySync connection, upload and HSSP setup on two devices. This is not validation of the current release candidate or a clean release build.
+
+## What ENV-001 establishes
+
+- One environment was recorded: Windows 11 Home 25H2, x64; .NET SDK `10.0.401`; Microsoft Windows Desktop Runtime `9.0.11`; and mpv `v0.41.0-244-gaf9c81fa1`.
+- Physical device checks were reported for two Handy H01 devices (model number 0, variant 0), using firmware `4.3.0+dcee7e58` and `4.2.2+44874492`. These results do not certify every H01 or other device/firmware versions.
+- The recorded build used Debug configuration at commit `b21834c64d818c3a54c47e0dca455e8411ac93f2`, with uncommitted HandySync changes. It is not a clean build of that commit alone and does not validate the current release candidate.
+- The target framework was .NET 9. Its support ended [November 11, 2026](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support); the recorded runtime version is historical and does not represent a currently supported runtime.
+
+See [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md) for the requirements and boundaries that apply to users. Vendor firmware/API minimums are not equivalent to tested compatibility.
 
 Copy the record below for each tested combination. Record exact versions rather than "latest"; use "not checked" for unknown values. A passing check applies only to the recorded source revision, environment, and workflow, not every model or release.
 

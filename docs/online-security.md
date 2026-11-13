@@ -1,7 +1,10 @@
 # Online Security and the Handy
 
-## Overview
-The Handy requires a persistent Internet connection to synchronize with content and access features. Given the private nature of its use, understanding the security and privacy implications is important.
+## Application network requirements
+
+FunscriptEditor works with local script files. Video playback in FunscriptEditor uses an external mpv installation; editing scripts does not require Handy services.
+
+HandySync requires a persistent internet connection to reach Handy's REST API v3 and Hosting API v2 services. It uploads funscript action data as CSV for device playback; the associated video stays local. The retention period for hosted files and the lifetime of generated URLs are unknown, so no expiry period is promised. See the [approved support scope and known limitations](../dev/work/production-readiness/SCOPE-AND-LIMITATIONS.md) and [tested environment record](../dev/work/production-readiness/TESTED-ENVIRONMENTS.md) for the actual compatibility boundaries.
 
 ## Security Measures
 - **End-to-end encryption**: All communication between the Handy and servers is encrypted via HTTPS.

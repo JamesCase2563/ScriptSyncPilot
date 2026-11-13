@@ -10,6 +10,18 @@ Support is best-effort through GitHub issues. There is no guaranteed response ti
 
 ## Supported scope
 
+### Requirements at a glance
+
+| Application/use | Requirement |
+| --- | --- |
+| Both applications | Windows desktop. The recorded environment is Windows 11 Home 25H2, x64; other Windows versions and architectures are not verified in the environment record. |
+| FunscriptEditor video playback | An external mpv installation. Local script editing does not require an internet connection or Handy services. |
+| HandySync playback synchronization | mpv with an available IPC pipe, an internet connection, and reachable Handy REST/Hosting services. The associated video remains local; HandySync uploads the funscript action data as CSV. |
+| HandySync device controls | Handy REST API v3 requires vendor firmware v4 or newer. Offset/stroke controls additionally require supported, reported device capabilities. This minimum is not a compatibility guarantee. |
+| Runtime for current source | The project currently targets `net9.0-windows`; [.NET 9 support ended on 2026-11-11](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support). A stable release requires retargeting to a supported .NET version and re-verification. |
+
+The [environment record](TESTED-ENVIRONMENTS.md) is the only recorded combination. It reports physical checks on two H01 devices (model number 0, variant 0), with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`. It does not establish compatibility with every H01 or other device/firmware combinations.
+
 ### FunscriptEditor
 - Local funscript authoring and editing on Windows.
 - Video playback through an external mpv installation.
@@ -27,7 +39,7 @@ The release documentation must list the Windows, .NET SDK/runtime, mpv, and Hand
 
 ## External requirements and boundaries
 
-HandySync requires internet access and available Handy services. Uploaded CSV files contain action timestamps and positions; the associated video is not uploaded.
+HandySync requires a persistent internet connection to reach Handy's REST and Hosting services. FunscriptEditor can edit local scripts without Handy services; video playback in either application uses an external mpv installation. Uploaded CSV files contain funscript action timestamps and positions; the associated video is not uploaded. The lifetime of hosted files and generated URLs is unknown; no retention or expiry period is promised.
 
 ScriptSyncPilot does not install or update device firmware. Users must use the manufacturer’s official tools and instructions.
 
@@ -38,7 +50,7 @@ Other device vendors, alternative protocols, local/offline device output, and no
 - **Recovery is limited.** Automatic recovery from network/service outages, device reboots, or takeover by another application is not guaranteed. Manual reconnection may be necessary.
 - **Concurrent device control is unsupported.** Avoid using another application to control the same device while HandySync is connected.
 - **Timing is best-effort.** Network conditions, device behavior, and service availability can affect synchronization.
-- **Device compatibility is limited to recorded tests.** Untested models or firmware versions are not claimed as supported.
+- **Device compatibility is limited to recorded tests.** Physical checks were reported on two H01 devices (model number 0, variant 0) with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`; untested models or firmware versions are not claimed as supported. The test record describes its source/build qualifications.
 - **Unsupported hardware/firmware is untested and not guaranteed to work.** Physical testing is limited to the devices available to the maintainer; acquiring unsupported devices or installing older firmware is not a release requirement. Firmware compatibility checks do not establish successful operation on an untested device.
 - **Failure and recovery scenarios have limited physical coverage.** Protocol errors, service/network outages, device takeover and synchronization loss are not validated by the normal-path checks in ENV-001. Correct behavior or automatic recovery in these scenarios is not guaranteed. If communication is lost, the app cannot guarantee a physical device stop; stop the device using its physical controls if necessary.
 - **Saved keys are account/profile-bound.** Copying protected settings to another machine or Windows profile may make them unreadable. Keep the original connection key available separately.

@@ -555,8 +555,11 @@ public sealed class MainForm : Form
             var client = _createHandyClient(_connectionKeyBox.Text.Trim());
             connectingClient = client;
             _deviceControlsSupported = false;
+            _hasDeviceSlider = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
+            _offsetState.Text = "firmware unknown";
+            _strokeState.Text = "firmware unknown";
             _handy = client;
             _lastDeviceOffset = null;
             _lastDeviceStroke = null;
@@ -582,6 +585,20 @@ public sealed class MainForm : Form
                 throw new HandyApiException("Device reports not connected. Check the connection key.");
             Log("Handy device connected.");
             await CheckDeviceFirmwareAsync(client);
+            if (!_deviceControlsSupported)
+            {
+                var firmwareState = _offsetState.Text;
+                var status = firmwareState switch
+                {
+                    "unsupported firmware" => "Firmware v4+ required",
+                    "firmware update required" => "Firmware update required",
+                    _ => "Firmware unverified; connection stopped"
+                };
+                Log("Handy connection stopped before API v3 setup: device control requires verified firmware v4+ with a recognized status. Use the manufacturer's official firmware guidance if an update is required.");
+                _disconnectCompletionStatus = status;
+                await DisconnectHandyAsync();
+                return;
+            }
 
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
@@ -625,7 +642,9 @@ public sealed class MainForm : Form
         {
             if (_handyDisconnecting || connectingClient is not null && !ReferenceEquals(_handy, connectingClient)) return;
             Log($"Handy error: {ex.Message}");
-            const string connectFailureStatus = "Handy error; see log";
+            var connectFailureStatus = ex is HandyApiTimeoutException && ex.Message.StartsWith("info:", StringComparison.Ordinal)
+                ? "Firmware unverified; Handy disconnected"
+                : "Handy error; see log";
             _disconnectCompletionStatus = connectFailureStatus;
             await DisconnectHandyAsync();
             SetStatus(connectFailureStatus);
@@ -656,12 +675,19 @@ public sealed class MainForm : Form
             Log($"Device hardware: model name {modelName}, model number {info.ModelNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}, model variant {info.ModelVariant?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "not reported"}.");
 
             var firmwareVersion = FormatDeviceDiagnosticValue(info.FirmwareVersion);
-            _deviceControlsSupported = IsDeviceControlsFirmwareSupported(info.FirmwareVersion, info.FirmwareStatus);
+            var firmwareGate = GetFirmwareGateState(info.FirmwareVersion, info.FirmwareStatus);
+            _deviceControlsSupported = firmwareGate == FirmwareGateState.Supported;
             if (!_deviceControlsSupported)
             {
-                _offsetState.Text = "unsupported firmware";
-                _strokeState.Text = "unsupported firmware";
-                Log($"Device controls unsupported: firmware {firmwareVersion}, status {info.FirmwareStatus}.");
+                var stateText = firmwareGate switch
+                {
+                    FirmwareGateState.UnsupportedVersion => "unsupported firmware",
+                    FirmwareGateState.UpdateRequired => "firmware update required",
+                    _ => "firmware unknown"
+                };
+                _offsetState.Text = stateText;
+                _strokeState.Text = stateText;
+                Log($"Device controls unavailable: firmware {firmwareVersion}, status {info.FirmwareStatus} ({stateText}).");
             }
             else
             {
@@ -670,21 +696,36 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
         {
-            if (IsRequestTimeout(ex)) throw;
             _deviceControlsSupported = false;
             _offsetSlider.Enabled = false;
             _strokeSlider.Enabled = false;
             _offsetState.Text = "firmware unknown";
             _strokeState.Text = "firmware unknown";
             Log($"Could not verify device firmware; device controls are disabled: {ex.Message}");
+            if (IsRequestTimeout(ex)) throw;
         }
     }
 
-    internal static bool IsDeviceControlsFirmwareSupported(string firmwareVersion, int? firmwareStatus)
+    private enum FirmwareGateState
     {
+        Supported,
+        UnsupportedVersion,
+        UpdateRequired,
+        Unknown
+    }
+
+    internal static bool IsDeviceControlsFirmwareSupported(string? firmwareVersion, int? firmwareStatus) =>
+        GetFirmwareGateState(firmwareVersion, firmwareStatus) == FirmwareGateState.Supported;
+
+    private static FirmwareGateState GetFirmwareGateState(string? firmwareVersion, int? firmwareStatus)
+    {
+        if (string.IsNullOrWhiteSpace(firmwareVersion) || firmwareStatus is not (0 or 1 or 2))
+            return FirmwareGateState.Unknown;
+
         var versionText = firmwareVersion.Split('+', 2)[0];
-        return Version.TryParse(versionText, out var version) && version.Major >= 4
-               && firmwareStatus is int status && status != 2;
+        if (!Version.TryParse(versionText, out var version)) return FirmwareGateState.Unknown;
+        if (version.Major < 4) return FirmwareGateState.UnsupportedVersion;
+        return firmwareStatus == 2 ? FirmwareGateState.UpdateRequired : FirmwareGateState.Supported;
     }
 
     private static string FormatDeviceDiagnosticValue(string? value)
@@ -711,19 +752,28 @@ public sealed class MainForm : Form
             try
             {
                 var capabilities = await client.GetCapabilitiesAsync(_lifetimeCts.Token);
-                _hasDeviceSlider = capabilities.SliderCount > 0;
+                if (capabilities.SliderCount is < 0 or null)
+                {
+                    _hasDeviceSlider = false;
+                    _strokeState.Text = "capabilities unavailable";
+                    Log("Device slider capability is missing or invalid; stroke controls are disabled.");
+                }
+                else
+                {
+                    _hasDeviceSlider = capabilities.SliderCount > 0;
+                    if (!_hasDeviceSlider)
+                    {
+                        _strokeState.Text = "no slider";
+                        Log("Device has no slider; stroke controls are disabled.");
+                    }
+                }
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or IOException or TaskCanceledException or ObjectDisposedException)
             {
                 if (IsRequestTimeout(ex)) throw;
-                _hasDeviceSlider = true;
+                _hasDeviceSlider = false;
+                _strokeState.Text = "capabilities unavailable";
                 Log($"Could not read device capabilities: {ex.Message}");
-            }
-
-            if (!_hasDeviceSlider)
-            {
-                _strokeState.Text = "no slider";
-                Log("Device has no slider; stroke controls are disabled.");
             }
 
             try

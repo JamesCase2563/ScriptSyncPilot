@@ -480,7 +480,7 @@ public sealed class HandyApiClient : IDisposable
 
     public sealed class DeviceCapabilities
     {
-        [JsonPropertyName("slider")] public int SliderCount { get; set; }
+        [JsonPropertyName("slider")] public int? SliderCount { get; set; }
     }
 
     public sealed class SliderSettings

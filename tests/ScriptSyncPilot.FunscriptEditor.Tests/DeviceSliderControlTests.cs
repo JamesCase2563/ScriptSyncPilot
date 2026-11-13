@@ -17,9 +17,13 @@ public sealed class DeviceSliderControlTests
     {
         Assert.IsTrue(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0+dcee7e58", 0));
         Assert.IsTrue(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", 1));
+        Assert.IsTrue(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("5.0.0", 0));
         Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("3.9.0", 0));
         Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", 2));
+        Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", 3));
+        Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", -1));
         Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("unknown", 0));
+        Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported(null, 0));
         Assert.IsFalse(ScriptSyncPilot.HandySync.MainForm.IsDeviceControlsFirmwareSupported("4.3.0", null));
     }
 

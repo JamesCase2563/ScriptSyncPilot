@@ -1291,7 +1291,7 @@ public sealed class DeviceControlPollingTests
     }
 
     [STATestMethod]
-    public void FailedOptionalReadsLeaveControlsUsableAndNoSliderSuppressesStrokeRead()
+    public void FailedCapabilityReadDisablesStrokeWhileOptionalSettingFailuresLeaveOtherControlsUsable()
     {
         using var form = new ScriptSyncPilot.HandySync.MainForm();
         using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
@@ -1314,12 +1314,17 @@ public sealed class DeviceControlPollingTests
         InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
         ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
 
-        Assert.IsTrue(((DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!).Enabled);
+        Assert.IsFalse(((DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!).Enabled);
         Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_offsetState")!).Text);
-        Assert.AreEqual("applied", ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.AreEqual("capabilities unavailable", ((Label)GetPrivateField(form, "_strokeState")!).Text);
         Assert.IsNull(GetPrivateField(form, "_temperatureHighTrigger"));
         Assert.IsNull(GetPrivateField(form, "_temperatureHysteresis"));
         Assert.AreEqual(string.Empty, tooltip.GetToolTip(strokeSliderForTooltip));
+        Assert.IsFalse(handler.Requests.Any(request => request.Path == "slider/stroke"),
+            "Unknown slider capability must suppress the stroke read.");
+        InvokePrivate(form, "ScheduleStrokeWrite");
+        Assert.IsFalse(handler.Requests.Any(request => request.Method == "PUT" && request.Path == "slider/stroke"),
+            "Unknown slider capability must suppress stroke writes.");
         InvokePrivateTask(form, "UpdateTemperatureAsync", client).GetAwaiter().GetResult();
         Assert.AreEqual("Motor 77.0 °C (High)", ((Label)GetPrivateField(form, "_temperatureValue")!).Text);
 
@@ -1341,6 +1346,36 @@ public sealed class DeviceControlPollingTests
         Assert.IsFalse(noSliderHandler.Requests.Any(request => request.Path == "slider/stroke"));
         InvokePrivate(noSliderForm, "ScheduleStrokeWrite");
         Assert.IsFalse(noSliderHandler.Requests.Any(request => request.Method == "PUT"));
+    }
+
+    [DataTestMethod]
+    [DataRow("{\"result\":{}}", "capabilities unavailable")]
+    [DataRow("{\"result\":{\"slider\":-1}}", "capabilities unavailable")]
+    [DataRow("{\"result\":{\"slider\":\"invalid\"}}", "capabilities unavailable")]
+    [DataRow("{\"result\":{\"slider\":0}}", "no slider")]
+    public void MissingInvalidOrZeroSliderCapabilitySuppressesStrokeOperations(string capabilitiesJson, string expectedState)
+    {
+        using var form = new ScriptSyncPilot.HandySync.MainForm();
+        using var handler = new RecordingHandler((request, _, _) => Task.FromResult(request.RequestUri!.AbsolutePath switch
+        {
+            "/api/capabilities" => JsonResponse(capabilitiesJson),
+            "/api/settings/slider" => JsonResponse("{\"result\":{}}"),
+            "/api/hstp/offset" => JsonResponse("{\"result\":{\"offset\":0}}"),
+            "/api/slider/stroke" => throw new InvalidOperationException("Stroke read must be suppressed without a confirmed slider."),
+            _ => throw new InvalidOperationException($"Unexpected request: {request.RequestUri}")
+        }));
+        using var client = new HandyApiClient("test-key", handler, new Uri("https://example.test/api/"));
+        InitializePollingForm(form, client);
+
+        InvokePrivateTask(form, "ReadAndAdoptDeviceControlsAsync", client).GetAwaiter().GetResult();
+        ((System.Windows.Forms.Timer)GetPrivateField(form, "_devicePollTimer")!).Stop();
+        var strokeSlider = (DeviceSliderControl)GetPrivateField(form, "_strokeSlider")!;
+        Assert.IsFalse(strokeSlider.Enabled);
+        Assert.AreEqual(expectedState, ((Label)GetPrivateField(form, "_strokeState")!).Text);
+        Assert.IsFalse(handler.Requests.Any(request => request.Path == "slider/stroke"));
+
+        InvokePrivate(form, "ScheduleStrokeWrite");
+        Assert.IsFalse(handler.Requests.Any(request => request.Method == "PUT" && request.Path == "slider/stroke"));
     }
 
     private static void InitializeWritableForm(ScriptSyncPilot.HandySync.MainForm form, HandyApiClient client)

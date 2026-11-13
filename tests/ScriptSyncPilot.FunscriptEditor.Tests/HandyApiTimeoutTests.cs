@@ -314,7 +314,34 @@ public sealed class HandyApiTimeoutTests
         CollectionAssert.AreEqual(new[] { "/api/connected", "/api/info" }, deviceHandler.Paths.ToArray());
         Assert.IsFalse(hostingHandler.RequestStarted);
         Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.AreEqual("Firmware unverified; Handy disconnected", GetField<Label>(form, "_status").Text);
         Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("info: request timed out.", StringComparison.Ordinal));
+    }
+
+    [DataTestMethod]
+    [DataRow("{\"result\":{\"fw_status\":0,\"fw_version\":\"3.9.0\"}}", "Firmware v4+ required")]
+    [DataRow("{\"result\":{\"fw_status\":3,\"fw_version\":\"4.3.0\"}}", "Firmware unverified; connection stopped")]
+    [DataRow("{\"result\":{\"fw_status\":2,\"fw_version\":\"4.3.0\"}}", "Firmware update required")]
+    [DataRow("{\"result\":{\"fw_version\":\"4.3.0\"}}", "Firmware unverified; connection stopped")]
+    [DataRow("{\"error\":{\"code\":123,\"name\":\"Unknown\",\"message\":\"synthetic failure\"}}", "Firmware unverified; connection stopped")]
+    [DataRow("{", "Firmware unverified; connection stopped")]
+    public void UnsupportedOrUnverifiedFirmwareStopsBeforeFurtherApiV3Operations(string infoResponse, string expectedStatus)
+    {
+        using var deviceHandler = new FirmwareGateHandler(infoResponse);
+        using var hostingHandler = new NeverUsedHandler();
+        var client = CreateClient(deviceHandler, hostingHandler);
+        using var form = CreateConnectForm(client);
+
+        InvokeAndPumpConnect(form);
+        Application.DoEvents();
+
+        CollectionAssert.AreEqual(new[] { "/api/connected", "/api/info" }, deviceHandler.Paths.ToArray());
+        Assert.IsFalse(hostingHandler.RequestStarted, "Unsupported firmware must not trigger a script upload.");
+        Assert.IsNotNull(GetField<Funscript>(form, "_script"), "The locally loaded script remains available after device gating.");
+        Assert.IsNull(GetField<HandyApiClient?>(form, "_handy"));
+        Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
+        Assert.AreEqual(expectedStatus, GetField<Label>(form, "_status").Text);
+        Assert.IsTrue(GetField<TextBox>(form, "_log").Text.Contains("connection stopped before API v3 setup", StringComparison.Ordinal));
     }
 
     [STATestMethod]
@@ -706,6 +733,24 @@ public sealed class HandyApiTimeoutTests
                 _ => ""
             };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        }
+    }
+
+    private sealed class FirmwareGateHandler(string infoResponse) : HttpMessageHandler
+    {
+        public ConcurrentQueue<string> Paths { get; } = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            Paths.Enqueue(path);
+            var (status, body) = path switch
+            {
+                "/api/connected" => (HttpStatusCode.OK, "{\"result\":{\"connected\":true}}"),
+                "/api/info" => (HttpStatusCode.OK, infoResponse),
+                _ => (HttpStatusCode.InternalServerError, "{}")
+            };
+            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
         }
     }
 

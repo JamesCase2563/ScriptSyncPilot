@@ -28,7 +28,7 @@ to future feature priorities.
 
 ## Automated Tests and CI
 
-**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Command-ordering verification completed 2026-11-08 ([plan](work/command-ordering/PLAN.md), [verification](work/command-ordering/VERIFICATION.md)); focused initial-release verification remains active for [firmware/capabilities](work/firmware-capabilities/PLAN.md). The completed [error-reporting work](archive/2026-11-error-reporting/PLAN.md) is archived. These efforts do not by themselves establish clean-checkout CI coverage.
+**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Command-ordering verification completed 2026-11-08 ([plan](work/command-ordering/PLAN.md), [verification](work/command-ordering/VERIFICATION.md)); firmware/capability verification completed 2026-11-13 ([plan](archive/2026-11-firmware-capabilities/PLAN.md), [verification](archive/2026-11-firmware-capabilities/VERIFICATION.md)). The completed [error-reporting work](archive/2026-11-error-reporting/PLAN.md) is archived. These efforts do not by themselves establish clean-checkout CI coverage.
 
 Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 

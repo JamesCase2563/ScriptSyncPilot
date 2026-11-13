@@ -1,6 +1,6 @@
 # Firmware and Capabilities Design
 
-**Status:** In progress; Milestone 1 characterization completed 2026-11-13. Focused behavior verification and any confirmed repairs remain.
+**Status:** Complete 2026-11-13; focused simulated verification passed. Overall production-readiness decision remains open.
 **Affected projects:** HandySync.
 **Production-readiness priority:** 4, firmware and capabilities.
 
@@ -12,9 +12,9 @@ This is a bounded review of the currently supported Handy API v3/HSSP baseline. 
 
 ## Existing baseline and inputs
 
-- The [HandySync backlog entry](../../HandySync/BACKLOG.md#firmware-and-capabilities) says offset/stroke controls are enabled for firmware 4+ with `fw_status` other than update-required, capabilities are read on connect, and stroke operations are suppressed when `slider` is zero. Broader setup validation and model-specific capabilities remain open.
-- The [support scope](../production-readiness/SCOPE-AND-LIMITATIONS.md) limits support claims to recorded tests and states vendor firmware v4+ requirement; firmware updating is excluded.
-- [ENV-001](../production-readiness/TESTED-ENVIRONMENTS.md#env-001) records two H01 devices/firmware combinations and limited successful workflows. It is not broad device certification.
+- At the start of this review, the [HandySync backlog entry](../../HandySync/BACKLOG.md#firmware-and-capabilities) documented firmware-gated offset/stroke controls and zero-slider suppression, while broader API v3 setup validation and model-specific capabilities remained open. This work closes the generic firmware/setup boundary; model-specific capability review remains deferred.
+- The [support scope](../../work/production-readiness/SCOPE-AND-LIMITATIONS.md) limits support claims to recorded tests and states vendor firmware v4+ requirement; firmware updating is excluded.
+- [ENV-001](../../work/production-readiness/TESTED-ENVIRONMENTS.md#env-001) records two H01 devices/firmware combinations and limited successful workflows. It is not broad device certification.
 - Current implementation uses `MainForm` firmware validation and `GetCapabilitiesAsync`; inspect current request ordering and failure behavior before deciding a change is required.
 
 ## M1.1 Request and gate map
@@ -39,7 +39,7 @@ Reviewed `MainForm`, `HandyApiClient`, and the existing device-control tests. De
 - The official [Handy REST API v3 OpenAPI specification](https://www.handyfeeling.com/api/handy-rest/v3/docs/spec.yaml) says firmware older than v4 must be updated to v4 before the device can be controlled through API v3. This is a vendor requirement, not a claim that every v4+ combination is supported by this project.
 - Its `FirmwareStatus` enum is `0` up-to-date, `1` update-available, and `2` update-required. Therefore status `1` is distinct from update-required; the existing gate accepting `1` is consistent with the enum. Values outside the enum are not documented and should not be treated as known-compatible without evidence.
 - The same spec defines `DeviceCapabilities.slider` as an integer count and gives `0` as the no-slider value in the example. It does not define missing/invalid capability data as equivalent to a positive slider count.
-- Project [scope](../production-readiness/SCOPE-AND-LIMITATIONS.md) excludes firmware installation and treats vendor minimums separately from project-tested compatibility. [ENV-001](../production-readiness/TESTED-ENVIRONMENTS.md#env-001) records two H01 builds (4.3.0, status 0; and 4.2.2, status 1) with maintainer-reported workflow success. It provides no below-v4, unknown-status, absent-capability, or failed-capability-read evidence.
+- Project [scope](../../work/production-readiness/SCOPE-AND-LIMITATIONS.md) excludes firmware installation and treats vendor minimums separately from project-tested compatibility. [ENV-001](../../work/production-readiness/TESTED-ENVIRONMENTS.md#env-001) records two H01 builds (4.3.0, status 0; and 4.2.2, status 1) with maintainer-reported workflow success. It provides no below-v4, unknown-status, absent-capability, or failed-capability-read evidence.
 - Existing tests include the v4/status gate helper, a zero-slider suppression case, read failures, and a firmware-info timeout. They do not cover unknown status codes or connect-time behavior below v4. The existing failed-capability test currently expects stroke control to remain usable after `/capabilities` returns 503; that expectation conflicts with a fail-closed interpretation and must be deliberately resolved, not mistaken for vendor guidance.
 
 ## M1.3 Expected behavior for verification
@@ -81,4 +81,4 @@ No firmware-status meaning beyond the official enum is assumed. M2 should first 
 - A gate matrix records firmware/status/capability inputs, expected enabled operations, actual behavior, and failure reporting.
 - Tests cover boundary, absent, malformed, unsupported, and failed-read cases relevant to existing gates.
 - Any changed behavior is covered by regression tests and exact evidence is recorded in [VERIFICATION.md](VERIFICATION.md).
-- Compatibility claims remain limited to documented evidence; findings link to the [production-readiness plan](../production-readiness/PLAN.md).
+- Compatibility claims remain limited to documented evidence; findings link to the [production-readiness plan](../../work/production-readiness/PLAN.md).

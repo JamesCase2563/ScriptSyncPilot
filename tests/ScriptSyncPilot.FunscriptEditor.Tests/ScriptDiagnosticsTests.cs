@@ -64,7 +64,7 @@ public sealed class ScriptDiagnosticsTests
                 if (result != "invalid")
                 {
                     StringAssert.Contains(log, "Device hardware:");
-                    StringAssert.Contains(log, controlsSupported ? "Device firmware supported:" : "Device controls unsupported:");
+                    StringAssert.Contains(log, controlsSupported ? "Device firmware supported:" : "Device controls unavailable:");
                 }
                 else
                 {

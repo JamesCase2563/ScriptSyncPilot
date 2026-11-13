@@ -11,7 +11,8 @@ namespace ScriptSyncPilot.FunscriptEditor;
 /// </summary>
 public sealed class MainForm : Form
 {
-    private readonly EditorSettings _settings = EditorSettings.Load();
+    private readonly EditorSettings _settings;
+    private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
 
@@ -60,8 +61,14 @@ public sealed class MainForm : Form
     private TimelineWheelFilter? _wheelFilter;
     private PatternInsertionDialog? _patternDialog;
 
-    public MainForm()
+    public MainForm() : this(EditorSettings.Load())
     {
+    }
+
+    internal MainForm(EditorSettings settings, Func<bool>? confirmDiscardChanges = null)
+    {
+        _settings = settings;
+        _confirmDiscardChanges = confirmDiscardChanges ?? ConfirmDiscardChangesFromUser;
         Text = "ScriptSyncPilot – Funscript Editor";
         Width = 1100;
         Height = 650;
@@ -356,7 +363,9 @@ public sealed class MainForm : Form
         Text = $"ScriptSyncPilot – Funscript Editor – {(_scriptPath is null ? "untitled" : Path.GetFileName(_scriptPath))}{(IsDirty ? " *" : "")}";
     }
 
-    private bool ConfirmDiscardChanges() =>
+    private bool ConfirmDiscardChanges() => _confirmDiscardChanges();
+
+    private bool ConfirmDiscardChangesFromUser() =>
         MessageBox.Show(this, "Discard unsaved changes?", "ScriptSyncPilot", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
 
     private void NewScript()

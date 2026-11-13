@@ -455,7 +455,7 @@ public sealed class HandyApiTimeoutTests
         var error = Assert.ThrowsException<HandyApiRequestCanceledException>(() => request.GetAwaiter().GetResult());
         Assert.IsFalse(error.IsLifecycleCancellation);
 
-        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+        GetPlaybackCommandFailureMethod()
             .Invoke(form, [session, client, "Play/stop failed", error]);
 
         Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
@@ -488,7 +488,7 @@ public sealed class HandyApiTimeoutTests
         var error = Assert.ThrowsException<HandyApiRequestCanceledException>(() => request.GetAwaiter().GetResult());
         Assert.IsTrue(error.IsLifecycleCancellation);
 
-        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+        GetPlaybackCommandFailureMethod()
             .Invoke(form, [session, client, "Play/stop failed", error]);
 
         Assert.IsTrue(GetField<bool>(form, "_hsspReady"));
@@ -511,7 +511,7 @@ public sealed class HandyApiTimeoutTests
         syncTimer.Start();
         var error = new HandyApiException("hssp/play: HTTP 503.");
 
-        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod("HandlePlaybackCommandFailure", BindingFlags.Instance | BindingFlags.NonPublic)!
+        GetPlaybackCommandFailureMethod()
             .Invoke(form, [session, client, "Play/stop failed", error]);
 
         Assert.IsFalse(GetField<bool>(form, "_hsspReady"));
@@ -599,6 +599,14 @@ public sealed class HandyApiTimeoutTests
             .SetValue(form, new Funscript());
         return form;
     }
+
+    private static MethodInfo GetPlaybackCommandFailureMethod() =>
+        typeof(ScriptSyncPilot.HandySync.MainForm).GetMethod(
+            "HandlePlaybackCommandFailure",
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(MpvSession), typeof(HandyApiClient), typeof(string), typeof(Exception)],
+            modifiers: null)!;
 
     private static void InvokeAndPumpConnect(ScriptSyncPilot.HandySync.MainForm form)
     {

@@ -148,6 +148,30 @@ public sealed class FunscriptTests
     }
 
     [TestMethod]
+    public void FailedStagedSave_PreservesExistingFileAndRemovesPartialTemporaryFile()
+    {
+        const string originalJson = "{\"metadata\":{\"title\":\"keep\"},\"actions\":[{\"at\":0,\"pos\":10}]}";
+        var path = Path.Combine(_directory, "existing.funscript");
+        File.WriteAllText(path, originalJson);
+        var originalBytes = File.ReadAllBytes(path);
+        var script = Funscript.Load(path);
+        script.AddOrReplace(new FunscriptAction(1000, 90));
+
+        Assert.ThrowsException<IOException>(() => script.Save(path, (stream, json) =>
+        {
+            var partial = System.Text.Encoding.UTF8.GetBytes(json[..Math.Min(24, json.Length)]);
+            stream.Write(partial);
+            throw new IOException("Synthetic write failure.");
+        }));
+
+        CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(path));
+        CollectionAssert.AreEqual(
+            new[] { new FunscriptAction(0, 10), new FunscriptAction(1000, 90) }, script.Actions.ToArray());
+        CollectionAssert.AreEqual(new[] { "existing.funscript" },
+            Directory.GetFiles(_directory).Select(Path.GetFileName).OrderBy(name => name).ToArray());
+    }
+
+    [TestMethod]
     public void LoadEditSave_PreservesUnmodeledRootProperties()
     {
         const string json = """

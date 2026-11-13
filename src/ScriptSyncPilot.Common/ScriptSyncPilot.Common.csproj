@@ -9,4 +9,8 @@
     <AssemblyName>ScriptSyncPilot.Common</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScriptSyncPilot.Common.Tests" />
+  </ItemGroup>
+
 </Project>

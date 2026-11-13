@@ -65,6 +65,7 @@ with [shared GUI work](../BACKLOG.md#gui-usability-and-visual-polish).
 - Add clear script/video time indication on the waveform control. Define the displayed time reference and formatting when designing the feature, including how any script/video offset is represented.
 - Keep the playback marker fixed at the horizontal center of the waveform control and move the background timeline/script beneath it as playback advances or seeks. Preserve the selected zoom level while following playback; zoom remains available and is anchored to the centered playhead. Define start/end-of-script viewport behavior during design without shifting the marker away from center.
 - Add navigation to the next point, previous point, and currently selected point, seeking the playhead to the target timestamp while preserving zoom. Define shortcuts, navigation reference (playhead or selection), and behavior at the first/last point or with no selection during design; coordinate with group selection and avoid conflicts with existing keyboard controls.
+- Restore precise horizontal navigation when the waveform is highly zoomed. Middle-button panning no longer works; provide a dependable fine-scroll or pan interaction for moving through the timeline without changing zoom, and define how it interacts with waveform selection and playback following.
 
 ## Pattern Improvements
 

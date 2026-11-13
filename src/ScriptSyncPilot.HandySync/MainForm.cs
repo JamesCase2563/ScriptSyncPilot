@@ -483,6 +483,8 @@ public sealed class MainForm : Form
         {
             SetStatus("Attaching to mpv video…");
             var session = new MpvSession();
+            _lastKnownPos = session.PositionSeconds;
+            _sincePosUpdate.Restart();
             _mpv = session;
             session.PauseChanged += paused => _ = OnMpvPauseChangedAsync(session, paused);
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
@@ -1330,6 +1332,7 @@ public sealed class MainForm : Form
 
     private double _lastKnownPos;
     private readonly Stopwatch _sincePosUpdate = Stopwatch.StartNew();
+    private long _playbackCommandGeneration;
 
     private async Task OnMpvPositionChangedAsync(MpvSession session, double pos)
     {
@@ -1351,12 +1354,13 @@ public sealed class MainForm : Form
 
         if (isSeek && _mpv is { IsPaused: false })
         {
+            var commandGeneration = Interlocked.Increment(ref _playbackCommandGeneration);
             try
             {
                 await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
                 try
                 {
-                    if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)
+                    if (!IsCurrentPlaybackContext(session, client)
                         || session.IsPaused || session.Speed != 1.0) return;
                     await client.HsspPlayAsync(DeviceTimeMs(pos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
                 }
@@ -1365,11 +1369,12 @@ public sealed class MainForm : Form
                     ReleaseDeviceCommandGate(client);
                 }
 
+                if (!IsCurrentPlaybackContext(session, client)) return;
                 Log($"Seek detected, resynced at {pos:F1}s.");
             }
             catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
             {
-                HandlePlaybackCommandFailure(session, client, "Resync failed", ex);
+                HandlePlaybackCommandFailure(session, client, "Resync failed", ex, commandGeneration);
             }
         }
     }
@@ -1450,29 +1455,32 @@ public sealed class MainForm : Form
             return;
         }
 
+        var commandGeneration = Interlocked.Increment(ref _playbackCommandGeneration);
         try
         {
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
             {
-                if (!ReferenceEquals(_mpv, session) || !_hsspReady || !ReferenceEquals(_handy, client)) return;
+                if (!IsCurrentPlaybackContext(session, client)) return;
 
                 if (session.Speed != 1.0)
                 {
-                    Log("Device synchronization suspended: mpv playback speed must be confirmed at 1x. Restore 1x to resume.");
-                    SetStatus("Device sync suspended: requires 1x playback");
                     await client.HsspStopAsync(_lifetimeCts.Token);
-                    SetStatus("Device stopped: requires 1x playback");
+                    if (!IsCurrentPlaybackContext(session, client)) return;
+                    Log("Device synchronization suspended: mpv playback speed must be confirmed at 1x. Restore 1x to resume.");
+                    SetStatus("Sync suspended: requires 1x playback");
                 }
                 else if (session.IsPaused)
                 {
                     await client.HsspStopAsync(_lifetimeCts.Token);
+                    if (!IsCurrentPlaybackContext(session, client)) return;
                     Log("Playback paused; device stopped.");
                     SetStatus("Paused");
                 }
                 else
                 {
                     await client.HsspPlayAsync(DeviceTimeMs(session.PositionSeconds), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                    if (!IsCurrentPlaybackContext(session, client)) return;
                     Log("Playback resumed; device started.");
                     SetStatus("Playing");
                 }
@@ -1484,16 +1492,23 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            if (HandlePlaybackCommandFailure(session, client, "Play/stop failed", ex) && !IsRequestTimeout(ex)
+            if (HandlePlaybackCommandFailure(session, client, "Play/stop failed", ex, commandGeneration) && !IsRequestTimeout(ex)
                 && session.Speed != 1.0)
                 SetStatus("Device stop failed: pause mpv and disconnect Handy");
         }
     }
 
+    private bool IsCurrentPlaybackContext(MpvSession session, HandyApiClient client) =>
+        ReferenceEquals(_mpv, session) && _hsspReady && ReferenceEquals(_handy, client);
+
     // Late failures from a replaced mpv session or Handy client must not alter or report on the current target.
     private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex)
+        => HandlePlaybackCommandFailure(session, client, prefix, ex, Volatile.Read(ref _playbackCommandGeneration));
+
+    private bool HandlePlaybackCommandFailure(MpvSession session, HandyApiClient client, string prefix, Exception ex, long commandGeneration)
     {
-        if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)) return false;
+        if (!ReferenceEquals(_mpv, session) || !ReferenceEquals(_handy, client)
+            || commandGeneration != Volatile.Read(ref _playbackCommandGeneration)) return false;
         if (ex is HandyApiRequestCanceledException { IsLifecycleCancellation: true }
             || (_lifetimeCts.IsCancellationRequested && ex is OperationCanceledException and not HandyApiTimeoutException))
             return false;
@@ -1521,14 +1536,15 @@ public sealed class MainForm : Form
         var client = _handy;
         var session = _mpv;
         if (!_hsspReady || client is null || session is not { IsPaused: false, Speed: 1.0 }) return;
+        var commandGeneration = Interlocked.Increment(ref _playbackCommandGeneration);
         try
         {
             await _deviceCommandGate.WaitAsync(_lifetimeCts.Token);
             try
             {
-                if (!_hsspReady || !ReferenceEquals(_handy, client) || !ReferenceEquals(_mpv, session)
+                if (!IsCurrentPlaybackContext(session, client)
                     || session.IsPaused || session.Speed != 1.0) return;
-                await client.HsspSyncTimeAsync(DeviceTimeMs(_lastKnownPos), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
+                await client.HsspSyncTimeAsync(DeviceTimeMs(session.PositionSeconds), EstimatedServerTimeMs(), ct: _lifetimeCts.Token);
             }
             finally
             {
@@ -1537,7 +1553,7 @@ public sealed class MainForm : Form
         }
         catch (Exception ex) when (ex is HandyApiException or HttpRequestException or TaskCanceledException or ObjectDisposedException)
         {
-            HandlePlaybackCommandFailure(session, client, "Drift correction failed", ex);
+            HandlePlaybackCommandFailure(session, client, "Drift correction failed", ex, commandGeneration);
         }
     }
 

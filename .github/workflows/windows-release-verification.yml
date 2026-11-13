@@ -1,0 +1,30 @@
+name: Windows release verification
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  release-build-and-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore ScriptSyncPilot.slnx
+
+      - name: Build Release
+        run: dotnet build ScriptSyncPilot.slnx --configuration Release --no-restore --verbosity minimal
+
+      - name: Run automated tests
+        run: dotnet test ScriptSyncPilot.slnx --configuration Release --no-build --no-restore --blame-hang-timeout 2m --verbosity minimal

@@ -43,7 +43,7 @@ Other device vendors, alternative protocols, local/offline device output, and no
 - **Failure and recovery scenarios have limited physical coverage.** Protocol errors, service/network outages, device takeover and synchronization loss are not validated by the normal-path checks in ENV-001. Correct behavior or automatic recovery in these scenarios is not guaranteed. If communication is lost, the app cannot guarantee a physical device stop; stop the device using its physical controls if necessary.
 - **Saved keys are account/profile-bound.** Copying protected settings to another machine or Windows profile may make them unreadable. Keep the original connection key available separately.
 - **Historical files are not cleaned automatically.** Older settings backups or logs may contain plaintext keys or hosted-script URLs.
-- **Provider retention remains unconfirmed.** The exact lifetime of hosted uploads and download URLs is awaiting clarification from Handy.
+- **Provider retention remains unconfirmed.** Handy did not reply to the maintainer's 2026-10-22 question as of 2026-11-13; no further follow-up is planned. The exact lifetime of hosted uploads and generated download URLs is unknown. Do not promise a retention or expiry period.
 - Features marked proposed, experimental, or deferred in the backlogs are not release promises.
 
 These limitations do not excuse known defects that could disclose credentials, corrupt user files, or prevent controlled shutdown.

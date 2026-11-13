@@ -1,6 +1,6 @@
 # Firmware and Capabilities Plan
 
-**Status:** Proposed; no new implementation or verification claimed.
+**Status:** In progress; Milestone 1 completed 2026-11-13. Milestone 2 verification and any confirmed repairs remain.
 **Goal:** Close production-readiness reliability priority 4 by verifying existing firmware/capability gates and clear handling of unavailable data.
 
 ## Scope
@@ -16,9 +16,9 @@ Out of scope: firmware update UX, new device/model/protocol support, broad hardw
 
 ### 1. Characterize contracts
 
-- [ ] Map firmware and capability reads and all dependent controls/requests in [DESIGN.md](DESIGN.md).
-- [ ] Reconcile implementation with the [HandySync backlog](../../HandySync/BACKLOG.md#firmware-and-capabilities), approved [support scope](../production-readiness/SCOPE-AND-LIMITATIONS.md), and official API v3 requirement.
-- [ ] Define expected behavior for supported, unsupported, update-required, absent, malformed, and failed values without assuming undocumented status meanings.
+- [x] Map firmware and capability reads and all dependent controls/requests in [DESIGN.md](DESIGN.md) (M1.1).
+- [x] Reconcile implementation with the [HandySync backlog](../../HandySync/BACKLOG.md#firmware-and-capabilities), approved [support scope](../production-readiness/SCOPE-AND-LIMITATIONS.md), and official API v3 requirement (M1.2).
+- [x] Define expected behavior for supported, unsupported, update-required, absent, malformed, and failed values without assuming undocumented status meanings (M1.3).
 
 ### 2. Verify and repair
 

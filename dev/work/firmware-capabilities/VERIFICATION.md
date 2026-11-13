@@ -1,6 +1,6 @@
 # Firmware and Capabilities Verification
 
-**Status:** Not started. Existing compatibility records are background evidence, not verification of this work item.
+**Status:** Milestone 1 characterization completed 2026-11-13; no focused verification runs have been made yet. Existing compatibility records are background evidence, not verification of this work item.
 
 ## Scope and result
 
@@ -30,7 +30,8 @@ See ENV-001 in [TESTED-ENVIRONMENTS.md](../production-readiness/TESTED-ENVIRONME
 
 ## Findings and closure
 
-- Confirmed defects: none recorded; characterization has not started.
+- Milestone 1 findings: official API v3 docs require firmware v4+ for device control and enumerate firmware status 0/1/2. Current `IsDeviceControlsFirmwareSupported` accepts undocumented status values other than 2, while connection still proceeds to `/mode`, clock sampling, upload, and HSSP setup when the control gate is false. Capability read failure currently sets `_hasDeviceSlider = true`; an existing test asserts this fail-open behavior. These are characterization findings; confirm expected boundaries and add focused tests during M2 before changing behavior.
+- Confirmed defects: none closed in this work item; M2 verification has not started.
 - Changes and regression tests: none recorded.
-- Limitations: pending characterization; support claims remain limited to ENV-001 and the approved scope.
+- Limitations: boundary and failure behavior remain unverified; support claims remain limited to ENV-001 and the approved scope.
 - Release-gate conclusion: open; this work item is not verified complete.

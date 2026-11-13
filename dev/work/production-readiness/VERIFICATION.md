@@ -45,7 +45,8 @@ Coverage by test presence is not evidence that the complete suite passes. The fu
 
 - Resolve the full-suite hang and rerun the complete Release suite from a clean checkout.
 - Push the workflow and confirm a successful GitHub Actions run for the intended release revision.
-- Record source acquisition/build/update/rollback instructions and review release notes/tags.
+- Review and complete the [source-release guide](../../docs/source-release.md), including obtaining, building, installing, updating, rollback, version tags, release notes, and faulty-release handling.
+- Update both application targets from .NET 9, which reached end of support on 2026-11-11, to a supported runtime; verify the updated target and publish commands before a stable release.
 - Finish support/reporting and privacy information review; Handy's CSV retention and generated-URL lifetime remain unknown after no response to the email, with no further follow-up planned.
 - Recheck the published support scope against the tested environment record and perform the remaining manual release workflows.
 - Repository owner to review all remaining risks and record a dated go/no-go decision.

@@ -1,8 +1,8 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/ScriptSyncPilot.Common/ScriptSyncPilot.Common.csproj" />
-    <Project Path="src/ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj" />
-    <Project Path="src/ScriptSyncPilot.HandySync/ScriptSyncPilot.HandySync.csproj" />
+    <Project Path="ScriptSyncPilot.Common/ScriptSyncPilot.Common.csproj" />
+    <Project Path="ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj" />
+    <Project Path="ScriptSyncPilot.HandySync/ScriptSyncPilot.HandySync.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj" />

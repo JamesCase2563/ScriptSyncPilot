@@ -60,5 +60,5 @@ Clarify provider-side script retention and URL expiry when Handy replies to the 
 
 ## Completed
 
-- **Initial Common unit-test suite:** Funscript action edits, round-trips, lowercase JSON fields, metadata preservation, sorted loading, empty documents, invalid JSON, and CSV export in [the Common test project](../tests/ScriptSyncPilot.Common.Tests). Broader coverage and CI remain above.
+- **Initial Common unit-test suite:** Funscript action edits, round-trips, lowercase JSON fields, metadata preservation, sorted loading, empty documents, invalid JSON, and CSV export in [the Common test project](../src/tests/ScriptSyncPilot.Common.Tests). Broader coverage and CI remain above.
 - **Local credential/privacy baseline:** protected HandySync key persistence, sanitized hosted-script URL diagnostics, and settings/log/recovery guidance in [online security](../docs/online-security.md). Task closed by the maintainer on 2026-10-23; implementation, verification results, and limitations are recorded in the archived [credential-protection design](archive/2026-10-protect-credentials-and-script-urls/DESIGN.md) and [verification](archive/2026-10-protect-credentials-and-script-urls/VERIFICATION.md).

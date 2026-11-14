@@ -10,7 +10,7 @@ This repository currently distributes source code only. There is no published ve
 - **FunscriptEditor:** Install mpv separately for video playback. Local script editing does not require Handy services or upload the video.
 - **HandySync:** Requires mpv with its IPC interface for playback synchronization, plus an internet connection to the Handy REST and Hosting services. It uploads funscript action data as a CSV; the associated video is not uploaded.
 - **Handy firmware and controls:** Handy API v3 requires firmware v4 or newer, but that vendor requirement does not guarantee compatibility. Offset/stroke controls also depend on reported device capabilities.
-- **Runtime:** The projects currently target .NET 9 for Windows. .NET 9 support ended on November 11, 2026, so a stable release is blocked until the projects target a supported .NET version.
+- **Runtime:** The projects target .NET 10 for Windows. .NET 10 is an LTS release supported through November 14, 2028; install the latest servicing update.
 
 ## Important limitations
 
@@ -29,4 +29,4 @@ People with access to the repository can report reproducible defects through [Gi
 
 ## Current release status
 
-The repository is not yet marked production-ready. The current release verification record documents an unresolved full-suite test hang, and the current .NET 9 target is out of support. The maintainer must resolve these release gates before publishing a stable source release.
+The repository is not yet marked production-ready. The .NET 10 retarget must pass the complete Windows CI gate, and the remaining support, security-reporting, and release-evidence gates in the verification record must be closed before publishing a stable source release.

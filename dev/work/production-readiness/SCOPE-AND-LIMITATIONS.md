@@ -18,7 +18,7 @@ Support is best-effort through [GitHub Issues](https://github.com/Frank-Yong/Scr
 | FunscriptEditor video playback | An external mpv installation. Local script editing does not require an internet connection or Handy services. |
 | HandySync playback synchronization | mpv with an available IPC pipe, an internet connection, and reachable Handy REST/Hosting services. The associated video remains local; HandySync uploads the funscript action data as CSV. |
 | HandySync device controls | Handy REST API v3 requires vendor firmware v4 or newer. Offset/stroke controls additionally require supported, reported device capabilities. This minimum is not a compatibility guarantee. |
-| Runtime for current source | The project currently targets `net9.0-windows`; [.NET 9 support ended on 2026-11-11](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support). A stable release requires retargeting to a supported .NET version and re-verification. |
+| Runtime for current source | The project targets `net10.0-windows`; .NET 10 is an LTS release supported through 2028-11-14, subject to current servicing updates. The target still requires CI and environment verification. |
 
 The [environment record](TESTED-ENVIRONMENTS.md) is the only recorded combination. It reports physical checks on two H01 devices (model number 0, variant 0), with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`. It does not establish compatibility with every H01 or other device/firmware combinations.
 

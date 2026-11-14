@@ -1,13 +1,13 @@
 # Third-Party Components and Attribution Inventory
 
-**Reviewed:** 2026-10-18  
+**Reviewed:** 2026-11-14
 **Distribution model reviewed:** source-only; no application binaries or third-party assets are checked into the repository.
 
 This inventory covers the current project manifests and tracked repository content. Recheck it when adding dependencies, bundling assets, or changing the source-only distribution model.
 
 ## Application Runtime
 
-- The three application/library projects target .NET 9 (`net9.0` / `net9.0-windows`) and have no NuGet `PackageReference` dependencies.
+- The three application/library projects target .NET 10 (`net10.0` / `net10.0-windows`) and have no NuGet `PackageReference` dependencies.
 - The applications reference the in-repository `ScriptSyncPilot.Common` project. This is project code, not a third-party component.
 - Windows Forms and the .NET runtime are framework dependencies, not bundled files in this repository. No self-contained .NET runtime is distributed.
 - Handy REST/Hosting API calls are remote service integrations, not bundled SDKs.

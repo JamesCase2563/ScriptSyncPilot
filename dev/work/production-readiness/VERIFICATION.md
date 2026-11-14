@@ -1,8 +1,8 @@
 # Production Readiness Verification
 
-**Status:** Active; release verification is not complete.
+**Status:** **NO-GO (2026-11-14).** Release verification is incomplete and release blockers remain; see the gate evaluation and dated decision below.
 
-This record tracks automated and manual release evidence for the supported initial scope. A passing local run does not replace a CI run or the remaining release gates. Do not record a go/no-go decision until the repository owner reviews the evidence and open risks.
+This record tracks automated and manual release evidence for the supported initial scope. A passing local run does not replace a CI run or the remaining release gates. The dated NO-GO decision below was recorded at the repository owner's request based on the evidence and open risks listed here.
 
 ## Automated build and test gate
 
@@ -77,4 +77,33 @@ The full solution was also rerun with hang diagnostics from this worktree. All *
 - Update both application targets from .NET 9, which reached end of support on 2026-11-11, to a supported runtime; verify the updated target and publish commands before a stable release.
 - Publish a public support route and private security-reporting route before release. The repository is private, GitHub private vulnerability reporting is unavailable for it, and no public maintainer contact is configured. Privacy/data-flow information is documented in `docs/online-security.md`; Handy CSV retention and generated-URL lifetime remain unknown after no response to the email, with no further follow-up planned.
 - Recheck the published support scope against the tested environment record and perform the remaining manual release workflows.
-- Repository owner to review all remaining risks and record a dated go/no-go decision.
+- After the blockers close, repository owner to review the updated evidence and record a new dated decision if warranted.
+
+## Overall gate evaluation
+
+| Release gate | Status | Evidence and remaining work |
+| --- | --- | --- |
+| Build, automated tests, and source-release process | **BLOCKED** | A clean Release build passed at candidate `25ddbdb850f87b98efb4117111bade56381ac186`, but the full solution test host hangs at `NonCooperativeTransport_HasHardBudget_AndDefersDisposal`; the focused failure-path groups passed 209/209. The Windows CI workflow is present but has not run remotely because this revision has not been pushed. The [source-release guide](../../docs/source-release.md) documents acquisition/build/update/rollback and tag/withdrawal procedures, but no version tag or release exists. The projects target .NET 9, whose support ended 2026-11-11. Resolve the full-suite hang, obtain passing CI, and retarget/reverify on a supported runtime before release. See [automated build and test gate](#automated-build-and-test-gate) and [broader failure-path evidence](#broader-failure-path-evidence-2026-11-13). |
+| Supported scope and tested environments | **PARTIAL** | User-facing requirements and boundaries are in [SCOPE-AND-LIMITATIONS.md](SCOPE-AND-LIMITATIONS.md). [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records an earlier Debug build with local changes. [ENV-002](TESTED-ENVIRONMENTS.md#env-002--firmware-capabilities-production-retest-incomplete-metadata) records a positive owner report but lacks the tested SHA, environment, and workflow list. Therefore current release-candidate compatibility is not established; complete a versioned environment record before making those claims. |
+| Reliability and user-file preservation | **PARTIAL** | The four completed reliability sub-projects are linked from the [production plan](PLAN.md#initial-release-reliability-priorities); broader controlled failure tests passed 209/209 in [this verification record](#broader-failure-path-evidence-2026-11-13). This establishes focused simulated coverage for service/protocol failures, local mpv IPC loss, failed saves, and cancelled edits. The full-suite hang and lack of remote CI remain blockers; no live Handy/network interruption was induced, and a physical device stop cannot be guaranteed after communication loss. |
+| Privacy and user support/security reporting | **BLOCKED** | The reviewed [privacy and security notice](../../docs/online-security.md) describes project data flows, local settings/logs, and the unresolved Handy retention/URL lifetime; README and [scope](SCOPE-AND-LIMITATIONS.md) warn users not to send personal data, connection keys, or private script URLs. However the repository is private, GitHub Issues are not externally accessible, and no external private security-reporting channel is published. Establish and verify both public support and private security routes before release. |
+| Release decision | **NO-GO** | The repository owner records the dated decision below. Do not publish a stable release or mark the project production-ready while any blocker above remains open. |
+
+## Remaining limitations and accepted risks
+
+- The supported hardware claim remains limited to the two H01 devices and firmware versions in ENV-001; ENV-002 does not add a verifiable device/software combination.
+- Handy's uploaded CSV retention period and generated URL lifetime are unknown. The provider did not answer the 2026-10-22 inquiry, and no further follow-up is planned. User-facing privacy information makes no expiry promise.
+- Service/protocol and local IPC failures have simulated evidence, but no live Handy/network interruption or physical synchronization-loss test was performed. The application cannot guarantee that the device stops after communication is lost.
+- Automatic reconnect, device-takeover recovery, session restoration, and expanded retry/backoff are deferred from the initial scope.
+- The legal/privacy applicability assessment for GDPR and Norwegian/EEA obligations remains undetermined. No claim of compliance or non-applicability is made; see [PLAN.md open risks](PLAN.md#open-risks-and-follow-up).
+- Distribution remains source-only; no published version tag, installer, or binary package exists.
+
+## Dated go/no-go decision
+
+| Field | Decision |
+| --- | --- |
+| Decision date | 2026-11-14 |
+| Decision authority | Frank Yong, repository owner |
+| Decision | **NO-GO for a stable source release and production-ready designation.** |
+| Basis | Full-suite test hang; remote CI not yet run; .NET 9 target is out of support; external support and private security reporting routes are not available; final production-test metadata is incomplete. |
+| Revisit when | All blockers in the gate table are closed, the intended clean release revision passes full CI on a supported runtime, the public support and private security routes are verified, and the owner reviews the updated evidence and environment record. |

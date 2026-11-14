@@ -1,23 +1,29 @@
 # Production Readiness Verification
 
-**Status:** **NO-GO (2026-11-14).** Release verification is incomplete and release blockers remain; see the gate evaluation and dated decision below.
+**Status:** **NO-GO (2026-11-14).** The .NET 10 full suite passes locally and in CI, but release blockers remain; see the gate evaluation and dated decision below.
 
-This record tracks automated and manual release evidence for the supported initial scope. A passing local run does not replace a CI run or the remaining release gates. The dated NO-GO decision below was recorded at the repository owner's request based on the evidence and open risks listed here.
+This record tracks automated and manual release evidence for the supported initial scope. A passing automated run does not replace the manual environment trial or the remaining release gates. The dated NO-GO decision below was recorded at the repository owner's request based on the evidence and open risks listed here.
 
 ## Automated build and test gate
 
 | Field | Result |
 | --- | --- |
-| Release candidate | `upgrade-dotnet-10` at base `4d1d964`, with the retarget changes in this working tree |
-| Checkout | Current worktree; the .NET 10 retarget is uncommitted |
-| Environment | Windows x64; .NET SDK `10.0.401`; .NET 10 targets and Windows Desktop Runtime `10.0.12` |
-| Restore | Passed for all five solution projects |
-| Release build | Passed; 0 warnings, 0 errors |
-| Full solution test run | Passed: **341/341** (Common.Tests 90/90; FunscriptEditor.Tests 251/251) on `net10.0` and `net10.0-windows` |
-| Prior hang | Addressed in the timeout tests by avoiding synchronization-context capture in non-UI asynchronous tests. The complete suite now passes locally. |
-| CI result | Pending. The Windows workflow now installs .NET 10 and runs for pull requests targeting `main` when files under `src/` change; it has not run remotely for this revision. |
+| Release candidate | `production-readiness` at `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` |
+| Local checkout | Clean source at `0d21dc889a8cb8d91b690fb3403cf0c0f0af251d`; the subsequent CI commit changes the workflow only |
+| Local environment | Windows 11 x64, OS build `26300`; .NET SDK `10.0.401`; Microsoft.NETCore.App and Microsoft.WindowsDesktop.App `10.0.12` |
+| CI environment | GitHub Actions `windows-2025-vs2026` image `20261103.298.1`; Windows Server 2025 x64, OS build `10.0.26100`; .NET SDK `10.0.404`, runtime `10.0.15` |
+| Restore and Release build | Passed locally and in CI |
+| Full solution test run | Passed locally and in CI: **341/341** (Common.Tests 90/90; FunscriptEditor.Tests 251/251) on `net10.0` and `net10.0-windows` |
+| CI result | [Run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417) passed on the exact release-candidate commit `72a4e5e`. |
+| Prior hang | Resolved by avoiding synchronization-context capture in the non-UI timeout tests; the complete suite now passes locally and in CI. |
 
-Commands run from the clean worktree:
+The local full-suite run used:
+
+```powershell
+dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal
+```
+
+CI run 43565771417 used these steps from a clean checkout:
 
 ```powershell
 dotnet restore src/ScriptSyncPilot.slnx
@@ -39,7 +45,7 @@ The test suite contains coverage in these areas:
 - **Persistence:** actual settings save/load, protected key round-trips, migration and preservation of existing values (`ConnectionKeyCollectionTests`, `ProtectedSettingsTests`, `SettingsFailurePreservationTests`).
 - **Failure paths:** request timeouts, malformed/error responses, unavailable services, failed reads/writes, cancellation, secret-safe errors and failed persistence (`HandyApiTimeoutTests`, `HandySyncErrorReportingTests`, `DeviceControlPollingTests`, `SettingsFailurePreservationTests`).
 
-Coverage by test presence is not evidence that the complete suite passes. The complete suite now passes locally on .NET 10; the clean-checkout CI result and remaining release gates are still open.
+Coverage by test presence is not evidence that the complete suite passes. The complete .NET 10 suite passed locally and in the clean-checkout CI run linked above; the manual environment trial and remaining release gates are still open.
 
 ## Broader failure-path evidence (2026-11-13)
 
@@ -67,25 +73,29 @@ dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.Funs
 
 Across these focused groups, **209/209 selected test cases passed**. Local source changes used for this follow-up: `Funscript.Save` now stages and replaces the destination atomically; a partial-write preservation test was added; the editor's discard confirmation is injectable so cancellation can be verified without a modal dialog; a test reflection lookup now selects the intended overload; and a stale diagnostics assertion now matches the current "Device controls unavailable" status wording.
 
-The earlier full-solution run in this worktree stopped at `HandyApiTimeoutTests.NonCooperativeTransport_HasHardBudget_AndDefersDisposal` after 102 editor tests. The timeout tests were updated to avoid capturing the synchronization context left by prior STA/WinForms tests. The subsequent complete .NET 10 Release run passed **341/341**; remote CI and the other release gates remain pending.
+The earlier full-solution run stopped at `HandyApiTimeoutTests.NonCooperativeTransport_HasHardBudget_AndDefersDisposal` after 102 editor tests. The timeout tests were updated to avoid capturing the synchronization context left by prior STA/WinForms tests. The subsequent full .NET 10 Release run passed locally and in remote CI; manual production workflows and other release gates remain pending.
 
 ## Remaining release gates
 
-- Push the .NET 10 workflow and confirm a successful GitHub Actions run for the intended release revision.
-- Run the documented manual release workflows on .NET 10 and update the environment record with the exact tested setup.
-- Review and complete the [source-release guide](../../docs/source-release.md), including obtaining, building, installing, updating, rollback, version tags, release notes, and faulty-release handling.
+- Run the documented manual release workflows on .NET 10 and record the exact source revision, build/runtime, mpv, and device/firmware details in a new environment entry.
 - Verify the .NET 10 publish commands and runtime requirements on the documented environment before a stable release.
 - Publish a public support route and private security-reporting route before release. The repository is private, GitHub private vulnerability reporting is unavailable for it, and no public maintainer contact is configured. Privacy/data-flow information is documented in `docs/online-security.md`; Handy CSV retention and generated-URL lifetime remain unknown after no response to the email, with no further follow-up planned.
 - Recheck the published support scope against the tested environment record and perform the remaining manual release workflows.
 - After the blockers close, repository owner to review the updated evidence and record a new dated decision if warranted.
 
+## Release procedure review (2026-11-14)
+
+Reviewed [the source-release guide](../../docs/source-release.md) against the current `src/` project layout and .NET 10 target. It documents source acquisition by tag/archive, restore/build/test commands, framework-dependent `win-x64` publishing, versioned installation directories, update and known-good rollback steps, annotated SemVer tagging, release-note contents, and withdrawal/superseding-release handling. The guide clearly says no release/tag exists yet and prohibits tagging until the gates pass.
+
+**Review result:** The documented procedure is complete for the source-only release model. No release is authorized by this review. The actual publish workflow still needs to be exercised on the documented environment, and the release notes must include a verified public support route and private security-reporting route before a public release.
+
 ## Overall gate evaluation
 
 | Release gate | Status | Evidence and remaining work |
 | --- | --- | --- |
-| Build, automated tests, and source-release process | **PARTIAL** | The .NET 10 Release restore/build passed, and the complete local suite passed 341/341. The Windows CI workflow now targets .NET 10 but has not run remotely for this revision. The [source-release guide](../../docs/source-release.md) documents acquisition/build/update/rollback and tag/withdrawal procedures, but no version tag or release exists. Obtain passing CI and complete the remaining release process before release. See [automated build and test gate](#automated-build-and-test-gate) and [broader failure-path evidence](#broader-failure-path-evidence-2026-11-13). |
-| Supported scope and tested environments | **PARTIAL** | User-facing requirements and boundaries are in [SCOPE-AND-LIMITATIONS.md](SCOPE-AND-LIMITATIONS.md). [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records an earlier Debug build with local changes. [ENV-002](TESTED-ENVIRONMENTS.md#env-002--firmware-capabilities-production-retest-incomplete-metadata) records a positive owner report but lacks the tested SHA, environment, and workflow list. Therefore current release-candidate compatibility is not established; complete a versioned environment record before making those claims. |
-| Reliability and user-file preservation | **PARTIAL** | The four completed reliability sub-projects are linked from the [production plan](PLAN.md#initial-release-reliability-priorities); broader controlled failure tests passed 209/209 in [this verification record](#broader-failure-path-evidence-2026-11-13), and the complete .NET 10 suite passed locally 341/341. This establishes focused simulated coverage for service/protocol failures, local mpv IPC loss, failed saves, and cancelled edits. Remote CI remains pending; no live Handy/network interruption was induced, and a physical device stop cannot be guaranteed after communication loss. |
+| Build, automated tests, and source-release process | **PARTIAL** | The .NET 10 Release restore/build and complete 341/341 suite passed locally and in [CI run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417). The source-release guide review is complete; actual publish commands still need an environment trial, and no version tag or release exists. See [automated build and test gate](#automated-build-and-test-gate), [release procedure review](#release-procedure-review-2026-11-14), and [broader failure-path evidence](#broader-failure-path-evidence-2026-11-13). |
+| Supported scope and tested environments | **PARTIAL** | User-facing requirements and boundaries are in [SCOPE-AND-LIMITATIONS.md](SCOPE-AND-LIMITATIONS.md). [ENV-003](TESTED-ENVIRONMENTS.md#env-003--net-10-release-build-and-automated-tests) records local and CI .NET 10 automated runs; [ENV-001](TESTED-ENVIRONMENTS.md#env-001) records earlier physical Handy/mpv workflows on .NET 9 with local changes. [ENV-002](TESTED-ENVIRONMENTS.md#env-002--firmware-capabilities-production-retest-incomplete-metadata) preserves a positive owner report but lacks the tested SHA, environment, and workflow list. Run and record the .NET 10 manual trial before claiming the earlier hardware compatibility evidence applies to the current runtime. |
+| Reliability and user-file preservation | **PARTIAL** | The four completed reliability sub-projects are linked from the [production plan](PLAN.md#initial-release-reliability-priorities); broader controlled failure tests passed 209/209 in [this verification record](#broader-failure-path-evidence-2026-11-13), and the complete .NET 10 suite passed locally and in CI. This establishes focused simulated coverage for service/protocol failures, local mpv IPC loss, failed saves, and cancelled edits. No live Handy/network interruption was induced, and a physical device stop cannot be guaranteed after communication loss. |
 | Privacy and user support/security reporting | **BLOCKED** | The reviewed [privacy and security notice](../../docs/online-security.md) describes project data flows, local settings/logs, and the unresolved Handy retention/URL lifetime; README and [scope](SCOPE-AND-LIMITATIONS.md) warn users not to send personal data, connection keys, or private script URLs. However the repository is private, GitHub Issues are not externally accessible, and no external private security-reporting channel is published. Establish and verify both public support and private security routes before release. |
 | Release decision | **NO-GO** | The repository owner records the dated decision below. Do not publish a stable release or mark the project production-ready while any blocker above remains open. |
 
@@ -105,5 +115,5 @@ The earlier full-solution run in this worktree stopped at `HandyApiTimeoutTests.
 | Decision date | 2026-11-14 |
 | Decision authority | Frank Yong, repository owner |
 | Decision | **NO-GO for a stable source release and production-ready designation.** |
-| Basis | At the decision, the full-suite test host hung and the .NET 9 target was out of support, in addition to the unresolved support/security routes and incomplete production-test metadata. The subsequent .NET 10 retarget and local full-suite pass address the runtime and hang findings; NO-GO remains pending remote CI, support/security routes, and complete environment metadata. |
-| Revisit when | All blockers in the gate table are closed, the intended clean release revision passes full CI on a supported runtime, the public support and private security routes are verified, and the owner reviews the updated evidence and environment record. |
+| Basis | The .NET 10 runtime and full-suite test gates are now satisfied locally and by CI on `72a4e5e`. NO-GO remains because the public support/private security routes are not available while the repository is private, manual production workflows and publish commands have not been verified on .NET 10, and ENV-002 lacks exact setup/workflow metadata. |
+| Revisit when | The repository is made public and both reporting routes are enabled and verified, the .NET 10 manual production/publish trial is recorded, remaining support-scope evidence is reviewed, and the owner records a new decision. |

@@ -2,7 +2,7 @@
 
 **Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves a positive manual-test report whose exact revision and workflow details were not captured. ENV-003 records full .NET 10 Release restore/build/test runs locally and in GitHub Actions; these automated runs do not verify mpv or physical Handy workflows.
 
-The current source targets .NET 10. The environment and device details below remain historical .NET 9 evidence; retargeting does not extend their compatibility claims.
+The current source targets .NET 10. ENV-003 records automated .NET 10 build/test environments; the physical Handy and mpv evidence in ENV-001 remains historical .NET 9 evidence. Retargeting alone does not extend those compatibility claims.
 
 ## What ENV-001 establishes
 

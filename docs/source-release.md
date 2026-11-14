@@ -11,7 +11,7 @@ ScriptSyncPilot is distributed as source code. There is currently no installer, 
 
 The application projects now target `net10.0-windows`. .NET 10 is an LTS release supported through November 14, 2028, subject to installing the latest servicing update. Verify the target in CI and on the documented environment before publishing a stable release. Check [Microsoft's .NET release support dates](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support) and [current .NET downloads](https://dotnet.microsoft.com/download/dotnet) when preparing each release.
 
-The automated release gate still requires a complete passing Windows CI run and the maintainer's recorded go/no-go decision. See [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md) for current evidence and remaining release blockers.
+The complete Windows CI suite passed on .NET 10 at commit `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` ([run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417)). A stable release is still blocked on the remaining manual environment checks, support/security routes, and the maintainer's final go/no-go decision. See [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md) for current evidence and blockers.
 
 ## Obtain source
 

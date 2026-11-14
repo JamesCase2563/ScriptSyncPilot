@@ -19,7 +19,13 @@ This repository currently distributes source code only. There is no published ve
 - Physical compatibility is documented only for two Handy H01 devices (model number 0, variant 0) with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`. Other models and firmware are unverified; these are test results, not a guarantee for all devices of the same family.
 - Saved Handy connection keys are protected for the current Windows user/profile. Hosted-script retention and generated-URL lifetime are unknown; do not assume a specific expiry period.
 
-See the approved [support scope and known limitations](dev/work/production-readiness/SCOPE-AND-LIMITATIONS.md), the detailed [tested-environment record](dev/work/production-readiness/TESTED-ENVIRONMENTS.md), and [online security notes](docs/online-security.md). The tested record includes a historical build with local changes and does not validate the current release candidate.
+See the approved [support scope and known limitations](dev/work/production-readiness/SCOPE-AND-LIMITATIONS.md), the detailed [tested-environment record](dev/work/production-readiness/TESTED-ENVIRONMENTS.md), and [privacy and security information](docs/online-security.md). The tested record includes a historical build with local changes and does not validate the current release candidate.
+
+## Support and security reports
+
+People with access to the repository can report reproducible defects through [GitHub Issues](https://github.com/Frank-Yong/ScriptSyncPilot/issues). Include the app/source version, Windows and relevant mpv/device versions, reproduction steps, and sanitized diagnostics.
+
+**Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** This repository is private and has no external private security-reporting channel yet. Do not post vulnerability details in a public issue. A public release remains blocked on publishing and verifying a private reporting route.
 
 ## Current release status
 

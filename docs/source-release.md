@@ -110,7 +110,7 @@ Create a GitHub Release for that tag and write release notes manually. Include:
 - Windows, .NET SDK/runtime, mpv, and Handy device/firmware requirements, with tested combinations linked to the environment matrix.
 - Build, test, publish, and update instructions; link to this guide.
 - The CI run and release verification/go-no-go evidence.
-- Privacy and limitations that affect users; link to GitHub issues for ordinary support and include a private security-reporting route only after one is established.
+- Privacy and limitations that affect users; publish a support route that external users can access and a verified private security-reporting route. The current repository is private and has neither route for external users.
 
 Do not claim a model, firmware, runtime, workflow, or security property beyond recorded evidence. Keep Handy upload retention and generated-URL lifetime unresolved unless reliable new information becomes available; do not promise a retention or expiry period.
 

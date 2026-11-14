@@ -1,71 +1,44 @@
-# Online Security and the Handy
+# Privacy, data flows, and security
 
-## Application network requirements
+This notice describes ScriptSyncPilot's application behavior. It does not make promises on behalf of Handy or mpv.
 
-FunscriptEditor works with local script files. Video playback in FunscriptEditor uses an external mpv installation; editing scripts does not require Handy services.
+## What the applications do with your data
 
-HandySync requires a persistent internet connection to reach Handy's REST API v3 and Hosting API v2 services. It uploads funscript action data as CSV for device playback; the associated video stays local. The retention period for hosted files and the lifetime of generated URLs are unknown, so no expiry period is promised. See the [approved support scope and known limitations](../dev/work/production-readiness/SCOPE-AND-LIMITATIONS.md) and [tested environment record](../dev/work/production-readiness/TESTED-ENVIRONMENTS.md) for the actual compatibility boundaries.
+### FunscriptEditor
 
-## Security Measures
-- **End-to-end encryption**: All communication between the Handy and servers is encrypted via HTTPS.
-- **Connection key system**: Each device uses a unique connection key, which can be changed at any time. Changing the key at the hardware level invalidates the old key.
-- **No historic key records**: There are no records of previous keys, making tracking difficult for third parties.
-- **Third-party access**: Third-party services can only identify your device by the connection key you provide. They do not receive your device's IP address.
-- **Local configuration**: Local configuration is done via Bluetooth (approx. 10m range).
+FunscriptEditor edits script files on your computer. Video playback uses your separately installed mpv player. The editor does not send video or script files to ScriptSyncPilot services; this project does not operate a cloud service for them.
 
-## Data Handling
-- **Minimal data uploaded**: Only essential data is transmitted. The system does not upload your browser history, payment info, or other personal data.
-- **No direct device access**: Third-party apps interact with the Handy via the API and do not have direct access to your device.
+### HandySync and Handy services
 
-## Key Security Details
-- **Key generation**: The connection key is generated using true random noise from the Wi-Fi antenna.
-- **Key length**: Variable from 5 to 32 characters, using lower case, upper case, and numbers (62 possible characters per position).
-- **Brute force resistance**: Even the shortest key (5 chars) has over 916 million combinations; the longest (32 chars) has over 2.2e57 combinations.
-- **Key compromise**: If a key is brute-forced and stolen, the attacker can only control the device while it is online. Changing the key immediately revokes access.
+HandySync reads the selected funscript locally and sends its action timestamps and positions as a CSV file to Handy's Hosting API. It does not upload the associated video. HandySync receives a hosted script URL and sends that URL to the device through Handy's REST API for HSSP playback. Treat that URL as a secret that grants access to the hosted script.
 
-## Device Operation
-- **Offline by default**: The Handy is offline by default. Wi-Fi must be manually activated each time the device is powered on.
-- **Firmware and API**: The Handy's online services may provide firmware updates and API access. ScriptSyncPilot does not download or install firmware; use the manufacturer's [official firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3) for updates. If you wish to revoke third-party access, change your connection key.
+HandySync also sends the connection key to Handy's REST API to authenticate device-control requests. Requests include the selected control operation and values such as playback time, offset, or stroke range. The app does not send the connection key to ScriptSyncPilot: the project has no ScriptSyncPilot server. The third-party service's handling of these requests and associated network metadata is governed by that provider, not this project.
 
-## Privacy Philosophy
-- **Privacy by default**: The Handy is designed with privacy as a priority. There is little incentive to collect user data, reducing future data collection risks.
+The CSV retention period and generated URL lifetime have not been confirmed by Handy. The URL is described by the Hosting API as temporary, but no exact expiration or deletion time is known. Do not rely on an assumed expiry period; no retention duration is promised here.
 
-## CTO Statement
-> “If it's online, it can be hacked or manipulated. ... Generating a new key renders the old one useless. ... Our Handy-server connection system is fire and forget. ... Privacy by default is very important for us.”
+## Data stored on your computer
 
-## ScriptSyncPilot Local Protection and Diagnostics
+HandySync stores settings in `%APPDATA%\ScriptSyncPilot.HandySync\settings.json`. Saved connection keys are protected with Windows DPAPI for the current Windows user/profile. The settings also include the mpv IPC pipe, device offset, stroke range, and last script path. The connection key is present in application memory while in use, and the entry field is not masked. FunscriptEditor stores its settings, including the last script path, in `%APPDATA%\ScriptSyncPilot.FunscriptEditor\settings.json`. Old plaintext HandySync settings backups are not migrated or erased by the application.
 
-### Upgrading and Saving Your Key
+Both applications write append-only logs under `%LOCALAPPDATA%`:
 
-HandySync protects saved connection keys using Windows DPAPI scoped to the current user. After upgrading from plaintext settings, the old key is ignored, not automatically migrated. Enter your Handy connection key again in the existing connection-key box. The key is protected when you close the application and settings are successfully saved; connecting alone does not save settings.
+- FunscriptEditor: `%LOCALAPPDATA%\ScriptSyncPilot.FunscriptEditor\scriptsyncpilot.funscripteditor.log`
+- HandySync: `%LOCALAPPDATA%\ScriptSyncPilot.HandySync\scriptsyncpilot.handysync.log`
 
-Other settings, including the mpv pipe, script path, device offset, and stroke range, retain their values. The application uses the first saved key; key-selection and key-management controls are not provided yet. The connection-key input is not masked, and the key exists in memory while in use.
+Logs can contain local paths, operation status, and diagnostic details. Current upload/setup logging avoids writing the connection key and hosted URL. Older log files may contain generated hosted URLs; logs are not automatically sanitized, rotated, or deleted. Review and redact files before sharing them. We found no analytics, telemetry, or crash-reporting integration in the application source or project dependencies reviewed for this notice.
 
-### Protection Limits and Recovery
+## Reporting a problem safely
 
-Protection is bound to the Windows user/profile. Copying protected settings to another account/machine is not supported migration; re-enter the key in the new environment instead. DPAPI does not protect against same-user malware/processes, administrators, or access to an unlocked session. Labels, identifiers, and non-secret settings are not encrypted.
+Ordinary support and bug reports belong in [GitHub Issues](https://github.com/Frank-Yong/ScriptSyncPilot/issues), when you have access to the repository. Include the app version, Windows version, relevant mpv/device/firmware versions, steps to reproduce, and a sanitized error message.
 
-If settings cannot be read or any saved key cannot be decrypted, HandySync reports an error and does not open a usable application or overwrite the file with defaults. Keep the original file; check that you are using the correct Windows account/profile and recover a known-good backup if necessary. Do not replace it with an empty file just to suppress the error.
+**Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** These may expose account/device access or private content.
 
-If protection or saving fails while closing, an error is shown and closing is cancelled. Correct the reported access/storage problem and retry closing. Settings writes use a flushed temporary file followed by replacement rather than truncating the original. A crash can leave a protected temporary file; this is not a guarantee against hardware failure or power loss.
+### Security reports
 
-### Settings and Logs
+The repository is currently private. GitHub's private vulnerability reporting feature is available only for public repositories, and this project has not published a maintainer email address or another external private reporting channel. Therefore, there is not yet a usable private security-reporting route for people outside the repository's access list. Do not post vulnerability details or secrets in a public issue. A public release must not be described as support/security-ready until the maintainer publishes and verifies a private reporting route.
 
-| Local file | Location |
-| --- | --- |
-| HandySync settings | `%APPDATA%\ScriptSyncPilot.HandySync\settings.json` |
-| HandySync persistent log | `%LOCALAPPDATA%\ScriptSyncPilot.HandySync\scriptsyncpilot.handysync.log` |
+## Protection limits
 
-You can paste either directory into Windows File Explorer. Treat old plaintext settings backups as sensitive: upgrading rewrites the active settings on successful save, not copies or backups elsewhere.
+DPAPI protects saved connection keys for the current Windows profile. It does not protect against malware or processes running as the same user, administrators, or access to an unlocked session. Other settings and identifiers are not encrypted. Copying protected settings to another Windows account or machine is not a supported migration method.
 
-Uploaded scripts receive a temporary hosted URL that must be treated as a bearer secret. HandySync passes it to the device's setup API but does not include it in upload/setup logs or settings. Errors retain operation names and numeric status/device codes, not raw response bodies or transport details.
-
-Persistent logs are append-only. Existing logs from earlier versions may still contain hosted URLs; this update does not sanitize old files or add retention/rotation. Review old logs before sharing them, and do not include connection keys, temporary URLs, or raw API bodies in support reports. Remote hosting expiry/retention remains controlled by Handy.
-
-## Additional Links
-
-- [thehandy.com](https://thehandy.com/)
-- [Developer Docs](https://intercom.help/ohdoki/en/collections/5757680-developer)
-
----
-*Handy service background above was extracted and summarized from [Ohdoki Help Center](https://intercom.help/ohdoki/en/articles/9034256-online-security-and-the-handy) on May 28, 2026. The ScriptSyncPilot local-protection section documents this application's behavior, not a vendor guarantee.*
+If settings cannot be decrypted or saved, preserve the original file and use the application's error message to recover; do not replace it with an empty file. See the [source-release guide](source-release.md) for update and rollback guidance.

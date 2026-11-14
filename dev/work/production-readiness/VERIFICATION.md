@@ -75,6 +75,6 @@ The full solution was also rerun with hang diagnostics from this worktree. All *
 - Push the workflow and confirm a successful GitHub Actions run for the intended release revision.
 - Review and complete the [source-release guide](../../docs/source-release.md), including obtaining, building, installing, updating, rollback, version tags, release notes, and faulty-release handling.
 - Update both application targets from .NET 9, which reached end of support on 2026-11-11, to a supported runtime; verify the updated target and publish commands before a stable release.
-- Finish support/reporting and privacy information review; Handy's CSV retention and generated-URL lifetime remain unknown after no response to the email, with no further follow-up planned.
+- Publish a public support route and private security-reporting route before release. The repository is private, GitHub private vulnerability reporting is unavailable for it, and no public maintainer contact is configured. Privacy/data-flow information is documented in `docs/online-security.md`; Handy CSV retention and generated-URL lifetime remain unknown after no response to the email, with no further follow-up planned.
 - Recheck the published support scope against the tested environment record and perform the remaining manual release workflows.
 - Repository owner to review all remaining risks and record a dated go/no-go decision.

@@ -40,9 +40,9 @@ public sealed class HandyApiTimeoutTests
         };
         try
         {
-            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
             var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
-                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+                () => request.WaitAsync(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
             Assert.AreEqual($"{operation}: request timed out.", error.Message);
             Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
             Assert.IsFalse(client.PendingRequestsCompleted.IsCompleted);
@@ -52,9 +52,9 @@ public sealed class HandyApiTimeoutTests
         finally
         {
             handler.Release.TrySetResult();
-            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         }
-        await handler.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await handler.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.IsFalse(request.IsCompletedSuccessfully, "Late success or failure must not replace the timeout.");
     }
 
@@ -69,11 +69,11 @@ public sealed class HandyApiTimeoutTests
         var request = client.IsConnectedAsync(cancellation.Token);
         try
         {
-            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
             if (cancelLifetime) client.CancelPendingRequests();
             else cancellation.Cancel();
             var error = await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(
-                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+                () => request.WaitAsync(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
             Assert.AreEqual("connected: request canceled.", error.Message);
             Assert.AreEqual(cancellation.Token, error.CancellationToken);
             Assert.IsInstanceOfType<HandyApiRequestCanceledException>(error);
@@ -84,7 +84,7 @@ public sealed class HandyApiTimeoutTests
         finally
         {
             handler.Release.TrySetResult();
-            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         }
     }
 
@@ -97,9 +97,9 @@ public sealed class HandyApiTimeoutTests
         var request = client.GetInfoAsync(CancellationToken.None);
         try
         {
-            await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
             var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
-                () => request.WaitAsync(TimeSpan.FromSeconds(2)));
+                () => request.WaitAsync(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
             Assert.AreEqual("info: request timed out.", error.Message);
             client.Dispose();
             Assert.IsFalse(content.Disposed, "The response must remain alive while its body is being read.");
@@ -108,7 +108,7 @@ public sealed class HandyApiTimeoutTests
         finally
         {
             content.Release.TrySetResult();
-            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2));
+            await client.PendingRequestsCompleted.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         }
         Assert.IsTrue(content.Disposed);
         Assert.IsFalse(request.IsCompletedSuccessfully);
@@ -121,10 +121,10 @@ public sealed class HandyApiTimeoutTests
         using var client = CreateClient(handler, controlTimeout: ShortTimeout);
 
         var request = client.IsConnectedAsync(CancellationToken.None);
-        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request).ConfigureAwait(false);
 
-        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.AreEqual("connected", error.Operation);
         Assert.AreEqual("connected: request timed out.", error.Message);
         Assert.IsNull(error.InnerException, "Transport exception details must not be retained in the public timeout error.");
@@ -140,10 +140,10 @@ public sealed class HandyApiTimeoutTests
 
         var stopwatch = Stopwatch.StartNew();
         var request = client.HsspStopForDisconnectAsync();
-        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request).ConfigureAwait(false);
 
-        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.AreEqual("hssp/stop: request timed out.", error.Message);
         Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
@@ -157,7 +157,7 @@ public sealed class HandyApiTimeoutTests
 
         var stopwatch = Stopwatch.StartNew();
         var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(
-            () => client.EstimateClockOffsetMsAsync(15, CancellationToken.None));
+            () => client.EstimateClockOffsetMsAsync(15, CancellationToken.None)).ConfigureAwait(false);
 
         Assert.AreEqual("servertime: request timed out.", error.Message);
         Assert.AreEqual(3, handler.RequestCount, "Sampling must abort at the stalled sample without issuing the remaining requests.");
@@ -174,10 +174,10 @@ public sealed class HandyApiTimeoutTests
         using var client = CreateClient(deviceHandler, hostingHandler, uploadTimeout: ShortTimeout);
 
         var request = client.UploadScriptCsvAsync("0,0", CancellationToken.None);
-        await hostingHandler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
+        await hostingHandler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request).ConfigureAwait(false);
 
-        await hostingHandler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await hostingHandler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.AreEqual("script upload: request timed out.", error.Message);
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
     }
@@ -190,10 +190,10 @@ public sealed class HandyApiTimeoutTests
         using var client = CreateClient(handler, controlTimeout: ShortTimeout);
 
         var request = client.GetInfoAsync(CancellationToken.None);
-        await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request);
+        await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiTimeoutException>(() => request).ConfigureAwait(false);
 
-        await content.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await content.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.AreEqual("info: request timed out.", error.Message);
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
     }
@@ -206,11 +206,11 @@ public sealed class HandyApiTimeoutTests
         using var cancellation = new CancellationTokenSource();
 
         var request = client.IsConnectedAsync(cancellation.Token);
-        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         cancellation.Cancel();
-        var error = await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(() => request);
+        var error = await Assert.ThrowsExceptionAsync<HandyApiRequestCanceledException>(() => request).ConfigureAwait(false);
 
-        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await handler.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
         Assert.AreEqual("connected: request canceled.", error.Message);
         Assert.IsFalse(error.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(error.Message.Contains(SyntheticSecret, StringComparison.Ordinal));
@@ -645,7 +645,7 @@ public sealed class HandyApiTimeoutTests
             Started.TrySetResult();
             try
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -688,7 +688,7 @@ public sealed class HandyApiTimeoutTests
         {
             Started.TrySetResult();
             await Release.Task.ConfigureAwait(false);
-            await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"result\":{}}"));
+            await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes("{\"result\":{}}")).ConfigureAwait(false);
         }
 
         protected override bool TryComputeLength(out long length)
@@ -722,7 +722,7 @@ public sealed class HandyApiTimeoutTests
             {
                 try
                 {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -775,7 +775,7 @@ public sealed class HandyApiTimeoutTests
             {
                 try
                 {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -814,7 +814,7 @@ public sealed class HandyApiTimeoutTests
             Started.TrySetResult();
             try
             {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

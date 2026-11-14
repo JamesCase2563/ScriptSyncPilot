@@ -1,6 +1,6 @@
 # Tested Environments
 
-**Status:** One historical environment record (ENV-001). The maintainer reported all listed workflows successful; logs corroborate HandySync connection, upload and HSSP setup on two devices. This is not validation of the current release candidate or a clean release build.
+**Status:** ENV-001 records a historical build with local changes. ENV-002 records the maintainer's later positive production-test report, but the exact tested revision, environment, and workflow list were not captured. Neither record validates a clean release build or the current release candidate.
 
 ## What ENV-001 establishes
 
@@ -12,6 +12,46 @@
 See [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md) for the requirements and boundaries that apply to users. Vendor firmware/API minimums are not equivalent to tested compatibility.
 
 Copy the record below for each tested combination. Record exact versions rather than "latest"; use "not checked" for unknown values. A passing check applies only to the recorded source revision, environment, and workflow, not every model or release.
+
+## ENV-002 — firmware-capabilities production retest (incomplete metadata)
+
+This entry preserves the maintainer's final production-test outcome reported after
+the firmware-capabilities milestone and before PR #13 was merged on 2026-11-13.
+The report was: **“It works perfect.”** The conversation did not record which
+individual workflows were exercised or the machine/device versions used. Do not
+interpret this as a pass for every ENV-001 workflow or as release-candidate
+validation.
+
+| Field | Value |
+| --- | --- |
+| Test date and tester | Reported before PR #13 merge on 2026-11-13; exact test date/time not recorded. Tester: Frank Yong (maintainer report). |
+| ScriptSyncPilot source branch | `firmware-capabilities` |
+| Exact source revision used by tested build | Not recorded. The branch history includes `f9694d902779f23c833cd272007df289562797bf` (code changes) and `b221e396b3c72a39eaef2b04f80ca3cee9718263` (review documentation), but there is no build manifest or confirmation tying the tested binary to either SHA. |
+| Local source changes | Not recorded for the tested binary. |
+| Application(s) tested | Not specified in the final-test report. |
+| Build configuration | Not recorded. |
+| Windows edition/version/build and architecture | Not recorded for this test. ENV-001's Windows details are not assumed to apply. |
+| .NET SDK and Desktop Runtime | Not recorded for this test. ENV-001's versions are not assumed to apply. |
+| mpv version/configuration | Not recorded for this test. ENV-001's mpv details are not assumed to apply. |
+| Handy model/hardware revision and firmware | Not recorded for this test. ENV-001's device details are not assumed to apply. |
+| Protocols exercised | Not specified in the final-test report. |
+| Connection conditions | Not recorded. |
+| Overall outcome | Pass as reported by the maintainer (“It works perfect”); no logs, checklist, or workflow-level results were attached to that report. |
+
+### ENV-002 workflow results
+
+| Workflow | Result | Notes / evidence |
+| --- | --- | --- |
+| Final production test | Pass (maintainer-reported) | Overall positive outcome only; test scope and individual workflows were not listed. |
+| Build from exact recorded source | Not established | Exact source SHA, local changes, build configuration, SDK, and runtime were not recorded. |
+| Editor and mpv workflows | Not established | No workflow-specific result was recorded. |
+| Handy connection, upload, HSSP playback, and device controls | Not established | No workflow-specific result or device/firmware details were recorded. |
+
+ENV-002 is useful as a dated maintainer-reported outcome, but does not meet the
+environment-record standard for claiming reproducibility or compatibility. If
+the maintainer still has the build notes or can identify the tested setup, replace
+the unknown fields with those exact values and split the outcome into the actual
+workflows performed. Do not infer them from ENV-001.
 
 ## ENV-001
 

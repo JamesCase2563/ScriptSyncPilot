@@ -1,11 +1,16 @@
 name: Windows release verification
 
 on:
+  push:
+    branches:
+      - production-readiness
   pull_request:
     branches:
       - main
+      - production-readiness
     paths:
       - 'src/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

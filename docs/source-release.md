@@ -5,13 +5,13 @@ ScriptSyncPilot is distributed as source code. There is currently no installer, 
 ## Requirements and release status
 
 - Windows x64. The applications use Windows Forms and target Windows.
-- A .NET SDK compatible with the target frameworks in the checked-out source.
-- The .NET Desktop Runtime matching the target framework to run framework-dependent builds.
+- The .NET 10 SDK.
+- The .NET 10 Windows Desktop Runtime to run framework-dependent builds.
 - mpv for video playback. HandySync also requires internet access and available Handy services. Its initial supported device scope is limited to the models and firmware recorded in [tested environments](../dev/work/production-readiness/TESTED-ENVIRONMENTS.md); vendor minimums do not establish compatibility with an untested device.
 
-**Release blocker as of 2026-11-13:** both application projects target `net9.0-windows`. Microsoft's .NET 9 support ended November 11, 2026. Do not describe a .NET 9 build as receiving supported-runtime security servicing. Before publishing a stable release, update the target to a supported .NET version, verify the new target in CI and on the documented environment, and update these commands/runtime requirements. Check [Microsoft's .NET release support dates](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support) and [current .NET downloads](https://dotnet.microsoft.com/download/dotnet) when preparing each release.
+The application projects now target `net10.0-windows`. .NET 10 is an LTS release supported through November 14, 2028, subject to installing the latest servicing update. Verify the target in CI and on the documented environment before publishing a stable release. Check [Microsoft's .NET release support dates](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support) and [current .NET downloads](https://dotnet.microsoft.com/download/dotnet) when preparing each release.
 
-The current automated release gate is also open: see [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md) for the clean-checkout test-host hang. A stable release must wait for a complete passing CI run and the maintainer's recorded go/no-go decision.
+The automated release gate still requires a complete passing Windows CI run and the maintainer's recorded go/no-go decision. See [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md) for current evidence and remaining release blockers.
 
 ## Obtain source
 
@@ -58,7 +58,7 @@ dotnet publish .\src\ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj 
   --output (Join-Path $installRoot 'HandySync')
 ```
 
-Use a versioned directory and keep the previous known-good directory. Launch `ScriptSyncPilot.FunscriptEditor.exe` or `ScriptSyncPilot.HandySync.exe` from the corresponding folder. These framework-dependent builds require the Windows .NET Desktop Runtime for the target framework; the current target is .NET 9. Install the current supported runtime from Microsoft's [Windows Desktop Runtime downloads](https://dotnet.microsoft.com/download/dotnet) only after the project target has been updated to a supported version.
+Use a versioned directory and keep the previous known-good directory. Launch `ScriptSyncPilot.FunscriptEditor.exe` or `ScriptSyncPilot.HandySync.exe` from the corresponding folder. These framework-dependent builds require the .NET 10 Windows Desktop Runtime. Install the latest supported runtime from Microsoft's [Windows Desktop Runtime downloads](https://dotnet.microsoft.com/download/dotnet).
 
 FunscriptEditor and HandySync use separate settings. Configure mpv and its IPC pipe in the application as needed. HandySync's connection key is protected for the current Windows user/profile; do not copy protected settings to a different account or machine as a migration method. See [online security and settings locations](online-security.md).
 

@@ -2,6 +2,8 @@
 
 **Status:** ENV-001 records a historical build with local changes. ENV-002 records the maintainer's later positive production-test report, but the exact tested revision, environment, and workflow list were not captured. Neither record validates a clean release build or the current release candidate.
 
+The current source targets .NET 10. The environment and device details below remain historical .NET 9 evidence; retargeting does not extend their compatibility claims.
+
 ## What ENV-001 establishes
 
 - One environment was recorded: Windows 11 Home 25H2, x64; .NET SDK `10.0.401`; Microsoft Windows Desktop Runtime `9.0.11`; and mpv `v0.41.0-244-gaf9c81fa1`.

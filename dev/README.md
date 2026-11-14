@@ -46,7 +46,7 @@ Archives are historical snapshots and are not maintained as current instructions
 
 ## Unit Tests
 
-The solution includes [ScriptSyncPilot.Common.Tests](../tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj), a .NET 9 MSTest project using VSTest. Tests are discoverable in Visual Studio Test Explorer and VS Code's .NET testing integration.
+The solution includes [ScriptSyncPilot.Common.Tests](../tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj), a .NET 10 MSTest project using VSTest. Tests are discoverable in Visual Studio Test Explorer and VS Code's .NET testing integration.
 
 Run from the repository root:
 

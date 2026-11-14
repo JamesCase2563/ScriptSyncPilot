@@ -34,9 +34,9 @@ From the repository root in PowerShell, restore dependencies, build both applica
 
 ```powershell
 dotnet --info
-dotnet restore .\ScriptSyncPilot.slnx
-dotnet build .\ScriptSyncPilot.slnx --configuration Release --no-restore
-dotnet test .\ScriptSyncPilot.slnx --configuration Release --no-build --no-restore
+dotnet restore .\src\ScriptSyncPilot.slnx
+dotnet build .\src\ScriptSyncPilot.slnx --configuration Release --no-restore
+dotnet test .\src\ScriptSyncPilot.slnx --configuration Release --no-build --no-restore
 ```
 
 The exact target frameworks are declared in the project files. Do not treat a successful build as a test pass: both the build and complete test command must succeed for a release. The GitHub Actions workflow is [Windows release verification](../.github/workflows/windows-release-verification.yml).

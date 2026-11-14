@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - 'src/**'
-      - 'tests/**'
-      - 'ScriptSyncPilot.slnx'
 
 permissions:
   contents: read
@@ -26,10 +24,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore ScriptSyncPilot.slnx
+        run: dotnet restore src/ScriptSyncPilot.slnx
 
       - name: Build Release
-        run: dotnet build ScriptSyncPilot.slnx --configuration Release --no-restore --verbosity minimal
+        run: dotnet build src/ScriptSyncPilot.slnx --configuration Release --no-restore --verbosity minimal
 
       - name: Run automated tests
-        run: dotnet test ScriptSyncPilot.slnx --configuration Release --no-build --no-restore --blame-hang-timeout 2m --verbosity minimal
+        run: dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-build --no-restore --blame-hang-timeout 2m --verbosity minimal

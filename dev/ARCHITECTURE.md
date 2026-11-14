@@ -14,7 +14,7 @@ FunscriptEditor ----> Common <---- HandySync ----> Handy REST / hosting ----> Ha
                     mpv IPC
 ```
 
-The applications share files/library code, not a controller service. The [solution](../ScriptSyncPilot.slnx) lists the actual projects.
+The applications share files/library code, not a controller service. The [solution](../src/ScriptSyncPilot.slnx) lists the actual projects.
 
 ## Ownership and Contracts
 

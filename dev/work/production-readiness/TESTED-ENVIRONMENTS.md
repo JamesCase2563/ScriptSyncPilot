@@ -1,6 +1,6 @@
 # Tested Environments
 
-**Status:** ENV-001 records a historical build with local changes. ENV-002 records the maintainer's later positive production-test report, but the exact tested revision, environment, and workflow list were not captured. Neither record validates a clean release build or the current release candidate.
+**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves a positive manual-test report whose exact revision and workflow details were not captured. ENV-003 records full .NET 10 Release restore/build/test runs locally and in GitHub Actions; these automated runs do not verify mpv or physical Handy workflows.
 
 The current source targets .NET 10. The environment and device details below remain historical .NET 9 evidence; retargeting does not extend their compatibility claims.
 
@@ -54,6 +54,33 @@ environment-record standard for claiming reproducibility or compatibility. If
 the maintainer still has the build notes or can identify the tested setup, replace
 the unknown fields with those exact values and split the outcome into the actual
 workflows performed. Do not infer them from ENV-001.
+
+## ENV-003 — .NET 10 Release build and automated tests
+
+This record covers the current .NET 10 source tree. The local test run was on
+`0d21dc889a8cb8d91b690fb3403cf0c0f0af251d`; GitHub Actions then ran successfully
+on `72a4e5ed2e41cce09bc2657f51f36452ff7b9934`, which adds only the CI-trigger
+workflow change on top of that source. These are automated build/test results,
+not a manual production trial.
+
+| Field | Local run | GitHub Actions run |
+| --- | --- | --- |
+| Date | 2026-11-14 | 2026-11-14 |
+| Source revision | `0d21dc889a8cb8d91b690fb3403cf0c0f0af251d` | `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` |
+| Run/evidence | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal` | [Run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417) |
+| Operating system | Windows 11 x64, OS build `26300` | Windows Server 2025 x64, OS build `10.0.26100`; runner image `windows-2025-vs2026`, image version `20261103.298.1` |
+| .NET SDK | `10.0.401` | `10.0.404` |
+| .NET runtime | `Microsoft.NETCore.App 10.0.12`; `Microsoft.WindowsDesktop.App 10.0.12` | .NET runtime `10.0.15` installed by setup-dotnet; exact Windows Desktop runtime version not recorded in the job log |
+| Build configuration / target | Release; `net10.0` and `net10.0-windows` | Release; `net10.0` and `net10.0-windows` |
+| Restore and build | Passed as part of `dotnet test`; no build errors reported | Restore passed; Release build passed |
+| Automated test result | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) |
+| mpv / physical device | Not exercised | Not exercised |
+| Conclusion | Full local .NET 10 suite passes on this Windows environment. | Full CI suite passes on the exact CI commit using the .NET 10.0.15 runtime. |
+
+ENV-003 verifies compilation and automated behavior after retargeting to .NET 10.
+It does not establish desktop playback integration, Handy REST/Hosting behavior,
+or physical device compatibility on .NET 10. Keep the local runtime updated; the
+CI run used the current .NET 10 runtime available on its runner.
 
 ## ENV-001
 

@@ -1,16 +1,17 @@
 @echo off
 setlocal
-dotnet build "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" --configuration Debug --property:UseAppHost=true --nologo
+set "artifacts=%~dp0..\artifacts\local-run\ScriptSyncPilot.HandySync"
+set "appdir=%artifacts%\publish"
+set "app=%appdir%\ScriptSyncPilot.HandySync.exe"
+dotnet publish "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" --configuration Debug --property:UseAppHost=true --artifacts-path "%artifacts%\build" --output "%appdir%" --nologo
 if errorlevel 1 (
 	pause
 	exit /b 1
 )
-set "app="
-for /f "delims=" %%I in ('dotnet msbuild "%~dp0ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj" "-property:Configuration=Debug" "-property:UseAppHost=true" -getProperty:TargetPath') do set "app=%%~dpnI.exe"
 if not exist "%app%" (
 	echo Could not locate the built application.
 	pause
 	exit /b 1
 )
-start "" "%app%"
+start "" /D "%appdir%" "%app%"
 exit /b

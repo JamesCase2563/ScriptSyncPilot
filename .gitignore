@@ -21,6 +21,7 @@ packages/
 *.snupkg
 
 # Build results
+/artifacts/
 *.dll
 *.exe
 *.pdb

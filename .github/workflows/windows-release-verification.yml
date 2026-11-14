@@ -1,8 +1,13 @@
 name: Windows release verification
 
 on:
-  push:
   pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'ScriptSyncPilot.slnx'
 
 permissions:
   contents: read

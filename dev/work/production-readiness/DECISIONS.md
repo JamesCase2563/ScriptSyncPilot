@@ -29,3 +29,7 @@ This log is not legal advice or a compliance determination.
 ## 2026-11-13
 
 - **Handy Hosting retention question closed without clarification:** the email sent 2026-10-22 received no reply as of this date. Per the maintainer, no further follow-up is planned. The CSV retention period and generated-URL lifetime remain unknown; user-facing information must not promise a retention or expiry period. See the [email record](HANDY-DATA-RETENTION-EMAIL.md), [support scope](SCOPE-AND-LIMITATIONS.md), and [production-readiness plan](PLAN.md#open-risks-and-follow-up).
+
+## 2026-11-16
+
+- **ENV-004 manual-trial log interpretation provided by maintainer:** for the 2026-11-15 .NET 10 trial, assume the HSTP offset-poll timeout at 10:23:34 and the two HSSP stop errors (device error 1001) at 10:25:12 and 10:25:15 resulted from pressing the device's physical emergency-stop button. The logs do not record button activity, so this attribution is an explicit maintainer-provided assumption, not independently verified evidence. The overall trial remains a maintainer-reported pass; the two final stop requests did not receive successful acknowledgments. The specific tested workflows are listed in [ENV-004](TESTED-ENVIRONMENTS.md#env-004--manual-net-10-trial-maintainer-reported-pass-record-completed).

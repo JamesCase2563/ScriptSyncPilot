@@ -1,6 +1,6 @@
 # Tested Environments
 
-**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves an earlier positive manual-test report with incomplete metadata. ENV-003 records full .NET 10 automated runs locally and in GitHub Actions. ENV-004 records the successful manual .NET 10 trial, with its revision and much of its environment recovered from the published app artifacts and sanitized logs; the exact SDK patch and complete workflow checklist remain unknown. ENV-005 records successful Release `win-x64` framework-dependent publishes for both applications.
+**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves an earlier positive manual-test report with incomplete metadata. ENV-003 records full .NET 10 automated runs locally and in GitHub Actions. ENV-004 records the successful manual .NET 10 trial and its log-supported workflow checklist; the exact SDK patch was not recorded and cannot be recovered. ENV-005 records successful Release `win-x64` framework-dependent publishes for both applications.
 
 The current source targets .NET 10. ENV-003 records automated .NET 10 build/test environments. ENV-004 adds a manually exercised Debug publish on .NET 10, mpv IPC, and one H01/firmware combination. ENV-001 remains the detailed baseline for broader physical workflow claims; do not generalize ENV-004 beyond its recorded device and workflows.
 
@@ -28,14 +28,17 @@ See [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md) for 
 
 Copy the record below for each tested combination. Record exact versions rather than "latest"; use "not checked" for unknown values. A passing check applies only to the recorded source revision, environment, and workflow, not every model or release.
 
-## ENV-004 — manual .NET 10 trial (reported successful; metadata pending)
+## ENV-004 — manual .NET 10 trial (maintainer-reported pass; record completed)
 
 On 2026-11-15, the maintainer reported that the recommended manual .NET 10
 trial had been performed successfully. The local logs and published artifacts
 were reviewed without reproducing their raw contents; paths, hosted URLs, and
-credentials were not copied into this record. The app artifacts identify the
-tested code revision and target, and the HandySync log provides device and
-workflow evidence.
+credentials were not copied into this record. On 2026-11-16, the maintainer
+instructed that the offset-poll timeout and two later stop errors be attributed
+to pressing the device's manual emergency-stop button. The logs do not record
+button activity; this is the maintainer's assumed explanation, not independent
+log evidence. The app artifacts identify the tested code revision and target,
+and the HandySync log provides the workflow evidence below.
 
 | Field | Value |
 | --- | --- |
@@ -44,24 +47,31 @@ workflow evidence.
 | ScriptSyncPilot source revision | `e456b094689593f6054e5fdf827d3f6fbd588478`, recovered from both published app assemblies' `AssemblyInformationalVersion`; no `src/` changes are present between that revision and the current checkout |
 | Build configuration / target | Debug `dotnet publish`; app runtime configs target `net10.0` / Windows Desktop `10.0.0` minimum |
 | Windows edition/version/build and architecture | Windows 11 x64, OS build `26300` (local machine environment); exact edition not rechecked during the trial |
-| .NET SDK | .NET 10 SDK used for the local publish is not confirmed to a patch version. Current SDK inventory does not establish which SDK was active at publish time. |
+| .NET SDK | .NET 10 SDK was used, but its patch version was not recorded and cannot be recovered from the app logs or published artifacts. The current machine's SDK inventory does not establish which SDK was active at trial time. |
 | .NET Desktop Runtime | `10.0.15` was installed before the trial; runtime configuration targets .NET 10 and the highest installed .NET 10 Windows Desktop runtime was `10.0.15` |
 | mpv version/configuration | `v0.41.0-244-gaf9c81fa1`; the mpv process was running before the trial, and HandySync/FunscriptEditor logs record successful IPC attachment |
 | Handy model / hardware revision | H01, model number 0, model variant 0; hardware revision not reported |
 | Handy firmware | `4.2.2+44874492`, firmware status 1 |
 | Protocols evidenced | Handy REST API, Hosting API v2 upload, HSSP setup; exact connection/network conditions not recorded |
-| Applications and workflows evidenced | Both apps launched from local published folders; FunscriptEditor script load and mpv IPC attachment; HandySync script load, mpv IPC attachment, Handy connection, firmware/capability read, CSV upload, HSSP setup, stroke writes, and pause/stop events |
+| Applications and workflows evidenced | See the workflow checklist below. |
 | Release-guide publish commands | Debug trial artifacts remain as described; the documented Release `win-x64 --self-contained false` commands were subsequently run successfully and are recorded in ENV-005 |
-| Outcome | **Pass (maintainer-reported).** The updated HandySync log shows several successful pause/stop events, with the last at 10:21:51. At 10:23:34, offset polling failed with an HSTP request timeout. At 10:25:12 and 10:25:15, two later HSSP stop requests failed with device error 1001. The maintainer suspects the device's manual emergency stop button may have been pressed; this is plausible but is not recorded in the log and is unconfirmed. No later successful stop is logged. |
+| Outcome | **Pass (maintainer-reported).** Logs show successful operations and several successful pause/stop events, with the last logged success at 10:21:51. At 10:23:34 offset polling timed out; at 10:25:12 and 10:25:15 HSSP stop requests returned device error 1001. Per the maintainer's instruction, this record assumes those errors resulted from the physical emergency-stop button being pressed. The logs do not capture the button press, and the two final stop requests themselves did not receive successful acknowledgments. |
 
-Complete this entry with the exact .NET SDK patch and the specific workflows
-covered by the maintainer's success report. The updated log identifies the
-previously unclassified diagnostic as an HSTP offset-poll timeout. Review the
-two later HSSP stop failures (device error 1001) before classifying the final
-shutdown result. The maintainer's emergency-stop-button explanation is a
-plausible but unverified hypothesis because button activity is not logged. The
-documented Release publish commands are recorded
-separately in ENV-005; this trial verified the local Debug publish route.
+### Workflow checklist
+
+| Application/workflow | Result |
+| --- | --- |
+| FunscriptEditor launched from its local Debug publish; opened a funscript and attached to the running mpv instance over IPC | Pass; corroborated by app log |
+| HandySync launched from its local Debug publish; opened a funscript and attached to mpv over IPC | Pass; corroborated by app log |
+| HandySync connected to the H01 and read firmware/capability information | Pass; corroborated by app log |
+| Uploaded action data as CSV and completed HSSP setup | Pass; corroborated by app log |
+| Wrote stroke/control values and synchronized playback; seek/resync events were observed | Pass; corroborated by app log |
+| Paused and stopped playback | Multiple successful pause/stop events logged. The final two HSSP stop requests returned error 1001 and are attributed to the manual emergency stop under the maintainer's assumption above. |
+| FunscriptEditor editing/save workflows | Not exercised in this trial. |
+
+The exact .NET SDK patch is unavailable; it is recorded as unknown rather than
+reconstructed from the current machine state. The documented Release publish
+commands were verified separately in ENV-005; this trial used Debug outputs.
 
 ## ENV-003 — .NET 10 Release build and automated tests
 

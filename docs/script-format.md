@@ -50,7 +50,7 @@ Scripts come in multiple formats:
 
 ## How to Start Scripting
 - Use [Handy Free Scripter](https://playground.handyfeeling.com/scripter3) (not for commercial use).
-- Community tools: [FunScripter](https://funscripter.com/) (Beta), [EroScripts Community](https://discuss.eroscripts.com/), [HandyScripts Reddit](https://www.reddit.com/r/HandyScripts/), [Discord](https://discord.gg/handy).
+- Community tools: [EroScripts Community](https://discuss.eroscripts.com/), [HandyScripts Reddit](https://www.reddit.com/r/HandyScripts/), [Discord](https://discord.gg/handy).
 
 ## Additional Links
 - [thehandy.com](https://thehandy.com/)

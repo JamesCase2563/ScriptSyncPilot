@@ -15,7 +15,7 @@ ScriptSyncPilot supports creating, editing, and playing time-synchronized device
 
 ### Initial-release classification
 
-Reviewed against the [approved support scope](work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+Reviewed against the [approved support scope](archive/2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md).
 The current Windows editor/mpv and HandySync REST API v3/HSSP workflows, file
 preservation, lifecycle verification and privacy-conscious diagnostics are **in scope**.
 Reliable automatic device recovery remains a future goal, not an initial-release

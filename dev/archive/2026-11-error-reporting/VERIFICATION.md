@@ -4,7 +4,7 @@
 
 ## Scope and result
 
-Production-readiness priority 2: failures must be visible and safely described, must not be represented as success, and must not expose keys or private hosted-script URLs. See [design](DESIGN.md), [plan](PLAN.md), and the [production-readiness release gate](../../work/production-readiness/PLAN.md).
+Production-readiness priority 2: failures must be visible and safely described, must not be represented as success, and must not expose keys or private hosted-script URLs. See [design](DESIGN.md), [plan](PLAN.md), and the [production-readiness release gate](../2026-11-production-readiness/PLAN.md).
 
 ## Evidence matrix
 

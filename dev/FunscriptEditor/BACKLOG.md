@@ -32,7 +32,7 @@ Entries above the Completed section track remaining work. Completed feature deta
 
 ## Initial-release scope classification
 
-Reviewed against the [approved support scope](../work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+Reviewed against the [approved support scope](../archive/2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md).
 New authoring features below remain future work; classification does not remove them
 or change their relative future priority. Defects affecting existing supported
 editing, file preservation or shutdown remain in scope.

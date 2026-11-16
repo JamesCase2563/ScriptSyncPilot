@@ -6,8 +6,10 @@ Handy API v2 (2.0.0-beta-3, OAS 3.0) provides an HTTP interface for interacting 
 - [OpenAPI Spec (YAML)](https://handyfeeling.com/api/handy-rest/v2/docs/spec.yaml)
 
 ## Server Selection
-- **Production:** https://www.handyfeeling.com/api/handy/v2
-- **Staging:** https://staging.handyfeeling.com/api/handy/v2
+- **Production API base:** `https://www.handyfeeling.com/api/handy/v2`
+- **Staging API base:** `https://staging.handyfeeling.com/api/handy/v2`
+
+These are API server endpoints, not web pages; use the [API v2 documentation](https://handyfeeling.com/api/handy/v2/docs/#/) to browse the available operations. Staging is intended only for specially provisioned firmware.
 
 ## Firmware v2 Devices
 - Only `/connected` and `/info` endpoints work for firmware v2 devices.

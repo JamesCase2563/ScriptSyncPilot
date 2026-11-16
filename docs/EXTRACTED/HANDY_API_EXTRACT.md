@@ -7,7 +7,7 @@ Source files inspected
 - `ScriptPlayer.HandyApi/HandyController.cs`
 
 Base configuration
-- Default base URL used in the code: `https://www.handyfeeling.com/api/handy-rest/v3/`
+- Default API base URL used in the code: `https://www.handyfeeling.com/api/handy-rest/v3/` (an API endpoint, not a web page).
 - Default headers set by the client in `HandyApiV3`:
   - `X-Connection-Key: <deviceId or key>`
   - `X-Api-Key: .oBFYi~F2Ahyn~H3Q9zGMEHLGPSnCx7b` (note: this application key is specific to ScriptPlayer; register your own app if reusing.)
@@ -39,7 +39,7 @@ Slider endpoints
 - `slider/stroke` — GET/PUT stroke settings
 
 Script hosting upload
-- Script upload used by `HandyController`: `https://www.handyfeeling.com/api/hosting/v2/upload` (multipart form POST; form field name `file`).
+- Script upload endpoint used by `HandyController`: `https://www.handyfeeling.com/api/hosting/v2/upload` (multipart form POST; form field name `file`; this endpoint does not serve a web page).
 
 Client behavior notes
 - The application reads firmware status (`info` response) for compatibility checks; it does not initiate firmware updates. See the [manufacturer's official firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3).

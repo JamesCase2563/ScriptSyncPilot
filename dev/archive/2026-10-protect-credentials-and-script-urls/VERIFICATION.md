@@ -140,7 +140,7 @@ No real network/device or real secret was used in the new diagnostic cases. Hist
 
 ## M4.1 User Documentation
 
-- Expanded [local protection and diagnostics guidance](../../../docs/online-security.md#scriptsyncpilot-local-protection-and-diagnostics) with upgrade/re-entry instructions, the successful-close save trigger, first-key behavior, unmasked input/memory limits, DPAPI account/profile binding, and explicit load/save failure recovery.
+- Expanded [local protection and diagnostics guidance](../../../docs/online-security.md#protection-limits) with upgrade/re-entry instructions, the successful-close save trigger, first-key behavior, unmasked input/memory limits, DPAPI account/profile binding, and explicit load/save failure recovery.
 - Confirmed settings/log paths against `AppSettings.FilePath`, `Program` logger initialization, and `AppLog.BuildPath`. Documented non-encrypted metadata, protected staging-file limitations, sensitive legacy backups, and historical logs that are not sanitized.
 - Distinguished application-maintained guidance from the vendor-background attribution. No code changes or new tests were needed for this documentation-only step; no manual device/Windows acceptance is claimed.
 

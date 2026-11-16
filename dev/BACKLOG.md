@@ -14,7 +14,7 @@ Active entries describe remaining work. Implemented baselines are summarized und
 
 ## Initial-release scope classification
 
-Reviewed against the [approved support scope](work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+Reviewed against the [approved support scope](archive/2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md).
 These labels describe initial-release scope, not implementation completion or a change
 to future feature priorities.
 
@@ -28,12 +28,12 @@ to future feature priorities.
 
 ## Automated Tests and CI
 
-**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Command-ordering verification completed 2026-11-08 ([plan](work/command-ordering/PLAN.md), [verification](work/command-ordering/VERIFICATION.md)); firmware/capability verification completed 2026-11-13 ([plan](archive/2026-11-firmware-capabilities/PLAN.md), [verification](archive/2026-11-firmware-capabilities/VERIFICATION.md)). The completed [error-reporting work](archive/2026-11-error-reporting/PLAN.md) is archived. These efforts do not by themselves establish clean-checkout CI coverage.
+**Priority:** High. **Status:** Broader coverage and CI remain open; initial Common suite implemented (see [Completed](#completed)). Command-ordering verification completed 2026-11-08 ([plan](archive/2026-11-command-ordering/PLAN.md), [verification](archive/2026-11-command-ordering/VERIFICATION.md)); firmware/capability verification completed 2026-11-13 ([plan](archive/2026-11-firmware-capabilities/PLAN.md), [verification](archive/2026-11-firmware-capabilities/VERIFICATION.md)). The completed [error-reporting work](archive/2026-11-error-reporting/PLAN.md) is archived. These efforts do not by themselves establish clean-checkout CI coverage.
 
 Establish focused tests and CI build/test gates for the existing projects, preserving the useful testing goals of the former controller plan without creating its nonexistent projects.
 
 - mpv attachment failures, cancellation, observations, and disposal using a controlled local pipe server.
-- Session replacement and stale queued notifications in both applications; HandySync release-gate ordering is tracked in [command-ordering](work/command-ordering/PLAN.md).
+- Session replacement and stale queued notifications in both applications; HandySync release-gate ordering is tracked in [command-ordering](archive/2026-11-command-ordering/PLAN.md).
 - Handy ordering, script selection during setup, draining requests, and stop-before-dispose with fake HTTP transport rather than hardware; existing timeout/shutdown evidence is archived in [its verification record](archive/2026-11-timeout-shutdown/VERIFICATION.md).
 - Safe, truthful failure reporting for supported operations was verified in the [archived error-reporting work item](archive/2026-11-error-reporting/PLAN.md); this does not replace the broader test matrix or CI requirement.
 - Timeline zoom/scroll limits, deletion during drag, and keyboard routing.
@@ -56,7 +56,7 @@ Evaluate the FunscriptEditor and HandySync interfaces as a distinct product-impr
 
 Review and fill remaining quickstart/troubleshooting gaps for launchers, mpv pipes, device firmware, connection failures, and log locations rather than duplicating existing guidance. Local credential protection, script-URL diagnostics, and related user documentation are complete; see the [archived credential-protection plan](archive/2026-10-protect-credentials-and-script-urls/PLAN.md). The upload/setup failure case is automatically verified but was not exercised manually; preserve that distinction.
 
-Clarify provider-side script retention and URL expiry when Handy replies to the [sent inquiry](work/production-readiness/HANDY-DATA-RETENTION-EMAIL.md), then update disclosures with confirmed facts. Diagnostics must not expose connection or application keys. Do not introduce remote APIs merely to satisfy the superseded controller plan.
+Clarify provider-side script retention and URL expiry when Handy replies to the [sent inquiry](archive/2026-11-production-readiness/HANDY-DATA-RETENTION-EMAIL.md), then update disclosures with confirmed facts. Diagnostics must not expose connection or application keys. Do not introduce remote APIs merely to satisfy the superseded controller plan.
 
 ## Completed
 

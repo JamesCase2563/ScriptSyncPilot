@@ -7,11 +7,11 @@ ScriptSyncPilot is distributed as source code. There is currently no installer, 
 - Windows x64. The applications use Windows Forms and target Windows.
 - The .NET 10 SDK.
 - The .NET 10 Windows Desktop Runtime to run framework-dependent builds.
-- mpv for video playback. HandySync also requires internet access and available Handy services. Its initial supported device scope is limited to the models and firmware recorded in [tested environments](../dev/work/production-readiness/TESTED-ENVIRONMENTS.md); vendor minimums do not establish compatibility with an untested device.
+- mpv for video playback. HandySync also requires internet access and available Handy services. Its initial supported device scope is limited to the models and firmware recorded in [tested environments](../dev/archive/2026-11-production-readiness/TESTED-ENVIRONMENTS.md); vendor minimums do not establish compatibility with an untested device.
 
 The application projects now target `net10.0-windows`. .NET 10 is an LTS release supported through November 14, 2028, subject to installing the latest servicing update. Verify the target in CI and on the documented environment before publishing a stable release. Check [Microsoft's .NET release support dates](https://learn.microsoft.com/en-us/dotnet/core/releases-and-support) and [current .NET downloads](https://dotnet.microsoft.com/download/dotnet) when preparing each release.
 
-The complete Windows CI suite passed on .NET 10 at commit `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` ([run 43565771417](https://github.com/JamesCase2563/ScriptSyncPilot/actions/runs/43565771417)). The repository owner recorded a GO decision for a stable source-only release on 2026-11-16, accepting the remaining evidence limitations documented in [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md). No release tag or GitHub Release has yet been published.
+The complete Windows CI suite passed on .NET 10 at commit `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` ([run 43565771417](https://github.com/JamesCase2563/ScriptSyncPilot/actions/runs/43565771417)). The repository owner recorded a GO decision for a stable source-only release on 2026-11-16, accepting the remaining evidence limitations documented in [production-readiness verification](../dev/archive/2026-11-production-readiness/VERIFICATION.md). No release tag or GitHub Release has yet been published.
 
 ## Obtain source
 
@@ -86,7 +86,7 @@ Rollback restores the application source/build; it cannot reverse device or remo
 
 ## Version tags and release notes
 
-The maintainer publishes releases from a reviewed commit on the default `main` branch, after all release gates are complete and a dated go/no-go decision is recorded in [production-readiness verification](../dev/work/production-readiness/VERIFICATION.md). Do not tag the current candidate while its release gates remain open.
+The maintainer publishes releases from a reviewed commit on the default `main` branch, after all release gates are complete and a dated go/no-go decision is recorded in [production-readiness verification](../dev/archive/2026-11-production-readiness/VERIFICATION.md). Do not tag the current candidate while its release gates remain open.
 
 Use annotated SemVer tags prefixed with `v`:
 

@@ -32,7 +32,7 @@ settings file or connection key.
 
 ## ENV-005 — Release framework-dependent publish commands
 
-On 2026-11-16, both publish commands documented in [`docs/source-release.md`](../../docs/source-release.md) completed successfully from the repository root. The output directory used a verification-specific name under `.verification` to avoid placing test artifacts in the user's normal application install directory. The command options match the guide: Release configuration, `win-x64`, and `--self-contained false`.
+On 2026-11-16, both publish commands documented in [`docs/source-release.md`](../../../docs/source-release.md) completed successfully from the repository root. The output directory used a verification-specific name under `.verification` to avoid placing test artifacts in the user's normal application install directory. The command options match the guide: Release configuration, `win-x64`, and `--self-contained false`.
 
 | Field | Value |
 | --- | --- |

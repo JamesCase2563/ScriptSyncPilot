@@ -56,7 +56,7 @@ M2.2 surfaces secret-free settings errors, aborts startup on load failure, and k
 
 ### 4. Document and verify
 
-- [x] Document local key protection, the need to re-enter the key after upgrading from plaintext storage, DPAPI limitations/account binding, and settings/log locations. [User guidance](../../../docs/online-security.md#scriptsyncpilot-local-protection-and-diagnostics) covers re-entry, saving on successful close, first-key behavior, unmasked input, error recovery, protected-file limitations, old plaintext backups/logs, and exact local paths.
+- [x] Document local key protection, the need to re-enter the key after upgrading from plaintext storage, DPAPI limitations/account binding, and settings/log locations. [User guidance](../../../docs/online-security.md#protection-limits) covers re-entry, saving on successful close, first-key behavior, unmasked input, error recovery, protected-file limitations, old plaintext backups/logs, and exact local paths.
 - [x] Run focused HandySync tests, then the full relevant test suite/build. M4.2 rerun: 112/112 focused cases, non-incremental full solution build with zero warnings/errors, then 238/238 tests against the freshly rebuilt assemblies. Used isolated output without changing running applications; see [verification](VERIFICATION.md#m42-final-focused-tests-solution-build-and-regression-suite).
 - Closed by maintainer confirmation on 2026-10-23: finalize [verification](VERIFICATION.md) and archive this task. The previously pending M4.3 diff/accidental-secret review has no separate execution result recorded; closure does not assert that unrecorded checks passed.
 

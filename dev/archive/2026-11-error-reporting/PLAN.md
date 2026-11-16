@@ -24,13 +24,13 @@ Out of scope: retries/reconnect, a diagnostics overhaul, telemetry, additional A
 
 - [x] Fix confirmed misleading, hidden, unsafe, or non-actionable failure behavior within this scope (M2.1; see current behavior in the [inventory](ERROR-MESSAGE-INVENTORY.md)).
 - [x] Keep timeout distinct from caller/lifecycle cancellation and keep unknown remote state explicit (M2.2; timeouts retain their dedicated status, caller cancellation reports canceled with unknown device state, and lifecycle cancellation is silent).
-- [x] Add focused regression tests for changed behavior (M2.3; see [`HandyApiTimeoutTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandyApiTimeoutTests.cs), [`DeviceControlPollingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/DeviceControlPollingTests.cs), [`ScriptDiagnosticsTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptDiagnosticsTests.cs), and [`HandySyncErrorReportingTests`](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/HandySyncErrorReportingTests.cs)).
+- [x] Add focused regression tests for changed behavior (M2.3; see [`HandyApiTimeoutTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/HandyApiTimeoutTests.cs), [`DeviceControlPollingTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/DeviceControlPollingTests.cs), [`ScriptDiagnosticsTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptDiagnosticsTests.cs), and [`HandySyncErrorReportingTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/HandySyncErrorReportingTests.cs)).
 
 ### 3. Verify and close
 
 - [x] Run tests for changed paths and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (full suite: 312 passed, 0 failed).
 - [x] Review messages for credentials, private hosted-script URLs, raw response bodies, and unsafe exception text; findings and limits are recorded in [VERIFICATION.md](VERIFICATION.md).
-- [x] Record unresolved limits and link completed evidence from the [production-readiness plan](../../work/production-readiness/PLAN.md).
+- [x] Record unresolved limits and link completed evidence from the [production-readiness plan](../2026-11-production-readiness/PLAN.md).
 - [x] Mark the work item complete after confirming the planned inventory and acceptance criteria are satisfied; archival may follow completion.
 
 ## Acceptance criteria

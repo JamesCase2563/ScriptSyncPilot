@@ -17,7 +17,7 @@ Out of scope: firmware update UX, new device/model/protocol support, broad hardw
 ### 1. Characterize contracts
 
 - [x] Map firmware and capability reads and all dependent controls/requests in [DESIGN.md](DESIGN.md) (M1.1).
-- [x] Reconcile implementation with the [HandySync backlog](../../HandySync/BACKLOG.md#firmware-and-capabilities), approved [support scope](../../work/production-readiness/SCOPE-AND-LIMITATIONS.md), and official API v3 requirement (M1.2).
+- [x] Reconcile implementation with the [HandySync backlog](../../HandySync/BACKLOG.md#firmware-and-capabilities), approved [support scope](../2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md), and official API v3 requirement (M1.2).
 - [x] Define expected behavior for supported, unsupported, update-required, absent, malformed, and failed values without assuming undocumented status meanings (M1.3).
 
 ### 2. Verify and repair
@@ -31,7 +31,7 @@ Out of scope: firmware update UX, new device/model/protocol support, broad hardw
 
 - [x] Run focused tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
 - [x] Keep compatibility evidence limited to actually verified results; preserve the distinction between simulated tests and physical ENV-001 evidence.
-- [x] Link conclusions from the [production-readiness plan](../../work/production-readiness/PLAN.md); acceptance criteria were met before archiving.
+- [x] Link conclusions from the [production-readiness plan](../2026-11-production-readiness/PLAN.md); acceptance criteria were met before archiving.
 
 ## Acceptance criteria
 

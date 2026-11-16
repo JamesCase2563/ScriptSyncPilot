@@ -52,6 +52,8 @@ Filename: `<movie>.movement.funscript`
 
 Play at 1.5-2x. Press `7` where device movement should begin and `3` where it should end. Everything between a `3` and the next `7` is a rest section and needs no further work. For a moving sequence that does not suit a generated pattern, press `1` at both its start and end to mark it as irregular; the interval will be scripted manually. Use frame step (`Left`/`Right`) to refine a boundary, or drag the point.
 
+Keep movement sections relatively short and focused, splitting them when the movement changes substantially. This makes the tapping pass easier to manage and gives the editor more local context to predict where changes happen.
+
 | Key | When |
 | --- | ---- |
 |  7  | where device movement should begin |

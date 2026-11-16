@@ -7,23 +7,23 @@ The current source targets .NET 10. ENV-003 records automated .NET 10 build/test
 ## ENV-006 — separate-machine manual check (partial)
 
 The maintainer reports testing both applications on a separate Windows machine
-on 2026-11-16. The two application logs are under the maintainer-provided
-logs folder in the personal checkout. The logs were inspected without copying
-the machine name, local script paths, connection keys, or URLs into this record.
-The maintainer later reported that `dotnet --list-sdks` on that machine showed
-SDK `10.0.404`. The app source revision, build configuration, OS build,
-installed .NET runtime, and mpv version were not recorded, so this record does
-not claim a clean-machine validation of the specific Release outputs.
+on 2026-11-16. The logs were inspected without copying the machine name, local
+script paths, connection keys, or URLs into this record. The later logs from
+14:25–14:31 include startup metadata identifying the app version and runtime.
+Build configuration and mpv version were not recorded, so this does not
+confirm the specific Release outputs were tested.
 
 | Application/workflow | Evidence and result |
 | --- | --- |
-| .NET SDK inventory | Maintainer-reported output: `10.0.404 [C:\Program Files\dotnet\sdk]`. This identifies an installed SDK, not the SDK or configuration used to build the tested application binaries. |
-| FunscriptEditor mpv launch | At 08:53, launching the configured command `mpv` failed because Windows could not find that executable. |
-| FunscriptEditor mpv IPC and script save | At 11:14, the app later attached to an mpv IPC pipe; at 11:15 and 11:19 it logged saves of 0 and 4 actions. This corroborates IPC attachment and save activity, but not which build was tested or a reopen/round-trip check. |
-| HandySync settings and connection key | At 11:23, settings could not be loaded because a saved DPAPI-protected connection key could not be decrypted. At 11:25, saving settings was refused because the existing settings could not be loaded. This is consistent with using settings copied from another Windows profile/machine; the log does not establish how the file arrived there. |
-| HandySync script and mpv IPC | The app loaded a 4-action script and attached to mpv IPC. |
+| App version / source revision | Both startup entries report `1.0.0+6e3a5abbb349d7e9fd20219b5e41593205114ef8`. This hash maps to commit `6e3a5abbb349d7e9fd20219b5e41593205114ef8` in this repository. |
+| Runtime / OS | Both startup entries report .NET runtime `10.0.15` and OS `Microsoft Windows 10.0.19045`. |
+| .NET SDK inventory | Maintainer-reported `dotnet --list-sdks`: `10.0.404`. This confirms an SDK was installed, not that these binaries were built with it. |
+| Build configuration / mpv version | Not recorded in the logs; cannot confirm that the binaries were Release publishes or identify the mpv version. |
+| FunscriptEditor mpv and save workflow | At 08:53, launching the configured `mpv` command failed because Windows could not find it. Later logs show script load, a failed attach to the default external-player pipe, successful attachment to the editor's mpv IPC pipe, and a save of 5 actions. Earlier same-day logs also recorded successful IPC attachment and saves. |
+| HandySync settings and connection key | An earlier same-day log reported a DPAPI-protected key could not be decrypted and settings could not be saved. The later 14:29 startup log contains no such error and proceeds to script load and mpv attachment; the reason for the difference is not established. |
+| HandySync script and mpv IPC | The later log shows two attach attempts before a script was loaded, then successful script load and mpv IPC attachment. |
 | Handy device connection | **Untested on this machine by decision.** No successful connection event appears in the inspected log; the maintainer has directed that this machine's device test remain untested. ENV-004 separately records the manual device workflow on its own environment. |
-| Overall result | **Partial.** The editor and mpv integration have useful evidence. This environment provides no device-connectivity result and does not identify the exact app build or Release configuration. |
+| Overall result | **Partial.** The logs identify the app source revision, runtime, and OS and corroborate editor save and mpv attachment workflows. They do not identify build configuration or mpv version, and provide no device-connectivity result. |
 
 The log's DPAPI decryption/settings-save errors are retained as environment
 context only. No further device-connection attempt is planned on this machine.

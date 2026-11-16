@@ -24,6 +24,7 @@ Markers are ordinary script points, so each level uses its own position value. T
 | Cut | `5` | 50% |
 | Movement start | `7` | 70% |
 | Movement stop | `3` | 30% |
+| Irregular movement boundary | `1` | 10% |
 | Tempo tap (stroke bottom) | key left of `1` | 0% |
 
 Mnemonic: scenes are at the ceiling, start is high, stop is low, cuts sit in the middle, taps are on the floor.
@@ -49,18 +50,19 @@ Play at 2x and press `5` at each cut or pause; press `0` at a change of scene. S
 State: Movement
 Filename: `<movie>.movement.funscript`
 
-Play at 1.5-2x. Press `7` where device movement should begin and `3` where it should end. Everything between a `3` and the next `7` is a rest section and needs no further work. Use frame step (`Left`/`Right`) to refine a boundary, or drag the point.
+Play at 1.5-2x. Press `7` where device movement should begin and `3` where it should end. Everything between a `3` and the next `7` is a rest section and needs no further work. For a moving sequence that does not suit a generated pattern, press `1` at both its start and end to mark it as irregular; the interval will be scripted manually. Use frame step (`Left`/`Right`) to refine a boundary, or drag the point.
 
 | Key | When |
 | --- | ---- |
 |  7  | where device movement should begin |
 |  3  | where it should end |
+|  1  | at both ends of a moving sequence that will be scripted manually |
 
 ### 3. Tempo taps (0.5-1x, movement sections only)
 
 Filename: `<movie>.tempo.funscript`
 
-Seek to each `7` marker and play at 1x, or 0.5-0.75x for fast movement. Press the key left of `1` once per full cycle, always at the same phase (the bottom of the stroke). Timestamps are recorded in video time, so slowed playback gives more precise taps without distorting tempo.
+Seek to each `7` marker and play at 1x, or 0.5-0.75x for fast movement. Skip intervals marked with `1`; those will be scripted manually. Elsewhere, press the key left of `1` once per full cycle, always at the same phase (the bottom of the stroke). Timestamps are recorded in video time, so slowed playback gives more precise taps without distorting tempo.
 
 The tap spacing now shows the tempo directly: even spacing means constant speed, and a visible change in spacing marks a tempo change. Correct individual taps by dragging or by deleting and retapping. Held keys do not repeat.
 
@@ -72,7 +74,7 @@ The tap spacing now shows the tempo directly: even spacing means constant speed,
 
 Filename: `<movie>.draft.funscript`
 
-For each run of evenly spaced taps:
+For each run of evenly spaced taps outside irregular intervals:
 
 1. Seek to the first tap of the run and copy the playhead into the dialog's start time; do the same with the last tap for the end time.
 2. Set the cycle count to **taps in the run minus one** (the taps mark cycle boundaries).
@@ -81,6 +83,8 @@ For each run of evenly spaced taps:
 
 At a tempo change, the last tap of one run is the first tap of the next, so consecutive segments join without a gap. If the stroke minimum is not 0%, the preserved boundary taps sit slightly below the pattern; drag them up to the minimum or accept the small dip.
 
+Inside each irregular interval marked with `1`, keep hand-tapped points instead of inserting a pattern. Tap each turning point with the key matching its depth, so both timing and stroke length follow the video.
+
 ### 5. Cleanup and review (1x, with device)
 
 Filename: `<movie>.final.funscript`
@@ -88,6 +92,7 @@ Filename: `<movie>.final.funscript`
 Remaining structure markers would move the device, so convert them:
 
 - Drag each movement start (`70%`) and stop (`30%`) marker to the rest position (normally the stroke minimum). Rest sections then hold still instead of drifting.
+- Drag each irregular-interval boundary (`10%`) to the rest position as well.
 - Delete cut and scene markers, or drag them to the rest position if they fall inside a rest section.
 
 Finally play through at 1x with the device connected and adjust transitions at section boundaries.

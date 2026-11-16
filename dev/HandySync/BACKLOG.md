@@ -22,7 +22,7 @@ Intermittent Handy disconnects have also been observed with other services. Wi-F
 
 ## Initial-release scope classification
 
-Reviewed against the [approved support scope](../work/production-readiness/SCOPE-AND-LIMITATIONS.md).
+Reviewed against the [approved support scope](../archive/2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md).
 Labels below apply to remaining proposals, not completed baselines. Future priorities
 do not make an excluded or deferred feature an initial-release requirement.
 
@@ -32,7 +32,7 @@ do not make an excluded or deferred feature an initial-release requirement.
 | Authoring Review Comments During Playback | Deferred | New local review workflow; project/comment-track format and persistence remain to be designed |
 | Reconnect and HSSP Recovery | Deferred | Automatic recovery/takeover restoration is not promised; existing manual reconnect, visible failures and controlled teardown remain in scope |
 | Request Timeouts and Retries | In scope / Deferred | Bounded requests and shutdown implemented and verified 2026-11-01 (see the [archived work plan](../archive/2026-11-timeout-shutdown/PLAN.md)). Expanded automatic retries/backoff are deferred |
-| Desired State and Command Coalescing | Deferred; lifecycle verification complete 2026-11-08 | Preserve command serialization and existing debouncing. Stale-command/session-replacement evidence is recorded in the completed [command-ordering plan](../work/command-ordering/PLAN.md) and [verification](../work/command-ordering/VERIFICATION.md); command coalescing and desired-state machinery remain deferred |
+| Desired State and Command Coalescing | Deferred; lifecycle verification complete 2026-11-08 | Preserve command serialization and existing debouncing. Stale-command/session-replacement evidence is recorded in the completed [command-ordering plan](../archive/2026-11-command-ordering/PLAN.md) and [verification](../archive/2026-11-command-ordering/VERIFICATION.md); command coalescing and desired-state machinery remain deferred |
 | Connection Events | Deferred | SSE and additional event-driven status are not release requirements; preserve current polling |
 | Firmware and Capabilities | In scope / Deferred / Excluded; baseline verification complete | Initial-release gates and failure reporting verified in the archived [firmware-capabilities work](../archive/2026-11-firmware-capabilities/PLAN.md); additional model-specific validation is deferred. Firmware installation/update flows are excluded |
 | Timing and Diagnostics | In scope / Deferred | Preserve useful, secret-free diagnostics, including connection hardware information; initial-release error-reporting review completed 2026-11-03 ([archived plan](../archive/2026-11-error-reporting/PLAN.md), [verification](../archive/2026-11-error-reporting/VERIFICATION.md)). Expanded drift/RTT metrics and clock-refresh strategies are deferred |
@@ -92,7 +92,7 @@ Deferred retry work: retry transient resets, timeouts, DNS failures, HTTP 408/42
 
 ## Desired State and Command Coalescing
 
-**Priority:** Medium. **Status:** Coalescing proposed and deferred; lifecycle/order verification completed 2026-11-08 in [command-ordering](../work/command-ordering/PLAN.md). Serialization is implemented.
+**Priority:** Medium. **Status:** Coalescing proposed and deferred; lifecycle/order verification completed 2026-11-08 in [command-ordering](../archive/2026-11-command-ordering/PLAN.md). Serialization is implemented.
 
 Keep the single device-command gate. Add newest-desired-state handling to suppress duplicate play/pause, coalesce rapid seeks, supersede stale sync/offset requests, and reduce unnecessary traffic. Record command type/result. A semaphore alone does not provide coalescing or a recovery state machine; no separate controller host is required.
 
@@ -165,7 +165,7 @@ does not authorize expanding support to other vendors.
 
 Use the [shared test backlog](../BACKLOG.md) for fake-transport ordering, replacement, recovery, and idempotent teardown tests. Preserve current lifecycle guarantees when adding SSE/retries; background failures must not escape after close.
 
-The initial-release failure-reporting, command-ordering, and firmware/capability verification work is tracked in the archived [error-reporting plan](../archive/2026-11-error-reporting/PLAN.md), [command-ordering](../work/command-ordering/PLAN.md), and [firmware-capabilities](../archive/2026-11-firmware-capabilities/PLAN.md), respectively. These are bounded release-gate verification efforts; they do not select automatic recovery, coalescing, SSE, or richer timing diagnostics.
+The initial-release failure-reporting, command-ordering, and firmware/capability verification work is tracked in the archived [error-reporting plan](../archive/2026-11-error-reporting/PLAN.md), [command-ordering](../archive/2026-11-command-ordering/PLAN.md), and [firmware-capabilities](../archive/2026-11-firmware-capabilities/PLAN.md), respectively. These are bounded release-gate verification efforts; they do not select automatic recovery, coalescing, SSE, or richer timing diagnostics.
 
 Suggested later order: prioritize local Handy BLE/Intiface feasibility and backend work for privacy ahead of deferred automatic HSSP recovery, expanded coalescing, SSE and richer timing diagnostics/offset feedback. The local backend remains outside the initial-release gate unless separately approved. This is not a dated delivery commitment.
 

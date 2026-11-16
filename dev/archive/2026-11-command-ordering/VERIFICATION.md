@@ -4,7 +4,7 @@
 
 ## Scope and result
 
-Production-readiness priority 3: suppress stale commands after disconnect or session replacement while preserving serialization and safe in-flight handling. See [design](DESIGN.md), [plan](PLAN.md), [production-readiness plan](../production-readiness/PLAN.md), and [HandySync architecture](../../HandySync/ARCHITECTURE.md).
+Production-readiness priority 3: suppress stale commands after disconnect or session replacement while preserving serialization and safe in-flight handling. See [design](DESIGN.md), [plan](PLAN.md), [production-readiness plan](../2026-11-production-readiness/PLAN.md), and [HandySync architecture](../../HandySync/ARCHITECTURE.md).
 
 ## Existing evidence to reuse
 

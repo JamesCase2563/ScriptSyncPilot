@@ -199,7 +199,7 @@ Run focused generator/application tests and build the affected projects before d
 
 ### Persistence Baseline (2026-10-04)
 
-Added [ScriptSyncPilot.Common.Tests](../../../tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj) to the solution using MSTest with the VSTest adapter and .NET 9. Ran:
+Added [ScriptSyncPilot.Common.Tests](../../../src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj) to the solution using MSTest with the VSTest adapter and .NET 9. Ran:
 
 ```powershell
 dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --nologo
@@ -209,7 +209,7 @@ Result: 11 passed, 0 failed, 0 skipped. Covered existing action edits, ordered l
 
 ### Pure Generator (2026-10-05)
 
-Implemented [PatternGenerator](../../../src/ScriptSyncPilot.Common/PatternGenerator.cs) and [PatternGeneratorTests](../../../tests/ScriptSyncPilot.Common.Tests/PatternGeneratorTests.cs). Focused generator tests passed, followed by the complete suite and consumer build:
+Implemented [PatternGenerator](../../../src/ScriptSyncPilot.Common/PatternGenerator.cs) and [PatternGeneratorTests](../../../src/tests/ScriptSyncPilot.Common.Tests/PatternGeneratorTests.cs). Focused generator tests passed, followed by the complete suite and consumer build:
 
 ```powershell
 dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --nologo
@@ -224,7 +224,7 @@ The generator has no media-duration input and does not modify actions or apply b
 
 ### Conflict Planning (2026-10-05)
 
-Implemented [PatternInsertionPlan](../../../src/ScriptSyncPilot.Common/PatternInsertionPlan.cs) and [planner tests](../../../tests/ScriptSyncPilot.Common.Tests/PatternInsertionPlanTests.cs).
+Implemented [PatternInsertionPlan](../../../src/ScriptSyncPilot.Common/PatternInsertionPlan.cs) and [planner tests](../../../src/tests/ScriptSyncPilot.Common.Tests/PatternInsertionPlanTests.cs).
 
 Focused planner run: 21 passed. Full Common suite: 61 passed, 0 failed, 0 skipped (21 planner, 29 generator, 11 persistence). `dotnet build ScriptSyncPilot.slnx --nologo` succeeded for both desktop consumers and tests.
 

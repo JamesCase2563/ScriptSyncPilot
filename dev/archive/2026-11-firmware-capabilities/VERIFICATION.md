@@ -4,7 +4,7 @@
 
 ## Scope and result
 
-Production-readiness priority 4: existing controls must respect firmware/capabilities, and missing or failed reads must be reported clearly. See [design](DESIGN.md), [plan](PLAN.md), the [production-readiness plan](../../work/production-readiness/PLAN.md), [support scope](../../work/production-readiness/SCOPE-AND-LIMITATIONS.md), and [tested environments](../../work/production-readiness/TESTED-ENVIRONMENTS.md).
+Production-readiness priority 4: existing controls must respect firmware/capabilities, and missing or failed reads must be reported clearly. See [design](DESIGN.md), [plan](PLAN.md), the [production-readiness plan](../2026-11-production-readiness/PLAN.md), [support scope](../2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md), and [tested environments](../2026-11-production-readiness/TESTED-ENVIRONMENTS.md).
 
 ## Gate matrix
 
@@ -28,7 +28,7 @@ Production-readiness priority 4: existing controls must respect firmware/capabil
 
 ## Existing compatibility evidence
 
-See ENV-001 in [TESTED-ENVIRONMENTS.md](../../work/production-readiness/TESTED-ENVIRONMENTS.md#env-001). It records two H01 device firmware builds and maintainer-reported successful workflows, with connection/setup corroborated by logs. It does not establish broad model compatibility and does not replace the simulated boundary/failure checks above.
+See ENV-001 in [TESTED-ENVIRONMENTS.md](../2026-11-production-readiness/TESTED-ENVIRONMENTS.md#env-001). It records two H01 device firmware builds and maintainer-reported successful workflows, with connection/setup corroborated by logs. It does not establish broad model compatibility and does not replace the simulated boundary/failure checks above.
 
 ## Findings and closure
 

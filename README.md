@@ -19,7 +19,7 @@ This repository currently distributes source code only. There is no published ve
 - Physical compatibility is documented only for two Handy H01 devices (model number 0, variant 0) with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`. Other models and firmware are unverified; these are test results, not a guarantee for all devices of the same family.
 - Saved Handy connection keys are protected for the current Windows user/profile. Hosted-script retention and generated-URL lifetime are unknown; do not assume a specific expiry period.
 
-See the approved [support scope and known limitations](dev/work/production-readiness/SCOPE-AND-LIMITATIONS.md), the detailed [tested-environment record](dev/work/production-readiness/TESTED-ENVIRONMENTS.md), and [privacy and security information](docs/online-security.md). The tested record includes a historical build with local changes and does not validate the current release candidate.
+See the approved [support scope and known limitations](dev/archive/2026-11-production-readiness/SCOPE-AND-LIMITATIONS.md), the detailed [tested-environment record](dev/archive/2026-11-production-readiness/TESTED-ENVIRONMENTS.md), and [privacy and security information](docs/online-security.md). The tested record includes a historical build with local changes and does not validate the current release candidate.
 
 ## Support and security reports
 
@@ -29,4 +29,4 @@ Report ordinary support requests and reproducible defects through [GitHub Issues
 
 ## Current release status
 
-The repository owner has authorized a stable source-only release within the documented support scope. No version tag or GitHub Release has yet been published. See the [verification record](dev/work/production-readiness/VERIFICATION.md) for the decision basis and accepted limitations.
+The repository owner has authorized a stable source-only release within the documented support scope. No version tag or GitHub Release has yet been published. See the [verification record](dev/archive/2026-11-production-readiness/VERIFICATION.md) for the decision basis and accepted limitations.

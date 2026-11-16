@@ -92,7 +92,7 @@ Added SetSpeedAsync(double speed, CancellationToken), rejecting nonfinite and no
 
 ### Deterministic IPC Tests (2026-10-10)
 
-Added [MpvSessionTests](../../../tests/ScriptSyncPilot.Common.Tests/MpvSessionTests.cs) with nine MSTest cases and a local NamedPipeServerStream fixture. No external mpv process, video, or device is launched. Tests cover distinct observation ids, unknown/valid/outside-editor-range speed values, invalid observations followed by valid events, structured commands, invalid command input, cancelled writes/attachment/lifetime, disconnect notification and broken-pipe write failure, and existing property/seek/frame-step semantics.
+Added [MpvSessionTests](../../../src/tests/ScriptSyncPilot.Common.Tests/MpvSessionTests.cs) with nine MSTest cases and a local NamedPipeServerStream fixture. No external mpv process, video, or device is launched. Tests cover distinct observation ids, unknown/valid/outside-editor-range speed values, invalid observations followed by valid events, structured commands, invalid command input, cancelled writes/attachment/lifetime, disconnect notification and broken-pipe write failure, and existing property/seek/frame-step semantics.
 
 Initial fixture runs failed because AutoFlush was enabled before connection and command reads were not concurrent with Windows pipe writes/flushes. The corrected fixture continuously drains commands into a channel, bounds waits to ten seconds, and awaits its reader during cleanup. Cancellation assertions accept OperationCanceledException subclasses; disconnect tests expect IOException from a broken-pipe write. Production code was unchanged during these repairs.
 

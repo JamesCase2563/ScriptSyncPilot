@@ -29,7 +29,7 @@ Out of scope: desired-state/coalescing machinery, automatic recovery, device tak
 
 - [x] Run focused and full tests and record exact commands/results in [VERIFICATION.md](VERIFICATION.md) (M2.3 focused run: 11/11; M3 full suite: 326/326).
 - [x] Record residual limits, including waveform IPC seek replacement and guarantees that depend on cooperative transport cancellation, in [VERIFICATION.md](VERIFICATION.md).
-- [x] Link evidence from the [production-readiness plan](../production-readiness/PLAN.md); the parent release decision remains open.
+- [x] Link evidence from the [production-readiness plan](../2026-11-production-readiness/PLAN.md); the parent release decision remains open.
 
 ## Acceptance criteria
 

@@ -4,7 +4,7 @@
 **Affected projects:** HandySync.
 **Goal:** Ensure HandySync requests and shutdown are bounded, stop is attempted safely, failures are visible, and no stale device command is issued after disconnect.
 
-This work was selected from the [production-readiness plan](../production-readiness/PLAN.md), initial-release reliability priority 1. It follows the request-budget ranges in the [HandySync backlog](../../HandySync/BACKLOG.md#request-timeouts-and-retries). Expanded retries and automatic recovery remain deferred.
+This work was selected from the [production-readiness plan](../2026-11-production-readiness/PLAN.md), initial-release reliability priority 1. It follows the request-budget ranges in the [HandySync backlog](../../HandySync/BACKLOG.md#request-timeouts-and-retries). Expanded retries and automatic recovery remain deferred.
 
 ## Scope
 

@@ -22,7 +22,7 @@ Useful ideas from the earlier proposal survive in current architecture requireme
 
 ## Active Cross-Project Work
 
-- [Production readiness](work/production-readiness/PLAN.md): coordinate ownership, legal/privacy review, product/protocol boundaries, reliability, and release readiness without duplicating component backlog details.
+- [Production readiness](archive/2026-11-production-readiness/PLAN.md): coordinate ownership, legal/privacy review, product/protocol boundaries, reliability, and release readiness without duplicating component backlog details.
 
 ## Working Documents and Archives
 

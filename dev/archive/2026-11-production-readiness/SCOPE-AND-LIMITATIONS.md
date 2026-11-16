@@ -52,7 +52,7 @@ Other device vendors, alternative protocols, local/offline device output, and no
 - **Timing is best-effort.** Network conditions, device behavior, and service availability can affect synchronization.
 - **Device compatibility is limited to recorded tests.** Physical checks were reported on two H01 devices (model number 0, variant 0) with firmware `4.3.0+dcee7e58` and `4.2.2+44874492`; untested models or firmware versions are not claimed as supported. The test record describes its source/build qualifications.
 - **Unsupported hardware/firmware is untested and not guaranteed to work.** Physical testing is limited to the devices available to the maintainer; acquiring unsupported devices or installing older firmware is not a release requirement. Firmware compatibility checks do not establish successful operation on an untested device.
-- **Failure and recovery scenarios have limited physical coverage.** Automated tests simulate service outages, protocol errors, and local mpv IPC loss; these tests do not establish behavior during a real Handy/network interruption, device takeover, or physical synchronization loss. Automatic recovery is not guaranteed. If communication is lost, the app cannot guarantee a physical device stop; stop the device using its physical controls if necessary. See the [failure-path verification record](VERIFICATION.md#broader-failure-path-evidence) for the simulated cases.
+- **Failure and recovery scenarios have limited physical coverage.** Automated tests simulate service outages, protocol errors, and local mpv IPC loss; these tests do not establish behavior during a real Handy/network interruption, device takeover, or physical synchronization loss. Automatic recovery is not guaranteed. If communication is lost, the app cannot guarantee a physical device stop; stop the device using its physical controls if necessary. See the [failure-path verification record](VERIFICATION.md#broader-failure-path-evidence-2026-11-13) for the simulated cases.
 - **Saved keys are account/profile-bound.** Copying protected settings to another machine or Windows profile may make them unreadable. Keep the original connection key available separately.
 - **Historical files are not cleaned automatically.** Older settings backups or logs may contain plaintext keys or hosted-script URLs.
 - **Provider retention remains unconfirmed.** Handy did not reply to the maintainer's 2026-10-22 question as of 2026-11-13; no further follow-up is planned. The exact lifetime of hosted uploads and generated download URLs is unknown. Do not promise a retention or expiry period.
@@ -67,7 +67,7 @@ Report reproducible defects through GitHub issues, including:
 - Steps to reproduce, expected behavior, and actual behavior.
 - Sanitized diagnostics where useful.
 
-Do not include personal data, connection keys, generated/private script URLs, private media, or unreviewed settings/log files in reports. GitHub private vulnerability reporting is enabled for this public repository; use **Security and quality → Advisories → Report a vulnerability** to report security issues privately. Do not post vulnerability details in an issue. See [privacy and security information](../../docs/online-security.md).
+Do not include personal data, connection keys, generated/private script URLs, private media, or unreviewed settings/log files in reports. GitHub private vulnerability reporting is enabled for this public repository; use **Security and quality → Advisories → Report a vulnerability** to report security issues privately. Do not post vulnerability details in an issue. See [privacy and security information](../../../docs/online-security.md).
 
 ## Initial release gate
 
@@ -81,4 +81,4 @@ Before labeling a source release production-ready:
 - Build/update/rollback instructions, privacy information, support/security contacts, and known limitations are reviewed and published.
 - Remaining risks are explicitly accepted by the maintainer in the release verification record.
 
-Release-task status is tracked in the [production-readiness plan](PLAN.md#milestones), not in a separate checklist here. Credential protection is recorded under milestone 1; error reporting, file preservation, and stop/shutdown verification are tracked under milestone 3.
+Release-task status is tracked in the [production-readiness plan](PLAN.md#release-gates), not in a separate checklist here. Credential protection is recorded under milestone 1; error reporting, file preservation, and stop/shutdown verification are tracked under milestone 3.

@@ -65,7 +65,7 @@ Added `TimelineControl.InsertPositionAtPlayhead(int position)`, rejecting values
 
 ### Focused Automated Tests (2026-10-10)
 
-Added [NumericPositionEntryTests](../../../tests/ScriptSyncPilot.FunscriptEditor.Tests/NumericPositionEntryTests.cs) in a Windows-targeted MSTest/VSTest project following the existing package conventions. Extracted the existing decision logic into `TimelineControl.TryDecodePositionKey`, used by the production message handler and deterministic tests; routing behavior is otherwise unchanged.
+Added [NumericPositionEntryTests](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/NumericPositionEntryTests.cs) in a Windows-targeted MSTest/VSTest project following the existing package conventions. Extracted the existing decision logic into `TimelineControl.TryDecodePositionKey`, used by the production message handler and deterministic tests; routing behavior is otherwise unchanged.
 
 Five tests cover all eleven scan codes, consumed repeats without insertion, all seven Shift/Ctrl/Alt combinations, absent focus, non-key-down messages, extended/unrelated keys, and navigation/numpad repeat rejection. STA tests instantiate the real timeline and exercise insertion, replacement, timestamp rounding/clamping, invalid positions, no-op notification/redo behavior, saved checkpoints, and undo/redo branching.
 

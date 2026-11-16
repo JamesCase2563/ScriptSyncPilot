@@ -75,7 +75,7 @@ not a manual production trial.
 | --- | --- | --- |
 | Date | 2026-11-14 | 2026-11-14 |
 | Source revision | `0d21dc889a8cb8d91b690fb3403cf0c0f0af251d` | `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` |
-| Run/evidence | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal` | [Run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417) |
+| Run/evidence | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal` | [Run 43565771417](https://github.com/JamesCase2563/ScriptSyncPilot/actions/runs/43565771417) |
 | Operating system | Windows 11 x64, OS build `26300` | Windows Server 2025 x64, OS build `10.0.26100`; runner image `windows-2025-vs2026`, image version `20261103.298.1` |
 | .NET SDK | `10.0.401` | `10.0.404` |
 | .NET runtime | `Microsoft.NETCore.App 10.0.12`; `Microsoft.WindowsDesktop.App 10.0.12` | .NET runtime `10.0.15` installed by setup-dotnet; exact Windows Desktop runtime version not recorded in the job log |

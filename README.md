@@ -23,10 +23,10 @@ See the approved [support scope and known limitations](dev/work/production-readi
 
 ## Support and security reports
 
-People with access to the repository can report reproducible defects through [GitHub Issues](https://github.com/Frank-Yong/ScriptSyncPilot/issues). Include the app/source version, Windows and relevant mpv/device versions, reproduction steps, and sanitized diagnostics.
+Report ordinary support requests and reproducible defects through [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues). The repository is currently private, so only people with repository access can use this route. Include the app/source version, Windows and relevant mpv/device versions, reproduction steps, and sanitized diagnostics.
 
-**Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** This repository is private and has no external private security-reporting channel yet. Do not post vulnerability details in a public issue. A public release remains blocked on publishing and verifying a private reporting route.
+**Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** Do not report vulnerabilities in a public issue. The repository is currently private, so it cannot yet accept private vulnerability reports from external users. After it is public, the owner must enable GitHub private vulnerability reporting; use **Security and quality → Advisories → Report a vulnerability** only when that button is available. A public release remains blocked until the reporting route is enabled and verified.
 
 ## Current release status
 
-The repository is not yet marked production-ready. The .NET 10 retarget must pass the complete Windows CI gate, and the remaining support, security-reporting, and release-evidence gates in the verification record must be closed before publishing a stable source release.
+The repository is not yet marked production-ready. The .NET 10 build and automated test gate has passed; the remaining support, security-reporting, and release-evidence gates in the verification record must be closed before publishing a stable source release.

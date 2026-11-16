@@ -29,13 +29,13 @@ Logs can contain local paths, operation status, and diagnostic details. Current 
 
 ## Reporting a problem safely
 
-Ordinary support and bug reports belong in [GitHub Issues](https://github.com/Frank-Yong/ScriptSyncPilot/issues), when you have access to the repository. Include the app version, Windows version, relevant mpv/device/firmware versions, steps to reproduce, and a sanitized error message.
+Ordinary support and bug reports belong in [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues). The repository is currently private, so only people with repository access can use this route. Include the app version, Windows version, relevant mpv/device/firmware versions, steps to reproduce, and a sanitized error message.
 
 **Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** These may expose account/device access or private content.
 
 ### Security reports
 
-The repository is currently private. GitHub's private vulnerability reporting feature is available only for public repositories, and this project has not published a maintainer email address or another external private reporting channel. Therefore, there is not yet a usable private security-reporting route for people outside the repository's access list. Do not post vulnerability details or secrets in a public issue. A public release must not be described as support/security-ready until the maintainer publishes and verifies a private reporting route.
+The repository is currently private, and no external private security-reporting channel is published. GitHub private vulnerability reporting is available only after a repository is public and its owner enables the feature. Once enabled, use **Security and quality → Advisories → Report a vulnerability** on the repository. Do not post vulnerability details or secrets in a public issue. Until that private form is available and verified, there is no usable external security-reporting route; a public release must not be described as support/security-ready.
 
 ## Protection limits
 

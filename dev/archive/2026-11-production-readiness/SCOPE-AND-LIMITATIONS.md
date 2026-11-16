@@ -6,7 +6,7 @@
 
 ScriptSyncPilot is a free, MIT-licensed project maintained by an individual. The initial release is **source-only**: users obtain the source from a published version tag and build it locally.
 
-Support is best-effort through [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues). There is no guaranteed response time, service availability, or fix schedule. Initially, fixes target the latest published source release; maintaining older release branches is not promised. The repository is currently private, so only people with repository access can use this support route. After it becomes public, external users can use Issues for ordinary support, but must not post vulnerability details there.
+Support is best-effort through [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues), which are publicly accessible. There is no guaranteed response time, service availability, or fix schedule. Initially, fixes target the latest published source release; maintaining older release branches is not promised. Do not post vulnerability details in an issue.
 
 ## Supported scope
 
@@ -67,7 +67,7 @@ Report reproducible defects through GitHub issues, including:
 - Steps to reproduce, expected behavior, and actual behavior.
 - Sanitized diagnostics where useful.
 
-Do not include personal data, connection keys, generated/private script URLs, private media, or unreviewed settings/log files in reports. The repository is currently private and has no external private security-reporting route. After the repository is public, the owner must enable GitHub private vulnerability reporting; reporters should use **Security and quality → Advisories → Report a vulnerability** only when that form is available. Do not post vulnerability details in an issue. A public release requires this private reporting route to be enabled and verified. See [privacy and security information](../../docs/online-security.md).
+Do not include personal data, connection keys, generated/private script URLs, private media, or unreviewed settings/log files in reports. GitHub private vulnerability reporting is enabled for this public repository; use **Security and quality → Advisories → Report a vulnerability** to report security issues privately. Do not post vulnerability details in an issue. See [privacy and security information](../../docs/online-security.md).
 
 ## Initial release gate
 

@@ -1,8 +1,21 @@
 # Tested Environments
 
-**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves a positive manual-test report whose exact revision and workflow details were not captured. ENV-003 records full .NET 10 Release restore/build/test runs locally and in GitHub Actions; these automated runs do not verify mpv or physical Handy workflows.
+**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves an earlier positive manual-test report with incomplete metadata. ENV-003 records full .NET 10 automated runs locally and in GitHub Actions. ENV-004 records the successful manual .NET 10 trial, with its revision and much of its environment recovered from the published app artifacts and sanitized logs; the exact SDK patch and complete workflow checklist remain unknown. ENV-005 records successful Release `win-x64` framework-dependent publishes for both applications.
 
-The current source targets .NET 10. ENV-003 records automated .NET 10 build/test environments; the physical Handy and mpv evidence in ENV-001 remains historical .NET 9 evidence. Retargeting alone does not extend those compatibility claims.
+The current source targets .NET 10. ENV-003 records automated .NET 10 build/test environments. ENV-004 adds a manually exercised Debug publish on .NET 10, mpv IPC, and one H01/firmware combination. ENV-001 remains the detailed baseline for broader physical workflow claims; do not generalize ENV-004 beyond its recorded device and workflows.
+
+## ENV-005 — Release framework-dependent publish commands
+
+On 2026-11-16, both publish commands documented in [`docs/source-release.md`](../../docs/source-release.md) completed successfully from the repository root. The output directory used a verification-specific name under `.verification` to avoid placing test artifacts in the user's normal application install directory. The command options match the guide: Release configuration, `win-x64`, and `--self-contained false`.
+
+| Field | Value |
+| --- | --- |
+| Source revision | `919b80439435b1a5687a2f2278333cddb3ab9cc5` (`src/` matched the successful CI build at `0847b3d7d7bf5646c38672f470bac26b287d419b`; only readiness documentation was locally modified) |
+| Environment | Windows 11 x64, OS build `26300`; .NET SDK `11.0.100`; MSBuild `18.12.2`; installed SDKs also include `9.0.308` |
+| FunscriptEditor | `dotnet publish .\src\ScriptSyncPilot.FunscriptEditor\ScriptSyncPilot.FunscriptEditor.csproj --configuration Release --runtime win-x64 --self-contained false --output <verification-root>\FunscriptEditor` — **passed**, exit code 0 |
+| HandySync | `dotnet publish .\src\ScriptSyncPilot.HandySync\ScriptSyncPilot.HandySync.csproj --configuration Release --runtime win-x64 --self-contained false --output <verification-root>\HandySync` — **passed**, exit code 0 |
+| Output root | `.verification\source-release\verification-2026-11-16` (ignored verification artifacts) |
+| Scope | Confirms both documented publish commands build and emit application folders with the installed .NET 11 SDK. Does not verify launching the Release outputs, runtime installation on a clean machine, hardware workflows, or the exact .NET 10 SDK version used in ENV-004. |
 
 ## What ENV-001 establishes
 
@@ -14,6 +27,68 @@ The current source targets .NET 10. ENV-003 records automated .NET 10 build/test
 See [initial support scope and known limitations](SCOPE-AND-LIMITATIONS.md) for the requirements and boundaries that apply to users. Vendor firmware/API minimums are not equivalent to tested compatibility.
 
 Copy the record below for each tested combination. Record exact versions rather than "latest"; use "not checked" for unknown values. A passing check applies only to the recorded source revision, environment, and workflow, not every model or release.
+
+## ENV-004 — manual .NET 10 trial (reported successful; metadata pending)
+
+On 2026-11-15, the maintainer reported that the recommended manual .NET 10
+trial had been performed successfully. The local logs and published artifacts
+were reviewed without reproducing their raw contents; paths, hosted URLs, and
+credentials were not copied into this record. The app artifacts identify the
+tested code revision and target, and the HandySync log provides device and
+workflow evidence.
+
+| Field | Value |
+| --- | --- |
+| Report date and tester | 2026-11-15; Frank Yong (maintainer report) |
+| Trial time window | HandySync activity from 09:29 to 10:25 local time; FunscriptEditor script load and mpv attachment at 10:25 |
+| ScriptSyncPilot source revision | `e456b094689593f6054e5fdf827d3f6fbd588478`, recovered from both published app assemblies' `AssemblyInformationalVersion`; no `src/` changes are present between that revision and the current checkout |
+| Build configuration / target | Debug `dotnet publish`; app runtime configs target `net10.0` / Windows Desktop `10.0.0` minimum |
+| Windows edition/version/build and architecture | Windows 11 x64, OS build `26300` (local machine environment); exact edition not rechecked during the trial |
+| .NET SDK | .NET 10 SDK used for the local publish is not confirmed to a patch version. Current SDK inventory does not establish which SDK was active at publish time. |
+| .NET Desktop Runtime | `10.0.15` was installed before the trial; runtime configuration targets .NET 10 and the highest installed .NET 10 Windows Desktop runtime was `10.0.15` |
+| mpv version/configuration | `v0.41.0-244-gaf9c81fa1`; the mpv process was running before the trial, and HandySync/FunscriptEditor logs record successful IPC attachment |
+| Handy model / hardware revision | H01, model number 0, model variant 0; hardware revision not reported |
+| Handy firmware | `4.2.2+44874492`, firmware status 1 |
+| Protocols evidenced | Handy REST API, Hosting API v2 upload, HSSP setup; exact connection/network conditions not recorded |
+| Applications and workflows evidenced | Both apps launched from local published folders; FunscriptEditor script load and mpv IPC attachment; HandySync script load, mpv IPC attachment, Handy connection, firmware/capability read, CSV upload, HSSP setup, stroke writes, and pause/stop events |
+| Release-guide publish commands | Debug trial artifacts remain as described; the documented Release `win-x64 --self-contained false` commands were subsequently run successfully and are recorded in ENV-005 |
+| Outcome | **Pass (maintainer-reported).** The updated HandySync log shows several successful pause/stop events, with the last at 10:21:51. At 10:23:34, offset polling failed with an HSTP request timeout. At 10:25:12 and 10:25:15, two later HSSP stop requests failed with device error 1001. The maintainer suspects the device's manual emergency stop button may have been pressed; this is plausible but is not recorded in the log and is unconfirmed. No later successful stop is logged. |
+
+Complete this entry with the exact .NET SDK patch and the specific workflows
+covered by the maintainer's success report. The updated log identifies the
+previously unclassified diagnostic as an HSTP offset-poll timeout. Review the
+two later HSSP stop failures (device error 1001) before classifying the final
+shutdown result. The maintainer's emergency-stop-button explanation is a
+plausible but unverified hypothesis because button activity is not logged. The
+documented Release publish commands are recorded
+separately in ENV-005; this trial verified the local Debug publish route.
+
+## ENV-003 — .NET 10 Release build and automated tests
+
+This record covers the current .NET 10 source tree. The local test run was on
+`0d21dc889a8cb8d91b690fb3403cf0c0f0af251d`; GitHub Actions then ran successfully
+on `72a4e5ed2e41cce09bc2657f51f36452ff7b9934`, which adds only the CI-trigger
+workflow change on top of that source. These are automated build/test results,
+not a manual production trial.
+
+| Field | Local run | GitHub Actions run |
+| --- | --- | --- |
+| Date | 2026-11-14 | 2026-11-14 |
+| Source revision | `0d21dc889a8cb8d91b690fb3403cf0c0f0af251d` | `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` |
+| Run/evidence | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal` | [Run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417) |
+| Operating system | Windows 11 x64, OS build `26300` | Windows Server 2025 x64, OS build `10.0.26100`; runner image `windows-2025-vs2026`, image version `20261103.298.1` |
+| .NET SDK | `10.0.401` | `10.0.404` |
+| .NET runtime | `Microsoft.NETCore.App 10.0.12`; `Microsoft.WindowsDesktop.App 10.0.12` | .NET runtime `10.0.15` installed by setup-dotnet; exact Windows Desktop runtime version not recorded in the job log |
+| Build configuration / target | Release; `net10.0` and `net10.0-windows` | Release; `net10.0` and `net10.0-windows` |
+| Restore and build | Passed as part of `dotnet test`; no build errors reported | Restore passed; Release build passed |
+| Automated test result | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) |
+| mpv / physical device | Not exercised | Not exercised |
+| Conclusion | Full local .NET 10 suite passes on this Windows environment. | Full CI suite passes on the exact CI commit using the .NET 10.0.15 runtime. |
+
+ENV-003 verifies compilation and automated behavior after retargeting to .NET 10.
+It does not establish desktop playback integration, Handy REST/Hosting behavior,
+or physical device compatibility on .NET 10. Keep the local runtime updated; the
+CI run used the current .NET 10 runtime available on its runner.
 
 ## ENV-002 — firmware-capabilities production retest (incomplete metadata)
 
@@ -54,33 +129,6 @@ environment-record standard for claiming reproducibility or compatibility. If
 the maintainer still has the build notes or can identify the tested setup, replace
 the unknown fields with those exact values and split the outcome into the actual
 workflows performed. Do not infer them from ENV-001.
-
-## ENV-003 — .NET 10 Release build and automated tests
-
-This record covers the current .NET 10 source tree. The local test run was on
-`0d21dc889a8cb8d91b690fb3403cf0c0f0af251d`; GitHub Actions then ran successfully
-on `72a4e5ed2e41cce09bc2657f51f36452ff7b9934`, which adds only the CI-trigger
-workflow change on top of that source. These are automated build/test results,
-not a manual production trial.
-
-| Field | Local run | GitHub Actions run |
-| --- | --- | --- |
-| Date | 2026-11-14 | 2026-11-14 |
-| Source revision | `0d21dc889a8cb8d91b690fb3403cf0c0f0af251d` | `72a4e5ed2e41cce09bc2657f51f36452ff7b9934` |
-| Run/evidence | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --verbosity minimal` | [Run 43565771417](https://github.com/Frank-Yong/ScriptSyncPilot/actions/runs/43565771417) |
-| Operating system | Windows 11 x64, OS build `26300` | Windows Server 2025 x64, OS build `10.0.26100`; runner image `windows-2025-vs2026`, image version `20261103.298.1` |
-| .NET SDK | `10.0.401` | `10.0.404` |
-| .NET runtime | `Microsoft.NETCore.App 10.0.12`; `Microsoft.WindowsDesktop.App 10.0.12` | .NET runtime `10.0.15` installed by setup-dotnet; exact Windows Desktop runtime version not recorded in the job log |
-| Build configuration / target | Release; `net10.0` and `net10.0-windows` | Release; `net10.0` and `net10.0-windows` |
-| Restore and build | Passed as part of `dotnet test`; no build errors reported | Restore passed; Release build passed |
-| Automated test result | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) | **341/341 passed** (Common 90/90; FunscriptEditor 251/251) |
-| mpv / physical device | Not exercised | Not exercised |
-| Conclusion | Full local .NET 10 suite passes on this Windows environment. | Full CI suite passes on the exact CI commit using the .NET 10.0.15 runtime. |
-
-ENV-003 verifies compilation and automated behavior after retargeting to .NET 10.
-It does not establish desktop playback integration, Handy REST/Hosting behavior,
-or physical device compatibility on .NET 10. Keep the local runtime updated; the
-CI run used the current .NET 10 runtime available on its runner.
 
 ## ENV-001
 

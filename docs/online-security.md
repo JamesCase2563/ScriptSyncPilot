@@ -1,38 +1,44 @@
-# Online Security and the Handy
+# Privacy, data flows, and security
 
-## Overview
-The Handy requires a persistent Internet connection to synchronize with content and access features. Given the private nature of its use, understanding the security and privacy implications is important.
+This notice describes ScriptSyncPilot's application behavior. It does not make promises on behalf of Handy or mpv.
 
-## Security Measures
-- **End-to-end encryption**: All communication between the Handy and servers is encrypted via HTTPS.
-- **Connection key system**: Each device uses a unique connection key, which can be changed at any time. Changing the key at the hardware level invalidates the old key.
-- **No historic key records**: There are no records of previous keys, making tracking difficult for third parties.
-- **Third-party access**: Third-party services can only identify your device by the connection key you provide. They do not receive your device's IP address.
-- **Local configuration**: Local configuration is done via Bluetooth (approx. 10m range).
+## What the applications do with your data
 
-## Data Handling
-- **Minimal data uploaded**: Only essential data is transmitted. The system does not upload your browser history, payment info, or other personal data.
-- **No direct device access**: Third-party apps interact with the Handy via the API and do not have direct access to your device.
+### FunscriptEditor
 
-## Key Security Details
-- **Key generation**: The connection key is generated using true random noise from the Wi-Fi antenna.
-- **Key length**: Variable from 5 to 32 characters, using lower case, upper case, and numbers (62 possible characters per position).
-- **Brute force resistance**: Even the shortest key (5 chars) has over 916 million combinations; the longest (32 chars) has over 2.2e57 combinations.
-- **Key compromise**: If a key is brute-forced and stolen, the attacker can only control the device while it is online. Changing the key immediately revokes access.
+FunscriptEditor edits script files on your computer. Video playback uses your separately installed mpv player. The editor does not send video or script files to ScriptSyncPilot services; this project does not operate a cloud service for them.
 
-## Device Operation
-- **Offline by default**: The Handy is offline by default. Wi-Fi must be manually activated each time the device is powered on.
-- **Firmware and API**: Online connectivity allows for firmware updates and API access. If you wish to revoke third-party access, simply change your connection key.
+### HandySync and Handy services
 
-## Privacy Philosophy
-- **Privacy by default**: The Handy is designed with privacy as a priority. There is little incentive to collect user data, reducing future data collection risks.
+HandySync reads the selected funscript locally and sends its action timestamps and positions as a CSV file to Handy's Hosting API. It does not upload the associated video. HandySync receives a hosted script URL and sends that URL to the device through Handy's REST API for HSSP playback. Treat that URL as a secret that grants access to the hosted script.
 
-## CTO Statement
-> “If it's online, it can be hacked or manipulated. ... Generating a new key renders the old one useless. ... Our Handy-server connection system is fire and forget. ... Privacy by default is very important for us.”
+HandySync also sends the connection key to Handy's REST API to authenticate device-control requests. Requests include the selected control operation and values such as playback time, offset, or stroke range. The app does not send the connection key to ScriptSyncPilot: the project has no ScriptSyncPilot server. The third-party service's handling of these requests and associated network metadata is governed by that provider, not this project.
 
-## Additional Links
-- [thehandy.com](https://thehandy.com/)
-- [Developer Docs](https://intercom.help/ohdoki/en/collections/5757680-developer)
+The CSV retention period and generated URL lifetime have not been confirmed by Handy. The URL is described by the Hosting API as temporary, but no exact expiration or deletion time is known. Do not rely on an assumed expiry period; no retention duration is promised here.
 
----
-*Extracted and summarized from [Ohdoki Help Center](https://intercom.help/ohdoki/en/articles/9034256-online-security-and-the-handy) on May 28, 2026.*
+## Data stored on your computer
+
+HandySync stores settings in `%APPDATA%\ScriptSyncPilot.HandySync\settings.json`. Saved connection keys are protected with Windows DPAPI for the current Windows user/profile. The settings also include the mpv IPC pipe, device offset, stroke range, and last script path. The connection key is present in application memory while in use, and the entry field is not masked. FunscriptEditor stores its settings, including the last script path, in `%APPDATA%\ScriptSyncPilot.FunscriptEditor\settings.json`. Old plaintext HandySync settings backups are not migrated or erased by the application.
+
+Both applications write append-only logs under `%LOCALAPPDATA%`:
+
+- FunscriptEditor: `%LOCALAPPDATA%\ScriptSyncPilot.FunscriptEditor\scriptsyncpilot.funscripteditor.log`
+- HandySync: `%LOCALAPPDATA%\ScriptSyncPilot.HandySync\scriptsyncpilot.handysync.log`
+
+Logs can contain local paths, operation status, and diagnostic details. Current upload/setup logging avoids writing the connection key and hosted URL. Older log files may contain generated hosted URLs; logs are not automatically sanitized, rotated, or deleted. Review and redact files before sharing them. We found no analytics, telemetry, or crash-reporting integration in the application source or project dependencies reviewed for this notice.
+
+## Reporting a problem safely
+
+Ordinary support and bug reports belong in [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues). The repository is currently private, so only people with repository access can use this route. Include the app version, Windows version, relevant mpv/device/firmware versions, steps to reproduce, and a sanitized error message.
+
+**Do not include personal data, Handy connection keys, generated/private script URLs, private media, or unreviewed settings and log files.** These may expose account/device access or private content.
+
+### Security reports
+
+The repository is currently private, and no external private security-reporting channel is published. GitHub private vulnerability reporting is available only after a repository is public and its owner enables the feature. Once enabled, use **Security and quality → Advisories → Report a vulnerability** on the repository. Do not post vulnerability details or secrets in a public issue. Until that private form is available and verified, there is no usable external security-reporting route; a public release must not be described as support/security-ready.
+
+## Protection limits
+
+DPAPI protects saved connection keys for the current Windows profile. It does not protect against malware or processes running as the same user, administrators, or access to an unlocked session. Other settings and identifiers are not encrypted. Copying protected settings to another Windows account or machine is not a supported migration method.
+
+If settings cannot be decrypted or saved, preserve the original file and use the application's error message to recover; do not replace it with an empty file. See the [source-release guide](source-release.md) for update and rollback guidance.

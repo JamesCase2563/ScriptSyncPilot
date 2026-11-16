@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
+
 namespace ScriptSyncPilot.Common;
 
 /// <summary>
@@ -11,6 +14,18 @@ public static class AppLog
     public static string FilePath { get; private set; } = BuildPath("ScriptSyncPilot");
 
     public static void Init(string appName) => FilePath = BuildPath(appName);
+
+    public static void WriteStartupInformation()
+    {
+        var assembly = Assembly.GetEntryAssembly();
+        var appName = assembly?.GetName().Name ?? "Unknown application";
+        var appVersion = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly?.GetName().Version?.ToString()
+            ?? "unknown";
+
+        Write($"Application started: {appName}; app version {appVersion}; " +
+            $".NET runtime {RuntimeInformation.FrameworkDescription}; OS {RuntimeInformation.OSDescription}.");
+    }
 
     private static string BuildPath(string appName) => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

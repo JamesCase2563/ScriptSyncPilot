@@ -20,6 +20,10 @@ Start with the [system architecture](ARCHITECTURE.md). The [vision](VISION.md) d
 
 Useful ideas from the earlier proposal survive in current architecture requirements and backlogs: command ordering, lifecycle safety, compatibility checks, diagnostics, privacy, tests, UI/session separation, and an optional local backend.
 
+## Active Cross-Project Work
+
+- [Production readiness](work/production-readiness/PLAN.md): coordinate ownership, legal/privacy review, product/protocol boundaries, reliability, and release readiness without duplicating component backlog details.
+
 ## Working Documents and Archives
 
 This README is the canonical convention; conversational notes are historical context, not competing instructions.
@@ -42,12 +46,12 @@ Archives are historical snapshots and are not maintained as current instructions
 
 ## Unit Tests
 
-The solution includes [ScriptSyncPilot.Common.Tests](../tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj), a .NET 9 MSTest project using VSTest. Tests are discoverable in Visual Studio Test Explorer and VS Code's .NET testing integration.
+The solution includes [ScriptSyncPilot.Common.Tests](../src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj), a .NET 10 MSTest project using VSTest. Tests are discoverable in Visual Studio Test Explorer and VS Code's .NET testing integration.
 
 Run from the repository root:
 
 ```powershell
-dotnet test tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj
+dotnet test src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj
 ```
 
 The initial suite covers Funscript action edits, sorted loading, empty documents, invalid JSON, lowercase serialization, preserved root properties, and CSV export. Each test uses an isolated temporary directory and cleans it up. Add tests for pure Common logic here; editor-specific generation/history logic should have its own test project if it lives in the editor rather than Common. No video player or physical device is required for this suite.

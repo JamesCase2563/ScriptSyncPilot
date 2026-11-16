@@ -42,7 +42,7 @@ Script hosting upload
 - Script upload used by `HandyController`: `https://www.handyfeeling.com/api/hosting/v2/upload` (multipart form POST; form field name `file`).
 
 Client behavior notes
-- The repository includes logic to check firmware status (`info` response) and display OSD messages for optional/required firmware updates.
+- The application reads firmware status (`info` response) for compatibility checks; it does not initiate firmware updates. See the [manufacturer's official firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3).
 - The `HandyController` implements offset calculation and clock synchronization using endpoints under `hstp`/`hssp`.
 - Script payloads are often sent as CSV via the hosting API and then referenced by URL in `hssp` calls.
 

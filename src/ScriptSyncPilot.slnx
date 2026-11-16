@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="ScriptSyncPilot.Common/ScriptSyncPilot.Common.csproj" />
+    <Project Path="ScriptSyncPilot.FunscriptEditor/ScriptSyncPilot.FunscriptEditor.csproj" />
+    <Project Path="ScriptSyncPilot.HandySync/ScriptSyncPilot.HandySync.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj" />
+    <Project Path="tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -59,7 +59,7 @@ Handy API v2 (2.0.0-beta-3, OAS 3.0) provides an HTTP interface for interacting 
 
 ### MAINTENANCE (to be removed from public API)
 - `PUT /maintenance/restart` — Restart device
-- `PUT /maintenance/update/perform` — Perform firmware update
+- `PUT /maintenance/update/perform` — Vendor API endpoint for performing a firmware update; ScriptSyncPilot does not call this endpoint or perform firmware updates. Refer to the [manufacturer's official firmware guidance](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3).
 - `GET /maintenance/update/status` — Get update status
 
 ### OTA (to be removed from public API)

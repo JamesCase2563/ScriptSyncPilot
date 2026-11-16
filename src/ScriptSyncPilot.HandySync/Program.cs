@@ -8,7 +8,20 @@ public static class Program
     private static void Main()
     {
         AppLog.Init("ScriptSyncPilot.HandySync");
+        AppLog.WriteStartupInformation();
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        AppSettings settings;
+        string? settingsLoadError = null;
+        try
+        {
+            settings = AppSettings.Load();
+        }
+        catch (SettingsException ex)
+        {
+            settings = new AppSettings();
+            settingsLoadError = ex.Message;
+        }
+
+        Application.Run(new MainForm(settings, key => new HandyApiClient(key), settingsLoadError: settingsLoadError));
     }
 }

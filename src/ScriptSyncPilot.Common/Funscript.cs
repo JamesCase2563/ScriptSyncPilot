@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -43,10 +44,51 @@ public sealed class Funscript
     }
 
     public void Save(string path)
+        => Save(path, null);
+
+    internal void Save(string path, Action<Stream, string>? writeStagedContent)
     {
         var doc = new FunscriptFile { Actions = _actions, ExtensionData = _extensionData };
         var json = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json);
+        var destination = Path.GetFullPath(path);
+        var directory = Path.GetDirectoryName(destination)!;
+        Directory.CreateDirectory(directory);
+
+        var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(destination)}-{Guid.NewGuid():N}.tmp");
+        var ownsTemporaryFile = false;
+        try
+        {
+            using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                ownsTemporaryFile = true;
+                if (writeStagedContent is not null)
+                {
+                    writeStagedContent(stream, json);
+                }
+                else
+                {
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true);
+                    writer.Write(json);
+                    writer.Flush();
+                }
+
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (File.Exists(destination))
+                File.Replace(temporaryPath, destination, null);
+            else
+                File.Move(temporaryPath, destination);
+            ownsTemporaryFile = false;
+        }
+        finally
+        {
+            if (ownsTemporaryFile)
+            {
+                try { File.Delete(temporaryPath); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
     }
 
     /// <summary>Inserts an action keeping the list sorted by time, replacing any action at the same time.</summary>

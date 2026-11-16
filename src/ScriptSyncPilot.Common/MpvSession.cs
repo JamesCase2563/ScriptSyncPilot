@@ -86,7 +86,8 @@ public sealed class MpvSession : IDisposable
 
     private async Task SendAsync(object command, CancellationToken ct)
     {
-        if (_pipe is not { IsConnected: true }) return;
+        if (_pipe is not { IsConnected: true })
+            throw new IOException("mpv IPC pipe is not connected.");
         var json = JsonSerializer.Serialize(command) + "\n";
         var bytes = Encoding.UTF8.GetBytes(json);
         await _pipe.WriteAsync(bytes, ct);

@@ -2,11 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ScriptSyncPilot.Common</RootNamespace>
     <AssemblyName>ScriptSyncPilot.Common</AssemblyName>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScriptSyncPilot.Common.Tests" />
+  </ItemGroup>
 
 </Project>

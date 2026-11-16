@@ -56,9 +56,21 @@ Handy API v3 provides an HTTP interface for interacting with Handy devices. It i
 - `GET /connected` — Check device connectivity
 - `GET /capabilities` — Get device capabilities
 
+### Connection diagnostics
+HandySync queries `GET /info` once on each connection as part of its firmware check.
+The window log and persistent HandySync log record the returned hardware model name
+(`hw_model_name`), model number (`hw_model_no`), and model variant (`hw_model_variant`),
+alongside the existing firmware version/status diagnostics. Missing hardware fields
+are logged as `not reported`; a failed info request is logged and device controls
+remain disabled, without changing the existing HSSP connection flow.
+Only these hardware fields are logged, not the raw info response or session ID.
+The API does not expose a separate manufacturer or hardware-revision field; do not
+treat the model variant as a confirmed hardware revision.
+
 ## Firmware Requirements
 - Devices must be on firmware v4 or newer to use API v3.
 - See [Handling older firmware](https://links.handyfeeling.com/docs-api-handy-rest-v3-fw3) for migration.
+- ScriptSyncPilot does not update firmware. Use the manufacturer's official guidance linked above to check and perform any required update.
 
 ## Community & Support
 - Discord: Handy#8756

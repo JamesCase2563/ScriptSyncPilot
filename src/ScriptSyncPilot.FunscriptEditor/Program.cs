@@ -8,6 +8,7 @@ public static class Program
     private static void Main()
     {
         AppLog.Init("ScriptSyncPilot.FunscriptEditor");
+        AppLog.WriteStartupInformation();
         ApplicationConfiguration.Initialize();
         Application.Run(new MainForm());
     }

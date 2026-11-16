@@ -1,8 +1,34 @@
 # Tested Environments
 
-**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves an earlier positive manual-test report with incomplete metadata. ENV-003 records full .NET 10 automated runs locally and in GitHub Actions. ENV-004 records the successful manual .NET 10 trial and its log-supported workflow checklist; the exact SDK patch was not recorded and cannot be recovered. ENV-005 records successful Release `win-x64` framework-dependent publishes for both applications.
+**Status:** ENV-001 records a historical .NET 9 build with local changes. ENV-002 preserves an earlier positive manual-test report with incomplete metadata. ENV-003 records full .NET 10 automated runs locally and in GitHub Actions. ENV-004 records the successful manual .NET 10 trial and its log-supported workflow checklist; the exact SDK patch was not recorded and cannot be recovered. ENV-005 records successful Release `win-x64` framework-dependent publishes for both applications. ENV-006 records a partial second-machine check; HandySync's device connection was not verified.
 
 The current source targets .NET 10. ENV-003 records automated .NET 10 build/test environments. ENV-004 adds a manually exercised Debug publish on .NET 10, mpv IPC, and one H01/firmware combination. ENV-001 remains the detailed baseline for broader physical workflow claims; do not generalize ENV-004 beyond its recorded device and workflows.
+
+## ENV-006 — separate-machine manual check (partial)
+
+The maintainer reports testing both applications on a separate Windows machine
+on 2026-11-16. The two application logs are under the maintainer-provided
+logs folder in the personal checkout. The logs were inspected without copying
+the machine name, local script paths, connection keys, or URLs into this record.
+The maintainer later reported that `dotnet --list-sdks` on that machine showed
+SDK `10.0.404`. The app source revision, build configuration, OS build,
+installed .NET runtime, and mpv version were not recorded, so this record does
+not claim a clean-machine validation of the specific Release outputs.
+
+| Application/workflow | Evidence and result |
+| --- | --- |
+| .NET SDK inventory | Maintainer-reported output: `10.0.404 [C:\Program Files\dotnet\sdk]`. This identifies an installed SDK, not the SDK or configuration used to build the tested application binaries. |
+| FunscriptEditor mpv launch | At 08:53, launching the configured command `mpv` failed because Windows could not find that executable. |
+| FunscriptEditor mpv IPC and script save | At 11:14, the app later attached to an mpv IPC pipe; at 11:15 and 11:19 it logged saves of 0 and 4 actions. This corroborates IPC attachment and save activity, but not which build was tested or a reopen/round-trip check. |
+| HandySync settings and connection key | At 11:23, settings could not be loaded because a saved DPAPI-protected connection key could not be decrypted. At 11:25, saving settings was refused because the existing settings could not be loaded. This is consistent with using settings copied from another Windows profile/machine; the log does not establish how the file arrived there. |
+| HandySync script and mpv IPC | The app loaded a 4-action script and attached to mpv IPC. |
+| Handy device connection | **Untested on this machine by decision.** No successful connection event appears in the inspected log; the maintainer has directed that this machine's device test remain untested. ENV-004 separately records the manual device workflow on its own environment. |
+| Overall result | **Partial.** The editor and mpv integration have useful evidence. This environment provides no device-connectivity result and does not identify the exact app build or Release configuration. |
+
+The log's DPAPI decryption/settings-save errors are retained as environment
+context only. No further device-connection attempt is planned on this machine.
+DPAPI-protected keys are bound to the Windows user/profile; do not share the
+settings file or connection key.
 
 ## ENV-005 — Release framework-dependent publish commands
 

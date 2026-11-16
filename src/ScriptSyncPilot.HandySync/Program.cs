@@ -8,6 +8,7 @@ public static class Program
     private static void Main()
     {
         AppLog.Init("ScriptSyncPilot.HandySync");
+        AppLog.WriteStartupInformation();
         ApplicationConfiguration.Initialize();
         AppSettings settings;
         string? settingsLoadError = null;

@@ -660,7 +660,9 @@ public sealed class MainForm : Form
 
     private void OnFormKeyDown(object? sender, KeyEventArgs e)
     {
-        if (_speedInput.ContainsFocus || _mpv is null) return;
+        // Playback stepping belongs to the timeline context. Let text fields,
+        // numeric inputs, sliders, and other focused controls handle their own keys.
+        if (!_timeline.Focused || _mpv is null) return;
         switch (e.KeyCode)
         {
             case Keys.Left when e.Control:

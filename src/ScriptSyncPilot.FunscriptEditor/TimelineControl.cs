@@ -1,4 +1,5 @@
 using ScriptSyncPilot.Common;
+using System.Diagnostics;
 
 namespace ScriptSyncPilot.FunscriptEditor;
 
@@ -19,11 +20,12 @@ public sealed class TimelineControl : Control
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
     private const int ValueBarWidth = 40;
+    private const int FocusBorderPadding = 3;
     private const int ScrollbarUnitsPerSecond = 1000;
     private const double AbsoluteMaxPixelsPerSecond = 2000;
     private const double FallbackDurationSeconds = 60;
 
-    private readonly HScrollBar _scrollBar = new() { Dock = DockStyle.Bottom, Height = 17 };
+    private readonly HScrollBar _scrollBar = new() { Height = 17 };
 
     private Funscript _script = new();
     private GeneratedPattern? _patternPreview;
@@ -41,6 +43,8 @@ public sealed class TimelineControl : Control
     private bool _scrubbing;
     private int? _panStartX;
     private double _panStartSeconds;
+    private MouseButtons? _panButton;
+    private bool _suppressPlaybackFollowUntilVisible;
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
 
@@ -90,15 +94,17 @@ public sealed class TimelineControl : Control
     [System.ComponentModel.Browsable(false)]
     public double MaxPixelsPerSecond => Math.Max(MinPixelsPerSecond, AbsoluteMaxPixelsPerSecond);
 
-    public void ZoomToFit() => ZoomAt(MinPixelsPerSecond, 0, 0);
+    public void ZoomToFit() => ZoomAt(MinPixelsPerSecond, 0, ContentLeft);
 
     public TimelineControl()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         TabStop = true;
         BackColor = Color.FromArgb(30, 30, 30);
+        Padding = new Padding(FocusBorderPadding);
         ScriptChanged += (_, _) => ReclampZoom();
         Controls.Add(_scrollBar);
+        LayoutScrollBar();
         _scrollBar.Scroll += (_, _) =>
         {
             if (_suppressScrollEvent) return;
@@ -109,7 +115,8 @@ public sealed class TimelineControl : Control
 
     public void LoadScript(Funscript script)
     {
-        EndPan();
+        PanEnd(suppressFollow: false);
+        _suppressPlaybackFollowUntilVisible = false;
         _script = script;
         _selectedIndex = null;
         _draggingIndex = null;
@@ -176,7 +183,11 @@ public sealed class TimelineControl : Control
     public void SetPlayhead(double seconds, bool followPlayback)
     {
         _playheadSeconds = seconds;
-        if (followPlayback && _panStartX is null && _draggingIndex is null && !_scrubbing
+        if (_suppressPlaybackFollowUntilVisible && IsPlayheadInViewport())
+            _suppressPlaybackFollowUntilVisible = false;
+
+        if (followPlayback && !_suppressPlaybackFollowUntilVisible
+            && _panStartX is null && _draggingIndex is null && !_scrubbing
             && (seconds < _viewStartSeconds || seconds >= _viewStartSeconds + ViewportSeconds()))
         {
             _viewStartSeconds = seconds - ViewportSeconds() / 2;
@@ -228,6 +239,10 @@ public sealed class TimelineControl : Control
 
     private double ViewportSeconds() => Math.Max(1, TrackAreaWidth) / _pixelsPerSecond;
 
+    private bool IsPlayheadInViewport() =>
+        _playheadSeconds >= _viewStartSeconds
+        && _playheadSeconds < _viewStartSeconds + ViewportSeconds();
+
     private void SetZoom(double pixelsPerSecond, double centerSeconds)
     {
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
@@ -242,7 +257,7 @@ public sealed class TimelineControl : Control
     private void ZoomAt(double pixelsPerSecond, double anchorSeconds, double anchorX)
     {
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
-        _viewStartSeconds = anchorSeconds - anchorX / _pixelsPerSecond;
+        _viewStartSeconds = anchorSeconds - (anchorX - ContentLeft) / _pixelsPerSecond;
         ClampViewStart();
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);
@@ -252,7 +267,7 @@ public sealed class TimelineControl : Control
     /// <summary>Wheel zoom anchored at a client-space X. Public because WinForms sends wheel input to the focused control, not the hovered one.</summary>
     public void ZoomByWheel(int delta, int clientX)
     {
-        var anchorX = Math.Clamp(clientX, 0, BarLeft);
+        var anchorX = Math.Clamp(clientX, ContentLeft, BarLeft);
         ZoomAt(_pixelsPerSecond * Math.Pow(1.15, delta / 120.0), XToTime(anchorX), anchorX);
     }
 
@@ -277,14 +292,30 @@ public sealed class TimelineControl : Control
         _suppressScrollEvent = false;
     }
 
-    private int TrackTop => TopMargin;
-    private int TrackBottom => ClientSize.Height - BottomMargin - TopMargin;
+    private int TrackTop => Padding.Top + TopMargin;
+    private int TrackBottom => ClientSize.Height - Padding.Bottom - BottomMargin - TopMargin;
     private int TrackHeight => Math.Max(1, TrackBottom - TrackTop);
-    private int TrackAreaWidth => Math.Max(1, ClientSize.Width - ValueBarWidth);
-    private int BarLeft => TrackAreaWidth;
+    private int ContentLeft => Padding.Left;
+    private int ContentRight => ClientSize.Width - Padding.Right;
+    private int TrackAreaWidth => Math.Max(1, ClientSize.Width - Padding.Horizontal - ValueBarWidth);
+    private int BarLeft => ContentLeft + TrackAreaWidth;
+    private Rectangle TimelineContentBounds => new(
+        ContentLeft,
+        Padding.Top,
+        Math.Max(0, ClientSize.Width - Padding.Horizontal),
+        Math.Max(0, ClientSize.Height - Padding.Vertical - _scrollBar.Height));
 
-    private double TimeToX(double seconds) => (seconds - _viewStartSeconds) * _pixelsPerSecond;
-    private double XToTime(double x) => _viewStartSeconds + x / _pixelsPerSecond;
+    private void LayoutScrollBar()
+    {
+        _scrollBar.SetBounds(
+            Padding.Left,
+            ClientSize.Height - Padding.Bottom - _scrollBar.Height,
+            Math.Max(0, ClientSize.Width - Padding.Horizontal),
+            _scrollBar.Height);
+    }
+
+    private double TimeToX(double seconds) => ContentLeft + (seconds - _viewStartSeconds) * _pixelsPerSecond;
+    private double XToTime(double x) => _viewStartSeconds + (x - ContentLeft) / _pixelsPerSecond;
     private double PosToY(int pos) => TrackBottom - pos / 100.0 * TrackHeight;
     private int YToPos(double y) => (int)Math.Round(Math.Clamp((TrackBottom - y) / TrackHeight * 100.0, 0, 100));
 
@@ -292,6 +323,8 @@ public sealed class TimelineControl : Control
     {
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        var paintState = g.Save();
+        g.SetClip(TimelineContentBounds);
 
         PaintPatternRange(g);
 
@@ -300,7 +333,7 @@ public sealed class TimelineControl : Control
             for (var p = 0; p <= 100; p += 25)
             {
                 var y = (float)PosToY(p);
-                g.DrawLine(gridPen, 0, y, BarLeft, y);
+                g.DrawLine(gridPen, ContentLeft, y, BarLeft, y);
             }
         }
 
@@ -308,7 +341,7 @@ public sealed class TimelineControl : Control
         if (actions.Count > 0)
         {
             using var linePen = new Pen(Color.FromArgb(90, 170, 255), 2);
-            var clipLeft = -50f;
+            var clipLeft = ContentLeft - 50f;
             var clipRight = BarLeft + 50f;
             PointF? prev = null;
             for (var i = 0; i < actions.Count; i++)
@@ -324,7 +357,7 @@ public sealed class TimelineControl : Control
             for (var i = 0; i < actions.Count; i++)
             {
                 var x = TimeToX(actions[i].At / 1000.0);
-                if (x < -PointRadius || x > BarLeft + PointRadius) continue;
+                if (x < ContentLeft - PointRadius || x > BarLeft + PointRadius) continue;
                 var y = PosToY(actions[i].Pos);
                 var selected = i == _selectedIndex;
                 using var brush = new SolidBrush(selected ? Color.Orange : Color.White);
@@ -338,13 +371,48 @@ public sealed class TimelineControl : Control
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
             var x = (float)TimeToX(_playheadSeconds);
-            if (x >= 0 && x <= BarLeft)
-                g.DrawLine(playPen, x, 0, x, TrackBottom);
+            if (x >= ContentLeft && x <= BarLeft)
+                g.DrawLine(playPen, x, Padding.Top, x, TrackBottom);
         }
 
         PaintValueBar(g);
 
+        g.Restore(paintState);
         base.OnPaint(e);
+        PaintFocusIndicator(g);
+    }
+
+    private void PaintFocusIndicator(Graphics graphics)
+    {
+        if (ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+
+        var borderColor = Focused
+            ? SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(255, 190, 65)
+            : SystemInformation.HighContrast ? SystemColors.WindowText : Color.FromArgb(90, 90, 90);
+        const int thickness = 1;
+        using var borderBrush = new SolidBrush(borderColor);
+        graphics.FillRectangle(borderBrush, 0, 0, ClientSize.Width, thickness);
+        graphics.FillRectangle(borderBrush, 0, 0, thickness, ClientSize.Height);
+        graphics.FillRectangle(borderBrush, ClientSize.Width - thickness, 0, thickness, ClientSize.Height);
+        graphics.FillRectangle(borderBrush, 0, ClientSize.Height - thickness, ClientSize.Width, thickness);
+    }
+
+    protected override void OnGotFocus(EventArgs e)
+    {
+        base.OnGotFocus(e);
+        Invalidate();
+    }
+
+    protected override void OnLostFocus(EventArgs e)
+    {
+        base.OnLostFocus(e);
+        Invalidate();
+    }
+
+    protected override void OnSystemColorsChanged(EventArgs e)
+    {
+        base.OnSystemColorsChanged(e);
+        Invalidate();
     }
 
     private void PaintPatternRange(Graphics graphics)
@@ -352,11 +420,11 @@ public sealed class TimelineControl : Control
         if (_patternRangeStartMs is not { } startMs || _patternRangeEndMs is not { } endMs) return;
         var startX = TimeToX(startMs / 1000.0);
         var endX = TimeToX(endMs / 1000.0);
-        var left = Math.Clamp(Math.Min(startX, endX), 0, BarLeft);
-        var right = Math.Clamp(Math.Max(startX, endX), 0, BarLeft);
+        var left = Math.Clamp(Math.Min(startX, endX), ContentLeft, BarLeft);
+        var right = Math.Clamp(Math.Max(startX, endX), ContentLeft, BarLeft);
         var color = _patternRangeInvalid ? Color.FromArgb(54, 225, 70, 70) : Color.FromArgb(42, 255, 190, 60);
         using var rangeBrush = new SolidBrush(color);
-        if (_patternRangeInvalid && right - left < 4 && startX >= 0 && startX <= BarLeft)
+        if (_patternRangeInvalid && right - left < 4 && startX >= ContentLeft && startX <= BarLeft)
         {
             graphics.FillRectangle(rangeBrush, (float)(startX - 2), TrackTop, 4, TrackHeight);
             return;
@@ -372,7 +440,7 @@ public sealed class TimelineControl : Control
         using var linePen = new Pen(Color.FromArgb(80, 235, 130), 2.5f);
         using var pointBrush = new SolidBrush(Color.FromArgb(110, 255, 155));
         using var pointOutline = new Pen(Color.FromArgb(25, 25, 25), 1.5f);
-        var clipLeft = -50f;
+        var clipLeft = ContentLeft - 50f;
         var clipRight = BarLeft + 50f;
         FunscriptAction? previous = null;
         foreach (var action in pattern.Actions)
@@ -386,7 +454,7 @@ public sealed class TimelineControl : Control
             }
 
             var x = TimeToX(action.At / 1000.0);
-            if (x >= -PointRadius && x <= BarLeft + PointRadius)
+            if (x >= ContentLeft - PointRadius && x <= BarLeft + PointRadius)
             {
                 var y = PosToY(action.Pos);
                 graphics.FillEllipse(pointBrush, (float)(x - PointRadius), (float)(y - PointRadius), PointRadius * 2, PointRadius * 2);
@@ -431,7 +499,7 @@ public sealed class TimelineControl : Control
         {
             var y = (float)PosToY(hoverPos);
             using var hoverPen = new Pen(Color.Orange, 2);
-            g.DrawLine(hoverPen, 0, y, barRect.Right, y);
+            g.DrawLine(hoverPen, ContentLeft, y, barRect.Right, y);
         }
     }
 
@@ -439,20 +507,26 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        Focus();
+		Focus();
+        HandleMouseDown(e, ModifierKeys);
+    }
+
+    internal void HandleMouseDown(MouseEventArgs e, Keys modifiers)
+    {
+        if (!TimelineContentBounds.Contains(e.Location)) return;
         if (e.Button == MouseButtons.Middle)
         {
+		    Debug.WriteLine($"MouseDown: button={e.Button}, x={e.X}, y={e.Y}");
+
             if (_draggingIndex is not null || _scrubbing || e.X >= BarLeft) return;
-            _panStartX = e.X;
-            _panStartSeconds = _viewStartSeconds;
-            _hoverBarPos = null;
-            Cursor = Cursors.SizeWE;
-            Capture = true;
+            PanStart(e.X, MouseButtons.Middle);
             Invalidate();
             return;
         }
         if (_panStartX is not null) return;
         if (e.Button != MouseButtons.Left) return;
+
+        if (TryStartShiftPan(e, modifiers)) return;
 
         if (e.X >= BarLeft)
         {
@@ -479,6 +553,7 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseDoubleClick(MouseEventArgs e)
     {
+        if (!TimelineContentBounds.Contains(e.Location)) return;
         if (e.Button != MouseButtons.Left) return;
         if (e.X >= BarLeft) return;
         if (HitTest(e.Location) is not null) return;
@@ -491,15 +566,8 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (_panStartX is { } startX)
-        {
-            _viewStartSeconds = _panStartSeconds - (e.X - startX) / _pixelsPerSecond;
-            ClampViewStart();
-            UpdateScrollBar();
-            Invalidate();
-            return;
-        }
-        if (e.X >= BarLeft && _draggingIndex is null && !_scrubbing)
+        if (UpdatePan(e.X, ModifierKeys)) return;
+        if (e.X >= BarLeft && e.X < ContentRight && _draggingIndex is null && !_scrubbing)
         {
             _hoverBarPos = YToPos(e.Y);
             Cursor = Cursors.Hand;
@@ -540,24 +608,80 @@ public sealed class TimelineControl : Control
     {
         if (_panStartX is not null)
         {
-            if (e.Button == MouseButtons.Middle) EndPan();
+            if (e.Button == _panButton)
+            {
+                if (_panButton == MouseButtons.Left)
+                    Debug.WriteLine($"ShiftLeftUp: button={e.Button}, modifiers={ModifierKeys}, x={e.X}, y={e.Y}");
+                else
+                    Debug.WriteLine($"MouseUp: button={e.Button}, x={e.X}, y={e.Y}");
+                PanEnd();
+            }
             return;
         }
         FinishDrag();
         _scrubbing = false;
     }
 
-    private void EndPan()
+    private void PanStart(int clientX, MouseButtons button)
+    {
+        if (_panStartX is not null) return;
+        _panStartX = clientX;
+        _panStartSeconds = _viewStartSeconds;
+        _panButton = button;
+        _hoverBarPos = null;
+        Cursor = Cursors.SizeWE;
+        Capture = true;
+    }
+
+    internal bool TryStartShiftPan(MouseEventArgs e, Keys modifiers)
+    {
+        if (e.Button != MouseButtons.Left || (modifiers & Keys.Shift) == 0
+            || _panStartX is not null || _draggingIndex is not null || _scrubbing
+            || !TimelineContentBounds.Contains(e.Location) || e.X >= BarLeft
+            || HitTest(e.Location) is not null)
+            return false;
+
+        PanStart(e.X, MouseButtons.Left);
+        Debug.WriteLine($"ShiftLeftDown: button={e.Button}, modifiers={modifiers}, x={e.X}, y={e.Y}");
+        Invalidate();
+        return true;
+    }
+
+    internal bool UpdatePan(int clientX, Keys modifiers)
+    {
+        if (_panStartX is not { } startX) return false;
+        if (_panButton == MouseButtons.Left && (modifiers & Keys.Shift) == 0)
+        {
+            PanEnd();
+            return true;
+        }
+
+	    if (_panButton == MouseButtons.Left)
+	        Debug.WriteLine($"ShiftLeftMove: buttons={Control.MouseButtons}, modifiers={modifiers}, x={clientX}");
+	    else
+	        Debug.WriteLine($"MouseMove: buttons={Control.MouseButtons}, x={clientX}");
+
+        _viewStartSeconds = _panStartSeconds - (clientX - startX) / _pixelsPerSecond;
+        ClampViewStart();
+        UpdateScrollBar();
+        Invalidate();
+        return true;
+    }
+
+    private void PanEnd(bool suppressFollow = true)
     {
         if (_panStartX is null) return;
+        if (suppressFollow)
+            _suppressPlaybackFollowUntilVisible = !IsPlayheadInViewport();
         _panStartX = null;
+        _panButton = null;
         Cursor = Cursors.Default;
         Capture = false;
     }
 
     protected override void OnMouseCaptureChanged(EventArgs e)
     {
-        if (!Capture) EndPan();
+        if (!Capture) PanEnd();
         base.OnMouseCaptureChanged(e);
     }
 
@@ -570,6 +694,14 @@ public sealed class TimelineControl : Control
             Invalidate();
             e.Handled = true;
         }
+    }
+
+    protected override void OnKeyUp(KeyEventArgs e)
+    {
+        if (_panButton == MouseButtons.Left && (ModifierKeys & Keys.Shift) == 0)
+            PanEnd();
+
+        base.OnKeyUp(e);
     }
 
     public override bool PreProcessMessage(ref Message msg)
@@ -641,7 +773,7 @@ public sealed class TimelineControl : Control
         for (var i = 0; i < actions.Count; i++)
         {
             var x = TimeToX(actions[i].At / 1000.0);
-            if (x < -HitRadius || x > ClientSize.Width + HitRadius) continue;
+            if (x < ContentLeft - HitRadius || x > ContentRight + HitRadius) continue;
             var y = PosToY(actions[i].Pos);
             var dx = x - location.X;
             var dy = y - location.Y;
@@ -653,6 +785,7 @@ public sealed class TimelineControl : Control
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        LayoutScrollBar();
         ReclampZoom();
     }
 }

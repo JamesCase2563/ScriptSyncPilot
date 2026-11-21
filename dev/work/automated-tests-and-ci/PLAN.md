@@ -30,11 +30,12 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 ### 1. Reconcile existing coverage
 
 - [x] Map each issue scenario to current tests and archived evidence; record test boundaries and gaps in [VERIFICATION.md](VERIFICATION.md) (M1.1).
-- [ ] Confirm the CI trigger/build/test path covers the supported PR targets from a clean checkout; identify any trigger or workflow gaps without assuming that a workflow file alone proves a passing run.
-- [ ] Keep scenarios already verified in archived work as reused evidence, with their limits stated.
+- [x] Confirm the CI trigger/build/test path covers the supported PR targets from a clean checkout; identify any trigger or workflow gaps without assuming that a workflow file alone proves a passing run (M1.2; the path-filter gap is recorded in [VERIFICATION.md](VERIFICATION.md)).
+- [x] Keep scenarios already verified in archived work as reused evidence, with their limits stated (M1.3; see the scenario matrix and archived evidence links in [VERIFICATION.md](VERIFICATION.md)).
 
 ### 2. Fill focused test gaps
 
+- [ ] Update the PR CI path filters to include workflow and root build/test configuration changes, not only `src/**`.
 - [ ] Add/complete controlled local pipe-server coverage for mpv attach failure, cancellation, observable state changes, and disposal.
 - [ ] Add/complete deterministic session-replacement tests for both applications, including suppression of stale queued notifications.
 - [ ] Add/complete fake-transport tests for Handy setup ordering when script selection changes, draining in-flight requests, and stop-before-dispose.

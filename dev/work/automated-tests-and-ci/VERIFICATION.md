@@ -1,6 +1,6 @@
 # Automated Tests and CI Verification
 
-**Status:** In progress. M1.1 coverage mapping is complete; the identified gaps and CI follow-up remain open.
+**Status:** In progress. M1.1–M1.3 reconciliation is complete; targeted test gaps, the CI path-filter fix, and current-revision CI evidence remain open.
 **Issue:** [#21 — Automated Tests and CI](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
 See the [plan](PLAN.md).
 
@@ -13,7 +13,7 @@ Issue #21 calls for focused tests across mpv attachment/lifecycle behavior, sess
 - `src/ScriptSyncPilot.slnx` contains the Common, FunscriptEditor, and HandySync applications/libraries and two test projects: `ScriptSyncPilot.Common.Tests` and `ScriptSyncPilot.FunscriptEditor.Tests`.
 - The Common suite covers Funscript behavior, action history, pattern generation/insertion, and `MpvSession` behavior.
 - The FunscriptEditor suite includes WinForms tests and shared Handy HTTP/lifecycle tests; it references both HandySync and FunscriptEditor.
-- `.github/workflows/windows-release-verification.yml` checks out the repository, sets up .NET 10, restores the solution, builds Release, and runs all solution tests with a hang timeout. Pull requests to `main` and `production-readiness` are triggers when `src/**` changes; pushes to `production-readiness` and manual dispatch are also triggers.
+- `.github/workflows/windows-release-verification.yml` checks out the repository, sets up .NET 10, restores `src/ScriptSyncPilot.slnx`, builds Release, and runs all solution tests with a 2-minute hang timeout. Pull requests to `main` and `production-readiness` trigger when `src/**` changes; pushes to `production-readiness` and manual dispatch are also triggers.
 - Existing release verification records a clean-checkout GitHub Actions run on the production-readiness candidate: restore/build/test passed, with 341/341 tests at that revision (90 Common and 251 FunscriptEditor). This is historical evidence for that commit, not a current run for every later revision.
 - Later local full-suite evidence is recorded in work-specific verification notes, including 345 passing tests after the fine-horizontal-navigation changes. It does not itself prove a clean-checkout CI run for this work item.
 
@@ -29,9 +29,11 @@ Issue #21 calls for focused tests across mpv attachment/lifecycle behavior, sess
 | Request draining and stop-before-dispose | `DeviceControlPollingTests.DisconnectCancelsInflightPlayAndSkipsQueuedSeekBeforeStop`, `DisconnectDrainHasHardDeadlineAndRetainsClientUntilLateWorkCompletes`, and `DisconnectStopThatIgnoresCancellationRemainsPendingUntilDeferredTeardownReleasesGate`; archived timeout/shutdown evidence documents cooperative/non-cooperative transport boundaries and deferred disposal. | Strong coverage for device command gate and Handy client teardown. It does not mean every HTTP producer/order combination is tested, and non-cooperative transport disposal remains deferred until safe completion. |
 | Timeline zoom/scroll limits and deletion during drag | `NumericPositionEntryTests.MiddleDrag_PansAndClampsWithoutSeekingOrEditing`, `ShiftLeftDrag_PansAndClampsWithoutSeekingOrEditing`, and `PlaybackFollow_RecentersOutsideEitherEdgeWithoutSeekingOrChangingZoom` cover pan/follow viewport limits and zoom preservation. | These are pan/follow bounds, not the complete zoom-slider/scrollbar limit matrix. No deletion-while-dragging regression test was found. |
 | Keyboard routing | `NumericPositionEntryTests.Decoder_MapsAllElevenPhysicalPositionsAndConsumesRepeats`, `Decoder_LeavesModifiersFocusAndOtherMessagesUntouched`, `Decoder_DoesNotConsumeNavigationRepeatsOrNumpad`, and `Routing_FocusedTimelineConsumesPhysicalKeyThroughWinFormsPreprocessing` cover numeric-key decoding and focused timeline preprocessing. | This is targeted timeline numeric/navigation key routing; not a general keyboard matrix for all controls or app-level session replacement. |
-| Clean-checkout CI build/test gate | `.github/workflows/windows-release-verification.yml`; archived production-readiness verification records clean-checkout run 43565771417, 341/341 tests on revision `72a4e5e`. | Historical run proves that revision passed. Workflow PR path filter only includes `src/**`, so workflow-only or test-infrastructure changes outside `src/**` do not trigger the PR workflow unless a `src/**` path also changes. Need a current-revision CI run and explicit decision/fix for trigger coverage. |
+| Clean-checkout CI build/test gate | `.github/workflows/windows-release-verification.yml`; archived production-readiness verification records clean-checkout run 43565771417, 341/341 tests on revision `72a4e5e`. | The `pull_request` trigger covers both supported PR targets (`main`, `production-readiness`) when a `src/**` file changes. The job starts from checkout, installs .NET 10, restores, builds Release, and tests the full solution with hang diagnostics. Historical run proves that recorded revision passed. Gap: workflow-only and root build/test configuration changes outside `src/**` do not trigger the PR workflow; add the relevant paths to the filter. A passing current-revision CI run is still needed. |
 
-M1.1 conclusion: reuse the archived Handy lifecycle/ordering and historical CI evidence as scoped above. The highest-value gaps to carry into M1.2/M2 are the complete mpv in-flight cancellation/disposal path, script-selection changes during setup, app-level stale notifications in both apps, timeline deletion during drag and zoom/scroll bounds, and CI trigger coverage for workflow/test-infrastructure changes.
+M1.1 conclusion: reuse the archived Handy lifecycle/ordering and historical CI evidence as scoped above. The highest-value gaps to carry into M2 are the complete mpv in-flight cancellation/disposal path, script-selection changes during setup, app-level stale notifications in both apps, timeline deletion during drag and zoom/scroll bounds, and CI trigger coverage for workflow/test-infrastructure changes.
+
+M1.2–M1.3 conclusion: current PR triggers cover code and tests under `src/**` for both supported target branches, and the workflow has clean-checkout restore, Release build, full-solution test, and hang-timeout steps. The historical successful CI run is recorded in the production-readiness verification and is scoped to its tested commit. The remaining trigger defect is concrete: a workflow or root build/test configuration-only PR change will not run the gate. M2 now includes updating the PR path filter; M3 must record a passing clean-checkout run for the intended revision.
 
 ## Reusable verification records
 
@@ -53,7 +55,7 @@ No test command or CI workflow was run while creating this planning/verification
 
 ## Limitations
 
-- The existing workflow's pull-request path filter is limited to `src/**`; changes outside that tree do not trigger the PR gate. Confirm whether this is intentional for workflow/test infrastructure changes and update only if required by the desired gate.
+- Until the planned M2 path-filter update lands, workflow and root build/test configuration-only PR changes outside `src/**` do not trigger CI.
 - A passing prior CI run is not evidence that the current branch or a future PR passes.
 - Reused tests do not prove behavior beyond their asserted conditions. The named test and archive boundaries above are part of the M1.1 audit; follow-up work should add direct attach/detach transitions, both-app stale notification cases, script-selection races, and exact timeline edge cases where absent.
 - No real Handy hardware or external mpv service is required for the acceptance tests; simulated results must not be described as hardware certification.

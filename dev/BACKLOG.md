@@ -1,16 +1,10 @@
 # Shared Backlog
 
-## Table of Contents
-
-- [Automated Tests and CI](#automated-tests-and-ci)
-- [UI and Session Logic Boundaries](#ui-and-session-logic-boundaries)
-- [GUI Usability and Visual Polish](#gui-usability-and-visual-polish)
-- [Privacy and Operational Guidance](#privacy-and-operational-guidance)
-- [Completed](#completed)
+Future and active work is tracked in [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues).
+GitHub Issues are the source of truth for priorities, status, labels, epics, sub-issues, and implementation progress.
 
 Project-specific features belong in the [HandySync backlog](HandySync/BACKLOG.md) or [editor backlog](FunscriptEditor/BACKLOG.md).
-
-Active work is tracked in the linked GitHub issues. The [Completed](#completed) section records implemented baselines without implying that broader work is complete.
+This file retains shared release boundaries and implemented baselines that are not duplicated in issue tracking.
 
 ## Initial-release scope classification
 
@@ -20,27 +14,11 @@ to future feature priorities.
 
 | Entry | Classification | Release boundary |
 | --- | --- | --- |
-| Automated Tests and CI | In scope | Verify existing supported workflows, lifecycle and failure paths; use test doubles where practical |
-| UI and Session Logic Boundaries | Deferred | Extract only what a concrete release-blocking defect or verification need requires; no architecture rewrite prerequisite |
-| GUI Usability and Visual Polish | Deferred | Separate product-improvement effort; fixes to defects in existing supported workflows remain in scope |
-| Privacy and Operational Guidance | In scope | Accurate data handling, support/build/troubleshooting guidance and disclosure of unconfirmed provider retention; do not invent provider guarantees |
+| Automated Tests and CI | In scope | Verify existing supported workflows, lifecycle and failure paths using test doubles where practical |
+| UI and Session Logic Boundaries | Deferred | Extract UI/session boundaries only for a concrete release-blocking defect or verification need; do not make an architecture rewrite a prerequisite |
+| GUI Usability and Visual Polish | Deferred | Treat GUI usability and visual polish as a separate product-improvement effort; fix defects in existing supported workflows within the relevant release work |
+| Privacy and Operational Guidance | In scope | Keep data-handling and troubleshooting guidance accurate, including supported launch paths, log locations, credential protection, and provider retention only when confirmed |
 | Completed baselines | In scope | Preserve implemented behavior and existing verification evidence |
-
-## Automated Tests and CI
-
-Tracked in GitHub issue [#21](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
-
-## UI and Session Logic Boundaries
-
-Tracked in GitHub issue [#22](https://github.com/JamesCase2563/ScriptSyncPilot/issues/22).
-
-## GUI Usability and Visual Polish
-
-Tracked in GitHub issue [#23](https://github.com/JamesCase2563/ScriptSyncPilot/issues/23).
-
-## Privacy and Operational Guidance
-
-Tracked in GitHub issue [#24](https://github.com/JamesCase2563/ScriptSyncPilot/issues/24).
 
 ## Completed
 

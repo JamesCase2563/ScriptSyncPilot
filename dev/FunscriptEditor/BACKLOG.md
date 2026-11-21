@@ -1,28 +1,9 @@
 # FunscriptEditor Backlog
 
-## Table of Contents
+Future and active work is tracked in [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues).
+GitHub Issues are the source of truth for priorities, status, labels, epics, sub-issues, and implementation progress.
 
-- [Editor GUI Improvements](#editor-gui-improvements)
-- [Pattern Improvements](#pattern-improvements)
-- [Large-Script Performance and History Memory](#large-script-performance-and-history-memory)
-- [Markers and Snapping](#markers-and-snapping)
-- [Constrained Point Movement and Keyboard Nudging](#constrained-point-movement-and-keyboard-nudging)
-- [Multiple-Point Selection and Group Editing](#multiple-point-selection-and-group-editing)
-- [Tap-Based Pattern Generation](#tap-based-pattern-generation)
-- [Editable Pattern Preview](#editable-pattern-preview)
-- [Expressive Patterns and Controlled Variation](#expressive-patterns-and-controlled-variation)
-- [Movement Speed Indicators](#movement-speed-indicators)
-- [Author-Guided Video Motion Detection](#author-guided-video-motion-detection)
-- [Live Pattern Recording](#live-pattern-recording)
-- [Multiple Tracks and Project Format](#multiple-tracks-and-project-format)
-- [Verification and Boundaries](#verification-and-boundaries)
-- [Completed](#completed)
-	- [Pattern Insertion Tool](#pattern-insertion-tool)
-	- [Undo and Redo](#undo-and-redo)
-	- [Video Playback Speed](#video-playback-speed)
-	- [Keyboard Numeric Position Entry](#keyboard-numeric-position-entry)
-
-Entries above Completed link to GitHub issues for active work. Completed feature details and verification records remain in the linked archives.
+This file retains editor release boundaries and completed feature baselines that are not duplicated in issue tracking.
 
 ## Initial-release scope classification
 
@@ -33,77 +14,21 @@ editing, file preservation or shutdown remain in scope.
 
 | Entry | Classification | Release boundary |
 | --- | --- | --- |
-| Editor GUI Improvements | Deferred | Editor-specific usability ideas; coordinate with shared GUI work |
-| Pattern Improvements | Deferred | Additional profiles and generation refinements; no initial-release requirement |
-| Large-Script Performance and History Memory | Deferred | Quantitative optimization work is not a release prerequisite absent an identified blocker; no unmeasured large-script performance guarantee |
-| Markers and Snapping | Deferred | New editing feature |
-| Constrained Point Movement and Keyboard Nudging | Deferred | New editing feature |
-| Multiple-Point Selection and Group Editing | Deferred | New editing feature |
-| Tap-Based Pattern Generation | Deferred | New generation workflow |
-| Editable Pattern Preview | Deferred | New draft-editing workflow beyond the implemented preview |
-| Expressive Patterns and Controlled Variation | Deferred | New generation behavior; no randomization commitment |
-| Movement Speed Indicators | Deferred | New readouts/visualizations, not physical safety certification |
-| Author-Guided Video Motion Detection | Experimental | Exploration only; no selected implementation or new dependency approved |
-| Live Pattern Recording | Deferred | New recording mode; retain existing numeric point-entry behavior |
-| Multiple Tracks and Project Format | Deferred | Includes proposed track types, duplication/conversion, audio-derived actions, chapter editing/export and project persistence; no new media tooling or schema required for release |
+| Editor GUI Improvements | Deferred | Editor-specific usability ideas remain deferred and should be coordinated with shared GUI work |
+| Pattern Improvements | Deferred | Additional profiles and generation refinements remain deferred beyond the implemented pattern tool |
+| <a id="large-script-performance-and-history-memory"></a>Large-Script Performance and History Memory | Deferred | Quantitative optimization is not a release prerequisite without an identified blocker; current history and script behavior take precedence over unmeasured performance guarantees |
+| Markers and Snapping | Deferred | New marker and snapping behavior is deferred |
+| Constrained Point Movement and Keyboard Nudging | Deferred | Constrained movement and keyboard nudging are deferred new editing features |
+| Multiple-Point Selection and Group Editing | Deferred | Multiple-point selection and group editing are deferred new editing features |
+| Tap-Based Pattern Generation | Deferred | Tap-based generation is a deferred new authoring workflow |
+| Editable Pattern Preview | Deferred | Editable preview behavior is deferred; the implemented preview remains a separate baseline |
+| Expressive Patterns and Controlled Variation | Deferred | Expressive patterns and controlled variation remain deferred; the implementation does not commit to randomization |
+| Movement Speed Indicators | Deferred | Movement speed indicators are deferred readouts and visualizations, not physical safety certification |
+| Author-Guided Video Motion Detection | Experimental | Experimental exploration only; no implementation or dependency is selected |
+| <a id="live-pattern-recording"></a>Live Pattern Recording | Deferred | Live recording is deferred; numeric top-row position entry remains the existing implementation and must not imply range recording |
+| Multiple Tracks and Project Format | Deferred | Multiple tracks and a richer project format are deferred; proposed track types, chapter editing/export and project persistence do not require new media tooling or schema until adopted; preserve standard funscript interchange and metadata |
 | Verification and Boundaries | In scope | Verify existing interactions, persistence and lifecycle; no device controller in the editor |
 | Completed features | In scope | Preserve pattern insertion, undo/redo, video playback speed and numeric position entry |
-
-## Editor GUI Improvements
-
-Tracked in GitHub issue [#25](https://github.com/JamesCase2563/ScriptSyncPilot/issues/25).
-
-## Pattern Improvements
-
-Tracked in GitHub issue [#26](https://github.com/JamesCase2563/ScriptSyncPilot/issues/26).
-
-## Large-Script Performance and History Memory
-
-Tracked in GitHub issue [#27](https://github.com/JamesCase2563/ScriptSyncPilot/issues/27).
-
-## Markers and Snapping
-
-Tracked in GitHub issue [#28](https://github.com/JamesCase2563/ScriptSyncPilot/issues/28).
-
-## Constrained Point Movement and Keyboard Nudging
-
-Tracked in GitHub issue [#29](https://github.com/JamesCase2563/ScriptSyncPilot/issues/29).
-
-## Multiple-Point Selection and Group Editing
-
-Tracked in GitHub issue [#30](https://github.com/JamesCase2563/ScriptSyncPilot/issues/30).
-
-## Tap-Based Pattern Generation
-
-Tracked in GitHub issue [#31](https://github.com/JamesCase2563/ScriptSyncPilot/issues/31).
-
-## Editable Pattern Preview
-
-Tracked in GitHub issue [#32](https://github.com/JamesCase2563/ScriptSyncPilot/issues/32).
-
-## Expressive Patterns and Controlled Variation
-
-Tracked in GitHub issue [#33](https://github.com/JamesCase2563/ScriptSyncPilot/issues/33).
-
-## Movement Speed Indicators
-
-Tracked in GitHub issue [#34](https://github.com/JamesCase2563/ScriptSyncPilot/issues/34).
-
-## Author-Guided Video Motion Detection
-
-Tracked in GitHub issue [#35](https://github.com/JamesCase2563/ScriptSyncPilot/issues/35).
-
-## Live Pattern Recording
-
-Tracked in GitHub issue [#36](https://github.com/JamesCase2563/ScriptSyncPilot/issues/36).
-
-## Multiple Tracks and Project Format
-
-Tracked in GitHub issue [#37](https://github.com/JamesCase2563/ScriptSyncPilot/issues/37).
-
-## Verification and Boundaries
-
-Tracked in GitHub issue [#38](https://github.com/JamesCase2563/ScriptSyncPilot/issues/38).
 
 ## Completed
 

@@ -28,6 +28,7 @@ public sealed class MpvSession : IDisposable
 
     private NamedPipeClientStream? _pipe;
     private CancellationTokenSource? _readCts;
+    private AttachReadState? _readState;
     private volatile bool _disposed;
 
     public bool IsPaused { get; private set; } = true;
@@ -60,8 +61,10 @@ public sealed class MpvSession : IDisposable
             throw;
         }
 
+        var readState = new AttachReadState();
+        _readState = readState;
         _readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = ReadLoopAsync(_readCts.Token);
+        _ = ReadLoopAsync(_readCts.Token, readState);
 
         try
         {
@@ -69,10 +72,11 @@ public sealed class MpvSession : IDisposable
             await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
             await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
             await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+            readState.AttachCompleted.TrySetResult(true);
         }
         catch
         {
-            CleanupFailedAttach();
+            CleanupFailedAttach(readState);
             throw;
         }
     }
@@ -108,8 +112,9 @@ public sealed class MpvSession : IDisposable
         await _pipe.FlushAsync(ct);
     }
 
-    private void CleanupFailedAttach()
+    private void CleanupFailedAttach(AttachReadState? readState = null)
     {
+        (readState ?? _readState)?.AttachCompleted.TrySetResult(false);
         var pipe = _pipe;
         _pipe = null;
         var readCts = _readCts;
@@ -119,7 +124,7 @@ public sealed class MpvSession : IDisposable
         readCts?.Dispose();
     }
 
-    private async Task ReadLoopAsync(CancellationToken ct)
+    private async Task ReadLoopAsync(CancellationToken ct, AttachReadState readState)
     {
         if (_pipe is null) return;
         using var reader = new StreamReader(_pipe, Encoding.UTF8, leaveOpen: true);
@@ -147,9 +152,15 @@ public sealed class MpvSession : IDisposable
         }
         finally
         {
-            if (!_disposed)
+            if (await readState.AttachCompleted.Task.ConfigureAwait(false) && !_disposed)
                 Disconnected?.Invoke();
         }
+    }
+
+    private sealed class AttachReadState
+    {
+        public TaskCompletionSource<bool> AttachCompleted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private void HandleLine(string line)
@@ -186,6 +197,7 @@ public sealed class MpvSession : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _readState?.AttachCompleted.TrySetResult(false);
         var readCts = _readCts;
         _readCts = null;
         readCts?.Cancel();

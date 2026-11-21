@@ -203,6 +203,23 @@ public sealed class MpvSessionTests
     }
 
     [TestMethod]
+    public async Task Attach_CancellationDuringPropertySubscriptionsDoesNotReportRemoteDisconnect()
+    {
+        using var endpoint = new PipeEndpoint();
+        using var cancellation = new CancellationTokenSource();
+        var disconnects = 0;
+        endpoint.Session.Disconnected += () => Interlocked.Increment(ref disconnects);
+
+        await endpoint.ConnectAsync(cancellation.Token, cancellation.Cancel);
+        await AssertCancelledAsync(() => endpoint.Attachment);
+        await endpoint.ReadCompletion.WaitAsync(endpoint.Token);
+
+        Assert.AreEqual(0, Volatile.Read(ref disconnects),
+            "Cancellation while installing property observations is a failed local attach, not a remote disconnect.");
+        Assert.IsNull(GetPipe(endpoint.Session), "A canceled attach must release its connected client pipe.");
+    }
+
+    [TestMethod]
     public async Task Attach_ConnectionTimeoutReportsPipePathAndReleasesPipe()
     {
         using var session = new MpvSession();
@@ -272,20 +289,28 @@ public sealed class MpvSessionTests
             _reader = new StreamReader(Server, Encoding.UTF8, leaveOpen: true);
         }
 
-        public async Task ConnectAsync(CancellationToken? lifetime = null)
+        public async Task ConnectAsync(CancellationToken? lifetime = null, Action? onFirstCommand = null)
         {
             var connection = Server.WaitForConnectionAsync(Token);
             Attachment = Session.AttachAsync($@"\\.\pipe\{_name}", lifetime ?? Token);
             await connection;
-            _readTask = ReadCommandsAsync();
+            _readTask = ReadCommandsAsync(onFirstCommand);
         }
 
-        private async Task ReadCommandsAsync()
+        private async Task ReadCommandsAsync(Action? onFirstCommand)
         {
             try
             {
+                var firstCommand = true;
                 while (await _reader.ReadLineAsync(Token).ConfigureAwait(false) is { } line)
+                {
                     _commands.Writer.TryWrite(line);
+                    if (firstCommand)
+                    {
+                        firstCommand = false;
+                        onFirstCommand?.Invoke();
+                    }
+                }
                 _commands.Writer.TryComplete();
             }
             catch (Exception exception) when (exception is OperationCanceledException or IOException or ObjectDisposedException)

@@ -28,7 +28,8 @@ guarantee.
 - **Excluded from current scope:** firmware updates, ControllerHost, an embedded player, WPF rewrite, headless hosting, remote REST/WebSocket control APIs, and generic sensor integrations. They are not prerequisites for this release.
 
 The component backlogs carry entry-level classifications; future ideas below do not
-override those release boundaries.
+override those release boundaries. GitHub Issues owns active priorities, status,
+epics, sub-issues, and implementation progress.
 
 ### Future ideas
 
@@ -39,4 +40,4 @@ override those release boundaries.
 
 These ideas do not require ControllerHost, an embedded player, a WPF rewrite, headless hosting, or REST/WebSocket control APIs. Such changes need an explicit use case and design decision. Generic BLE/TCP sensor integrations are not part of the current direction.
 
-Actionable work: [shared backlog](BACKLOG.md), [HandySync backlog](HandySync/BACKLOG.md), [editor backlog](FunscriptEditor/BACKLOG.md).
+Actionable work: [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues), with scope summaries in the [shared backlog](BACKLOG.md), [HandySync backlog](HandySync/BACKLOG.md), and [editor backlog](FunscriptEditor/BACKLOG.md).

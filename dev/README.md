@@ -13,8 +13,8 @@ Start with the [system architecture](ARCHITECTURE.md). The [vision](VISION.md) d
 ## Conventions
 
 - Architecture describes what exists today and the contracts to preserve.
-- Backlogs describe future work with priority and status. Implemented foundations are not unfinished tasks.
-- When selecting a backlog item, create one feature/change folder under `dev/work/<name>/` for all work, regardless of affected projects. Do not use project-local work folders, `plans/`, or `initiatives/`. Keep milestones and tasks together in its `PLAN.md`.
+- Backlogs retain release boundaries and completed baselines. GitHub Issues track active work, priorities, status, labels, epics, and sub-issues. Implemented foundations are not unfinished tasks.
+- When selecting a GitHub Issue for work, create one feature/change folder under `dev/work/<name>/` for all work, regardless of affected projects. Do not use project-local work folders, `plans/`, or `initiatives/`. Keep milestones and tasks together in its `PLAN.md`.
 - External API/file-format references belong in `docs/`, not in project plans.
 - The obsolete controller documents have been removed. There is no ControllerHost or Core project, and Common is not a device controller.
 
@@ -28,7 +28,7 @@ Useful ideas from the earlier proposal survive in current architecture requireme
 
 This README is the canonical convention; conversational notes are historical context, not competing instructions.
 
-All sub-project working documents live under `dev/work/<name>/`, whether they affect HandySync, FunscriptEditor, Common, or any combination. Identify the affected projects in the plan rather than through folder placement. Group documents by feature/change, not by release or PR. Permanent project architecture documents and backlogs remain in their project directories.
+All sub-project working documents live under `dev/work/<name>/`, whether they affect HandySync, FunscriptEditor, Common, or any combination. Identify the affected projects in the plan rather than through folder placement. Group documents by feature/change, not by release or PR. Permanent project architecture documents and backlog scope summaries remain in their project directories.
 
 - `PLAN.md`: scope, affected projects, open decisions, milestones, task checklist, and status.
 - `DESIGN.md`: implementation details when substantial enough to need a separate document.
@@ -38,7 +38,7 @@ All sub-project working documents live under `dev/work/<name>/`, whether they af
 On completion:
 
 1. Update permanent architecture documentation to describe the implemented system.
-2. Move remaining ideas into the owning backlog.
+2. Move remaining ideas into GitHub Issues and update permanent scope/completed context only where Markdown is still the clearer record.
 3. Record the outcome and PR reference in the plan.
 4. Move the whole work folder to `dev/archive/YYYY-MM-<name>/` for all completed work, regardless of affected projects, and update links.
 

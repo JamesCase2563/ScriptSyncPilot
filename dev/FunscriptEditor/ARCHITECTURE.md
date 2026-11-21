@@ -45,4 +45,4 @@ Edit > Insert Pattern generates a candidate through Common's pure `PatternGenera
 
 ## Future Direction
 
-Keep editing, persistence, and playback ownership distinct. Extract session orchestration only when complexity/testability warrants it. See the [editor backlog](BACKLOG.md) and [shared backlog](../BACKLOG.md). Multitrack editing/richer project files are possibilities, not implemented capabilities.
+Keep editing, persistence, and playback ownership distinct. Extract session orchestration only when complexity/testability warrants it. See the [editor backlog](BACKLOG.md), [shared backlog](../BACKLOG.md), and [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues). Multitrack editing/richer project files are possibilities, not implemented capabilities.

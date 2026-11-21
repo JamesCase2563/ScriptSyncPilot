@@ -68,7 +68,7 @@ and the HandySync log provides the workflow evidence below.
 
 | Field | Value |
 | --- | --- |
-| Report date and tester | 2026-11-15; Frank Yong (maintainer report) |
+| Report date and tester | 2026-11-15; James Case (maintainer report) |
 | Trial time window | HandySync activity from 09:29 to 10:25 local time; FunscriptEditor script load and mpv attachment at 10:25 |
 | ScriptSyncPilot source revision | `e456b094689593f6054e5fdf827d3f6fbd588478`, recovered from both published app assemblies' `AssemblyInformationalVersion`; no `src/` changes are present between that revision and the current checkout |
 | Build configuration / target | Debug `dotnet publish`; app runtime configs target `net10.0` / Windows Desktop `10.0.0` minimum |
@@ -137,7 +137,7 @@ validation.
 
 | Field | Value |
 | --- | --- |
-| Test date and tester | Reported before PR #13 merge on 2026-11-13; exact test date/time not recorded. Tester: Frank Yong (maintainer report). |
+| Test date and tester | Reported before PR #13 merge on 2026-11-13; exact test date/time not recorded. Tester: James Case (maintainer report). |
 | ScriptSyncPilot source branch | `firmware-capabilities` |
 | Exact source revision used by tested build | Not recorded. The branch history includes `f9694d902779f23c833cd272007df289562797bf` (code changes) and `b221e396b3c72a39eaef2b04f80ca3cee9718263` (review documentation), but there is no build manifest or confirmation tying the tested binary to either SHA. |
 | Local source changes | Not recorded for the tested binary. |
@@ -171,7 +171,7 @@ workflows performed. Do not infer them from ENV-001.
 | Field | Value |
 | --- | --- |
 | Environment recorded | 2026-10-24; Windows details supplied by maintainer screenshot |
-| Test date and tester | 2026-10-24; Frank Yong |
+| Test date and tester | 2026-10-24; James Case |
 | Application(s) tested | FunscriptEditor and HandySync |
 | Build configuration | Debug |
 | mpv version | v0.41.0-244-gaf9c81fa1; built 2026-03-02 (queried from the maintainer-specified installation using `mpv.exe --version`) |
@@ -218,7 +218,7 @@ source revisions.
 
 ### ENV-001 checks performed
 
-On 2026-10-24, Frank Yong confirmed that all listed tests had been performed
+On 2026-10-24, James Case confirmed that all listed tests had been performed
 successfully. Manual outcomes below are maintainer-reported, not independently
 observed by the assistant, except for the reviewed connection/setup log evidence.
 

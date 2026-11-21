@@ -69,7 +69,7 @@ Out of scope: SSE event subscription (belongs to [Connection Events](../../Handy
 - [x] Complete manual device checks during live playback, including values left by an online player.
 - [x] Update [HandySync architecture](../../HandySync/ARCHITECTURE.md) and the backlog (remove this item; adjust Firmware and Capabilities and Offset Feedback to what remains).
 - [x] Record limitations in DESIGN.md and VERIFICATION.md.
-- [x] Add the PR reference: [#7](https://github.com/Frank-Yong/ScriptSyncPilot/pull/7).
+- [x] Add the PR reference: [#7](https://github.com/JamesCase2563/ScriptSyncPilot/pull/7).
 - [x] Archive under `dev/archive/2026-10-main-form-device-controls/` and update links.
 
 ## Outcome

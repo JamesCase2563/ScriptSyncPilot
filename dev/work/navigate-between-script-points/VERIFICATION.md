@@ -35,6 +35,18 @@ Reviewed `MainForm`, `TimelineControl`, and `PatternInsertionDialog` keyboard ha
 
 **M1.1 result:** No additional main-editor shortcut conflict was found for proposed Ctrl+Up, Ctrl+Down, and Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down require explicit timeline input routing; Enter must be consumed only in timeline focus. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the proposed bindings.
 
+## M1.2 — Next/previous reference and comparison
+
+Confirmed the intended rule: next and previous navigation are relative to `TimelineControl.PlayheadSeconds`, never relative to the selected action. Compare action timestamps strictly against the playhead time:
+
+- Previous chooses the action with the greatest timestamp **less than** the playhead.
+- Next chooses the action with the least timestamp **greater than** the playhead.
+- If the playhead is exactly on an action timestamp, that action is skipped by both commands. The previous command chooses the preceding action; next chooses the following action.
+- If the playhead is between actions, previous chooses the lower timestamp and next chooses the higher timestamp.
+- Selection is used only by the separate Selected point command.
+
+The comparison should use the actual playhead time at sufficient precision against action timestamps in milliseconds; do not round the playhead to a millisecond before deciding which side an action is on. M1.2 is a confirmed behavior contract; code and automated tests remain for M2.
+
 ## Proposed behavior to verify
 
 | User action | Expected result |
@@ -55,6 +67,7 @@ The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN
 ## Automated coverage to add
 
 - Previous/next choose the nearest strictly earlier/later action, including when the playhead equals an action timestamp.
+- Previous/next behavior is based on playhead time even when another point is selected; add cases for exact timestamp and between-action playhead positions.
 - Selected-action navigation targets the selected timestamp; no selection and stale selection are no-ops.
 - Empty scripts and both navigation boundaries are no-ops.
 - Successful commands update the playhead and emit exactly one seek request at the expected timestamp.

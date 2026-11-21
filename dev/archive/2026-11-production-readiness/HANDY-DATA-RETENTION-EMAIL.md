@@ -26,7 +26,7 @@ We are documenting the application's data flows and want to describe Handy's han
 
 Thank you,
 
-Frank Yong  
+<repo owner>  
 ScriptSyncPilot maintainer
 
 ## References

@@ -1,6 +1,6 @@
 # Video Playback Speed Plan
 
-**Status:** Implementation and verification complete; [PR #6](https://github.com/Frank-Yong/ScriptSyncPilot/pull/6) under review.
+**Status:** Implementation and verification complete; [PR #6](https://github.com/JamesCase2563/ScriptSyncPilot/pull/6) under review.
 **Selected:** 2026-10-10.
 **Affected projects:** Common (mpv speed observation/command and IPC tests), FunscriptEditor (transport controls and session-safe UI), HandySync (device synchronization safeguard for unknown/non-1x shared-player rates). HandySync receives no speed controls or player speed writes.
 
@@ -58,9 +58,9 @@ Live pattern recording, frequency controls, speed keyboard shortcuts, new settin
 - [x] Complete and record manual checks in VERIFICATION.md; late session-completion races use deterministic tests instead of timing-sensitive manual checks.
 - [x] Update permanent Common/editor architecture and the editor backlog.
 - [x] Record limitations and return deferred work to the owning backlog.
-- [x] Record [PR #6](https://github.com/Frank-Yong/ScriptSyncPilot/pull/6).
+- [x] Record [PR #6](https://github.com/JamesCase2563/ScriptSyncPilot/pull/6).
 - [x] After review, archive under dev/archive/YYYY-MM-video-playback-speed/ and update links.
 
 ## Outcome
 
-Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-12, all 103 solution tests passed, and Common, both consumers, and both test projects built. Manual playback/layout checks passed; session-race and write-failure behavior has deterministic editor test coverage. HandySync suspends device synchronization for unknown/non-1x rates rather than compensating its hardware output; no exhaustive throughput/latency or hardware-output measurement was performed. PR: [#6](https://github.com/Frank-Yong/ScriptSyncPilot/pull/6).
+Common's MpvSession observes speed with id 4, exposes nullable Speed and SpeedChanged, and provides SetSpeedAsync with finite-positive validation without imposing editor bounds. Commands do not optimistically change observed state. Nine deterministic named-pipe tests pass without launching mpv. On 2026-10-12, all 103 solution tests passed, and Common, both consumers, and both test projects built. Manual playback/layout checks passed; session-race and write-failure behavior has deterministic editor test coverage. HandySync suspends device synchronization for unknown/non-1x rates rather than compensating its hardware output; no exhaustive throughput/latency or hardware-output measurement was performed. PR: [#6](https://github.com/JamesCase2563/ScriptSyncPilot/pull/6).

@@ -114,7 +114,7 @@ Reviewed [the source-release guide](../../../docs/source-release.md) against the
 | Field | Decision |
 | --- | --- |
 | Decision date | 2026-11-16 |
-| Decision authority | Frank Yong, repository owner |
+| Decision authority | James Case, repository owner |
 | Decision | **GO for a stable source-only release within the documented support scope.** |
 | Basis | The .NET 10 full test suite passed locally and in CI; both documented framework-dependent Release publish commands completed; the maintainer reported a successful .NET 10 Debug production trial; public Issues and GitHub private vulnerability reporting are available for the public repository. The owner accepts the incomplete exact SDK patch for ENV-004, the missing Release-output launch/clean-machine runtime check, the ENV-006 build-configuration/mpv-version gaps and untested device connection, and the unresolved Handy CSV retention/generated-URL lifetime as documented limitations. The emergency-stop explanation for the unacknowledged stop requests remains the maintainer's attribution, not a fact recorded by the log. The release must retain the support boundaries and limitations in this record and must not imply broader tested compatibility. |
 | Scope | Source-only release using the documented release procedure. No installer, binary package, or broader hardware compatibility claim is authorized by this decision. |
@@ -124,7 +124,7 @@ Reviewed [the source-release guide](../../../docs/source-release.md) against the
 | Field | Decision |
 | --- | --- |
 | Decision date | 2026-11-14 |
-| Decision authority | Frank Yong, repository owner |
+| Decision authority | James Case, repository owner |
 | Decision | **NO-GO for a stable source release and production-ready designation.** |
 | Basis | The .NET 10 runtime and full-suite test gates are satisfied locally and by CI on `72a4e5e`; the maintainer reports a successful manual .NET 10 Debug trial (ENV-004), and both documented Release publish commands pass on SDK `11.0.100` (ENV-005). NO-GO remains because external support/private security routes are not available while the repository is private, the exact ENV-004 SDK patch is unknown, and the trial log's final stop requests were not acknowledged (attributed to an emergency-stop press by maintainer instruction, not recorded in the logs). |
 | Revisit when | The repository is made public and both reporting routes are enabled and verified, the owner reviews the ENV-004 metadata limitation and assumed stop-event cause, remaining support-scope evidence is reviewed, and the owner records a new decision. |

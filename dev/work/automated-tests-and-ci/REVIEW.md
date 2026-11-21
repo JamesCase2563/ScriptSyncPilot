@@ -1,10 +1,10 @@
 # Code Review: Automated Tests and CI
 
-**Status:** Addressed; local and clean-checkout CI verification passed
+**Status:** Resolved
 
 ## Findings
 
-### P2 - Failed attaches can emit a false remote-disconnect notification — fixed
+### P2 - Failed attaches can emit a false remote-disconnect notification — Resolved
 
 `MpvSession.AttachAsync` starts `ReadLoopAsync` before writing the four property-observation subscriptions. If one of those writes fails or is canceled, `CleanupFailedAttach` cancels/disposes the local pipe and read token source, but it does not mark the session as locally disposed or prevent `ReadLoopAsync` from reaching its `finally` block.
 

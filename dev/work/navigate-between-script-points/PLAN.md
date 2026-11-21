@@ -47,7 +47,7 @@ Add three buttonsâ€”**Previous point**, **Selected point**, and **Next point**â€
 
 ### 1. Confirm semantics and routing
 
-- [ ] Confirm current playback, editing, position-entry, and form shortcut routing; identify any additional conflicts.
+- [x] M1.1 Confirm current playback, editing, position-entry, and form shortcut routing; identify any additional conflicts (see [VERIFICATION.md](VERIFICATION.md)).
 - [ ] Confirm next/previous navigation is relative to the playhead and uses strict timestamp comparisons.
 - [ ] Confirm no-wrap boundary behavior and no-selection behavior.
 - [ ] Confirm the proposed Ctrl+Up, Ctrl+Down, and Enter bindings, or record an alternative before coding.

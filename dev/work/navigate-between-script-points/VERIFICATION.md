@@ -16,6 +16,25 @@ Verify direct navigation to previous, next, and selected script actions. Preserv
 - `TimelineControl.PreProcessMessage` handles Space for play/pause and the eleven physical top-row position keys. The timeline's Delete and Left/Right inputs are routed as input keys. Navigation must preserve these paths.
 - Existing numeric-entry tests cover focused/unfocused timeline key routing, but no point-navigation test was found at baseline.
 
+## M1.1 — Current shortcut and focus-routing audit
+
+Reviewed `MainForm`, `TimelineControl`, and `PatternInsertionDialog` keyboard handlers and the focused/unfocused routing tests in `NumericPositionEntryTests`.
+
+| Existing input | Current routing and effect | Impact on point navigation |
+| --- | --- | --- |
+| Left / Right | When the timeline itself is focused and mpv is attached, the form routes Left/Right to one-frame stepping. | Preserve; do not reuse these keys. |
+| Shift+Left / Shift+Right | Form routes to relative one-second seek while timeline focus and mpv attachment are active. | Preserve; do not reuse. |
+| Ctrl+Left / Ctrl+Right | Form routes to relative ten-second seek while timeline focus and mpv attachment are active. | Preserve; do not reuse. |
+| Space | Focused timeline preprocesses Space as play/pause and consumes key repeat without repeated toggles. | Preserve. |
+| Top-row position keys | Focused timeline maps eleven physical scan codes to positions; modifiers/extended keys are excluded and held repeats are consumed. | Preserve all bindings and focus scope. |
+| Delete | Focused timeline handles Delete to remove the selected action. | Preserve. |
+| Ctrl+N / Ctrl+O / Ctrl+S | MainForm menu accelerators for New/Open/Save; PatternInsertionDialog forwards these file shortcuts to the owner. | No collision with the proposed point-navigation shortcuts. |
+| Ctrl+Z / Ctrl+Y | MainForm menu accelerators for Undo/Redo. | No collision. |
+| Ctrl+Up / Ctrl+Down | No application-level handler or menu binding found in the inspected editor code. Up/Down are not currently claimed by `TimelineControl.IsInputKey`. | Available in the main editor when the timeline owns focus, but implementation must explicitly route them to the timeline rather than relying on current input-key behavior. Never handle them while a NumericUpDown or other input owns focus. |
+| Enter | No MainForm or TimelineControl shortcut handler found. PatternInsertionDialog has an AcceptButton and standard controls may use Enter for their normal action. | Available in the main editor while the timeline owns focus; scope the selected-point command to that focus and leave dialogs/other controls unchanged. |
+
+**M1.1 result:** No additional main-editor shortcut conflict was found for proposed Ctrl+Up, Ctrl+Down, and Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down require explicit timeline input routing; Enter must be consumed only in timeline focus. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the proposed bindings.
+
 ## Proposed behavior to verify
 
 | User action | Expected result |
@@ -31,7 +50,7 @@ Verify direct navigation to previous, next, and selected script actions. Preserv
 
 The three point buttons are planned for a compact row directly below the existing time/frame seek row. A visible shortcut hint beside them should use the same style as the current seek-control hint. Disable Previous/Next when no point is available in that direction and Selected when no action is selected; update availability when the playhead, selection, or script changes.
 
-The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN.md); confirm them against issue scope and the complete UI before implementation.
+The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN.md). M1.1 found no app-level conflicts for the shortcuts, but final binding and semantics confirmation remain open in M1.
 
 ## Automated coverage to add
 

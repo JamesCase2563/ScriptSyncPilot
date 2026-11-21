@@ -2,7 +2,7 @@
 
 This document inventories the current app-specific keyboard shortcuts and mouse gestures in HandySync and FunscriptEditor. It is intended as a shared reference when adding or changing interactions so the two apps remain consistent where their workflows overlap.
 
-**Reviewed:** 2026-11-18. This describes implemented behavior, not proposed shortcuts. Standard Windows Forms behavior for text boxes, menus, buttons, and dialogs is not exhaustively listed.
+**Reviewed:** 2026-11-21. This describes implemented behavior, not proposed shortcuts. Standard Windows Forms behavior for text boxes, menus, buttons, and dialogs is not exhaustively listed.
 
 ## HandySync
 
@@ -66,14 +66,12 @@ When the timeline has focus, arrow keys step video; they do not navigate between
 | Left-double-click empty track area | Timeline | Insert an action at the clicked time and position. Double-clicking an existing point or the value bar does not insert. |
 | Left-drag an action point | Timeline | Move the point in time and/or position. Its timestamp is constrained so it cannot cross neighboring actions. |
 | Left-drag empty track area | Timeline | Scrub the playhead and request mpv seeks continuously when mpv is attached. |
-| Middle-drag the track area | Timeline | Pan horizontally without changing zoom. The value bar is not part of the pan area. This is the current gesture under investigation in [issue #54](https://github.com/JamesCase2563/ScriptSyncPilot/issues/54). |
-| Shift+left-drag empty track area | Timeline | Proposed wheel-independent pan gesture in [issue #54](https://github.com/JamesCase2563/ScriptSyncPilot/issues/54). It will pan without changing zoom; ordinary left-drag will continue scrubbing and dragging an action point will continue editing. Not implemented yet. |
+| Middle-drag the track area | Timeline | Pan horizontally without changing zoom. The value bar is not part of the pan area. If playback-follow is active, follow stays suppressed while the playhead is outside the manually chosen view and resumes after it re-enters. |
+| Shift+left-drag empty track area | Timeline | Pan horizontally without changing zoom, including when the mouse wheel or middle button is unavailable. Ordinary left-drag continues scrubbing; dragging an action point continues editing. Playback-follow stays suppressed while the playhead is outside the manually chosen view and resumes after it re-enters. |
 | Mouse wheel | Pointer over timeline | Zoom around the pointer's time position. The wheel is routed to the timeline even if another control has focus. |
 | Drag or click the horizontal scrollbar | Timeline scrollbar | Navigate the visible time range. |
 | Drag or click the zoom slider; click **Fit All** | Zoom controls | Change timeline zoom or fit the full duration in the view. |
 | Click a labeled menu item or button | Editor controls | Run the displayed action. This includes file operations, playback and frame/second stepping, speed controls, and pattern insertion. |
-
-Shift+left-drag horizontal panning is proposed in issue #54 but is **not implemented yet**; do not rely on it until the application behavior and this document are updated together.
 
 ## Consistency notes
 

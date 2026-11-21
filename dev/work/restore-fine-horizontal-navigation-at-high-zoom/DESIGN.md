@@ -1,6 +1,6 @@
 # Fine Horizontal Navigation at High Zoom — Design
 
-**Status:** In progress; design is recorded and work has started. The pan/follow implementation and manual reproduction check are still pending.
+**Status:** Implemented and verified; see [verification results](VERIFICATION.md).
 **Affected project:** FunscriptEditor.
 **Issue:** [#54 — Restore fine horizontal navigation at high zoom](https://github.com/JamesCase2563/ScriptSyncPilot/issues/54).
 See the [implementation plan](PLAN.md) and [verification criteria](VERIFICATION.md).
@@ -17,7 +17,7 @@ Make the timeline reliably navigable in small horizontal increments while highly
 - Playback follow recenters the view when the playhead leaves the viewport. It currently resumes on the next playhead update after a pan ends, which can make the view jump back immediately.
 - `MiddleDrag_PansAndClampsWithoutSeekingOrEditing` in [`NumericPositionEntryTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/NumericPositionEntryTests.cs) invokes protected handlers directly. It checks timeline state but does not establish that a physical middle-button drag is delivered reliably by the running WinForms application.
 
-## Proposed interaction
+## Implemented interaction
 
 1. Keep middle-button drag as a supported pan gesture and first reproduce the reported failure in the running app. Check the native mouse event and capture lifecycle before changing the existing pan path.
 2. Add **Shift + left-drag** as the wheel-independent pan gesture, following the temporary modifier-drag pattern used by canvas applications such as Photoshop. Start the pan only when the drag begins on empty track space; left-drag on an action point continues editing, and an unmodified left-drag on empty track space continues scrubbing. Keep middle-button drag as an additional supported gesture.

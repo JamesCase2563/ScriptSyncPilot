@@ -1,6 +1,6 @@
 # Automated Tests and CI Plan
 
-**Status:** In progress; M1.1–M1.3 and M2.1–M2.5 are complete. Current-revision clean-checkout CI evidence remains open.
+**Status:** Complete; M1.1–M1.3, M2.1–M2.5, and M3 verification are complete.
 **Issue:** [#21 — Automated Tests and CI](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
 **Goal:** Establish focused, repeatable regression coverage and a reliable build/test gate for the projects that exist in this repository.
 
@@ -46,8 +46,8 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 
 - [x] Run the focused tests for changed scenarios and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
 - [x] Run the full solution Release build and test suite locally; record counts, environment, and limitations.
-- [ ] Obtain a passing clean-checkout GitHub Actions run for the intended PR/source revision; record the workflow run and commit.
-- [ ] Record any remaining uncovered or hardware-dependent behavior and link final evidence from issue #21.
+- [x] Obtain a passing clean-checkout GitHub Actions run for the intended PR/source revision; record the workflow run and commit.
+- [x] Record remaining uncovered or hardware-dependent behavior and link final evidence from issue #21.
 
 ## Acceptance criteria
 

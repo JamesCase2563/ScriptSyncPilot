@@ -1,6 +1,6 @@
 # Automated Tests and CI Verification
 
-**Status:** In progress. M1.1–M1.3 reconciliation and M2.1–M2.5 are complete; current-revision clean-checkout CI evidence remains open.
+**Status:** Complete. M1.1–M1.3, M2.1–M2.5, and M3 are complete; the current revision passed clean-checkout GitHub Actions verification.
 **Issue:** [#21 — Automated Tests and CI](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
 See the [plan](PLAN.md).
 
@@ -81,8 +81,6 @@ No test command or CI workflow was run while creating this planning/verification
 
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
-| — | — | Focused tests for remaining issue scenarios | Not run for this work item. |
-| — | — | Full solution Release build/test | Not run for this work item. |
 | Historical; see linked record | Windows GitHub Actions, clean checkout | Restore, Release build, full solution test | Passed: 341/341 on the recorded revision; this result predates later commits. |
 | 2026-11-21 | Windows; .NET 10; isolated output under `.verification/m2-2/bin/` | `dotnet test src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\m2-2\bin\ --filter "FullyQualifiedName~MpvSessionTests" --verbosity minimal` | Passed: 13/13. |
 | 2026-11-21 | Windows; .NET 10; isolated output under `.verification/m2-2/bin/` | `dotnet test src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\m2-2\bin\ --verbosity minimal` | Passed: 93/93. |
@@ -94,10 +92,12 @@ No test command or CI workflow was run while creating this planning/verification
 | 2026-11-21 | Windows; .NET 10; isolated output under `.verification/m2-5/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\m2-5\bin\ --filter "FullyQualifiedName~ZoomAndScroll_StayWithinDurationAndViewportBounds|FullyQualifiedName~DeleteDuringActionDrag_EndsDragAndCannotMutateNextAction|FullyQualifiedName~Routing_UnfocusedTimelineDoesNotConsumePositionKey" --verbosity minimal` | Passed: 3/3. |
 | 2026-11-21 | Windows; .NET 10; isolated output under `.verification/m2-5/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\m2-5\bin\ --filter "FullyQualifiedName~NumericPositionEntryTests" --verbosity minimal` | Passed: 15/15, including focused keyboard routing and existing pan/follow tests. |
 | 2026-11-21 | Windows; .NET 10; isolated Release output under `.verification/m2-5/bin/` | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\m2-5\bin\ --verbosity minimal` | Passed: 355 total (93 Common + 262 FunscriptEditor), failed: 0. |
+| 2026-11-21 | GitHub Actions, clean checkout on Windows Server 2025 / .NET 10; source commit `e3892c454874b7e9cea486822c45c0bb44fc3d89` | [Windows release verification run 44893473882](https://github.com/JamesCase2563/ScriptSyncPilot/actions/runs/44893473882) (`workflow_dispatch` on `issue/21-automated-tests-and-ci`) | Passed: restore, Release build (0 warnings, 0 errors), and all tests (355 total: 93 Common + 262 FunscriptEditor; 0 failed). |
 
 ## Limitations
 
 - Root-level .NET build/restore configuration files do not exist in this checkout. If such files are introduced, the PR path filter must be extended to include them.
-- A passing prior CI run is not evidence that the current branch or a future PR passes.
+- The recorded CI run proves only the exact source revision shown in the run table; future commits and a merge result need their own successful checks.
 - Reused tests do not prove behavior beyond their asserted conditions. The named test and archive boundaries above are part of the M1.1 audit; direct attach/detach transition coverage remains a possible gap.
 - No real Handy hardware or external mpv service is required for the acceptance tests; simulated results must not be described as hardware certification.
+- The M3 clean-checkout run verifies source commit `e3892c4`; it does not certify real Handy hardware, a live mpv process, or a merge result after future changes. Existing testing also does not exercise the full UI attach/detach transition end to end.

@@ -1,6 +1,6 @@
 # Automated Tests and CI Plan
 
-**Status:** Planned; existing suites and CI provide a baseline, but issue #21 remains open for broader targeted coverage and clean-checkout CI verification.
+**Status:** In progress; M1.1–M1.3 and M2.1–M2.4 are complete. Remaining focused test gaps and current-revision CI evidence are tracked below.
 **Issue:** [#21 — Automated Tests and CI](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
 **Goal:** Establish focused, repeatable regression coverage and a reliable build/test gate for the projects that exist in this repository.
 
@@ -36,9 +36,9 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 ### 2. Fill focused test gaps
 
 - [x] Update the PR CI path filters to include workflow changes alongside `src/**` (M2.1). All solution, project, and test files are under `src/`; no root-level .NET build/restore configuration files are present in the current checkout.
-- [ ] Add/complete controlled local pipe-server coverage for mpv attach failure, cancellation, observable state changes, and disposal.
-- [ ] Add/complete deterministic session-replacement tests for both applications, including suppression of stale queued notifications.
-- [ ] Add/complete fake-transport tests for Handy setup ordering when script selection changes, draining in-flight requests, and stop-before-dispose.
+- [x] Add/complete controlled local pipe-server coverage for mpv attach failure, cancellation, observable state changes, and disposal (M2.2; see [VERIFICATION.md](VERIFICATION.md)).
+- [x] Add/complete deterministic session-replacement tests for both applications, including suppression of stale queued notifications (M2.3; see [VERIFICATION.md](VERIFICATION.md)).
+- [x] Add/complete fake-transport tests for Handy setup ordering when script selection changes, draining in-flight requests, and stop-before-dispose (M2.4; see [VERIFICATION.md](VERIFICATION.md)).
 - [ ] Add/complete timeline tests for zoom/scroll bounds, deletion during drag, and keyboard input routing.
 - [ ] Fix only defects exposed by these tests, preserving current supported behavior and the existing project boundaries.
 

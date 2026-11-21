@@ -49,18 +49,32 @@ public sealed class MpvSession : IDisposable
         }
         catch (TimeoutException)
         {
+            CleanupFailedAttach();
             throw new IOException(
                 $"Could not connect to mpv IPC pipe '{pipePath}'. Start mpv (or VR-Flat-Player) with " +
                 $"--input-ipc-server={pipePath} first.");
+        }
+        catch
+        {
+            CleanupFailedAttach();
+            throw;
         }
 
         _readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _ = ReadLoopAsync(_readCts.Token);
 
-        await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+        try
+        {
+            await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+        }
+        catch
+        {
+            CleanupFailedAttach();
+            throw;
+        }
     }
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
@@ -92,6 +106,17 @@ public sealed class MpvSession : IDisposable
         var bytes = Encoding.UTF8.GetBytes(json);
         await _pipe.WriteAsync(bytes, ct);
         await _pipe.FlushAsync(ct);
+    }
+
+    private void CleanupFailedAttach()
+    {
+        var pipe = _pipe;
+        _pipe = null;
+        var readCts = _readCts;
+        _readCts = null;
+        readCts?.Cancel();
+        pipe?.Dispose();
+        readCts?.Dispose();
     }
 
     private async Task ReadLoopAsync(CancellationToken ct)
@@ -159,8 +184,13 @@ public sealed class MpvSession : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
         _disposed = true;
-        _readCts?.Cancel();
+        var readCts = _readCts;
+        _readCts = null;
+        readCts?.Cancel();
         _pipe?.Dispose();
+        _pipe = null;
+        readCts?.Dispose();
     }
 }

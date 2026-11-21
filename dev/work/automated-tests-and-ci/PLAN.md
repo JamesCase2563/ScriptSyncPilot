@@ -29,7 +29,7 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 
 ### 1. Reconcile existing coverage
 
-- [ ] Map each issue scenario to current tests and archived evidence; record test boundaries and gaps in [VERIFICATION.md](VERIFICATION.md).
+- [x] Map each issue scenario to current tests and archived evidence; record test boundaries and gaps in [VERIFICATION.md](VERIFICATION.md) (M1.1).
 - [ ] Confirm the CI trigger/build/test path covers the supported PR targets from a clean checkout; identify any trigger or workflow gaps without assuming that a workflow file alone proves a passing run.
 - [ ] Keep scenarios already verified in archived work as reused evidence, with their limits stated.
 

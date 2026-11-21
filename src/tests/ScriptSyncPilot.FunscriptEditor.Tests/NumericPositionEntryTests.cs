@@ -198,6 +198,129 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
+    public void ShiftLeftDrag_PansAndClampsWithoutSeekingOrEditing()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            script.AddOrReplace(new FunscriptAction(0, 0));
+            script.AddOrReplace(new FunscriptAction(60000, 100));
+            timeline.LoadScript(script);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+            var seeks = 0;
+            var changes = 0;
+            timeline.SeekRequested += _ => seeks++;
+            timeline.ScriptChanged += (_, _) => changes++;
+            var start = new MouseEventArgs(MouseButtons.Left, 1, 500, 30, 0);
+            var actionPoint = new MouseEventArgs(
+                MouseButtons.Left, 1, timeline.Padding.Left,
+                timeline.Height - timeline.Padding.Bottom - 24 - 10, 0);
+
+            Assert.IsFalse(timeline.TryStartShiftPan(actionPoint, Keys.Shift));
+            Assert.IsFalse(timeline.TryStartShiftPan(start, Keys.None));
+            timeline.SetPlayhead(30, followPlayback: true);
+            var initialOffset = scrollbar.Value;
+            Assert.IsTrue(timeline.TryStartShiftPan(start, Keys.Shift));
+            Assert.IsTrue(timeline.Capture);
+            Assert.IsTrue(timeline.UpdatePan(400, Keys.Shift));
+            Assert.AreEqual(initialOffset + 1000, scrollbar.Value);
+
+            Assert.IsTrue(timeline.UpdatePan(-100000, Keys.Shift));
+            Assert.AreEqual(scrollbar.Maximum - scrollbar.LargeChange, scrollbar.Value);
+            Assert.IsTrue(timeline.UpdatePan(100000, Keys.Shift));
+            Assert.AreEqual(0, scrollbar.Value);
+            typeof(TimelineControl).GetMethod("OnMouseUp",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, 100000, 30, 0)]);
+            Assert.IsFalse(timeline.Capture);
+
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            Assert.AreEqual(30.0, timeline.PlayheadSeconds);
+            Assert.AreEqual(0, seeks);
+            Assert.AreEqual(0, changes);
+            Assert.IsFalse(timeline.History.CanUndo);
+            Assert.AreEqual(2, script.Actions.Count);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void ShiftLeftOnActionPoint_StillEditsTheAction()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            script.AddOrReplace(new FunscriptAction(1000, 50));
+            script.AddOrReplace(new FunscriptAction(60000, 100));
+            timeline.LoadScript(script);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            var trackBottom = timeline.Height - timeline.Padding.Bottom - 24 - 10;
+            var trackTop = timeline.Padding.Top + 10;
+            var x = timeline.Padding.Left + 100;
+            var y = (int)Math.Round(trackBottom - (trackBottom - trackTop) / 2.0);
+            var down = new MouseEventArgs(MouseButtons.Left, 1, x, y, 0);
+            var seeks = 0;
+            timeline.SeekRequested += _ => seeks++;
+
+            timeline.HandleMouseDown(down, Keys.Shift);
+            Assert.IsFalse(timeline.UpdatePan(x + 20, Keys.Shift));
+            typeof(TimelineControl).GetMethod("OnMouseMove",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, x + 20, y, 0)]);
+            typeof(TimelineControl).GetMethod("OnMouseUp",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, x + 20, y, 0)]);
+
+            Assert.AreEqual(1200, script.Actions[0].At);
+            Assert.IsTrue(timeline.History.CanUndo);
+            Assert.AreEqual(0, seeks);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void ShiftPan_EndsWhenModifierIsReleasedOrCaptureIsLost()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            timeline.LoadScript(new Funscript());
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+            var start = new MouseEventArgs(MouseButtons.Left, 1, 500, 30, 0);
+
+            Assert.IsTrue(timeline.TryStartShiftPan(start, Keys.Shift));
+            Assert.IsTrue(timeline.UpdatePan(400, Keys.Shift));
+            var offsetAfterMove = scrollbar.Value;
+            Assert.IsTrue(timeline.UpdatePan(399, Keys.None));
+            Assert.IsFalse(timeline.Capture);
+            Assert.IsFalse(timeline.UpdatePan(300, Keys.Shift));
+            Assert.AreEqual(offsetAfterMove, scrollbar.Value);
+
+            Assert.IsTrue(timeline.TryStartShiftPan(start, Keys.Shift));
+            Assert.IsTrue(timeline.UpdatePan(400, Keys.Shift));
+            offsetAfterMove = scrollbar.Value;
+            timeline.Capture = false;
+            Assert.IsFalse(timeline.Capture);
+            Assert.IsFalse(timeline.UpdatePan(300, Keys.Shift));
+            Assert.AreEqual(offsetAfterMove, scrollbar.Value);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
     public void PlaybackFollow_RecentersOutsideEitherEdgeWithoutSeekingOrChangingZoom()
     {
         RunSta(() =>
@@ -207,26 +330,28 @@ public sealed class NumericPositionEntryTests
             timeline.LoadScript(script);
             timeline.PixelsPerSecond = 100;
             var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+            var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+                / timeline.PixelsPerSecond;
             var seeks = 0;
             timeline.SeekRequested += _ => seeks++;
             timeline.SetPlayhead(9.9, followPlayback: true);
             Assert.AreEqual(0, scrollbar.Value);
             timeline.SetPlayhead(10, followPlayback: true);
-            Assert.AreEqual(5000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((10 - viewportSeconds / 2) * 1000), scrollbar.Value);
             timeline.SetPlayhead(14.9, followPlayback: true);
-            Assert.AreEqual(5000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((10 - viewportSeconds / 2) * 1000), scrollbar.Value);
             timeline.SetPlayhead(15, followPlayback: true);
-            Assert.AreEqual(10000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((15 - viewportSeconds / 2) * 1000), scrollbar.Value);
             timeline.SetPlayhead(40);
-            Assert.AreEqual(10000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((15 - viewportSeconds / 2) * 1000), scrollbar.Value);
             timeline.SetPlayhead(59, followPlayback: true);
-            Assert.AreEqual(50000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
             timeline.SetPlayhead(1);
-            Assert.AreEqual(50000, scrollbar.Value);
-            timeline.SetPlayhead(50, followPlayback: true);
-            Assert.AreEqual(50000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
+            timeline.SetPlayhead(55, followPlayback: true);
+            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
             timeline.SetPlayhead(49, followPlayback: true);
-            Assert.AreEqual(44000, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round((49 - viewportSeconds / 2) * 1000), scrollbar.Value);
             timeline.SetPlayhead(0, followPlayback: true);
             Assert.AreEqual(0, scrollbar.Value);
             Assert.AreEqual(100.0, timeline.PixelsPerSecond);
@@ -234,6 +359,49 @@ public sealed class NumericPositionEntryTests
             Assert.AreEqual(0, seeks);
             Assert.IsFalse(timeline.History.CanUndo);
             Assert.AreEqual(0, script.Actions.Count);
+        });
+    }
+
+    [TestMethod]
+    public void PlaybackFollow_ManualPanSuppressesUntilPlayheadReentersViewport()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            timeline.LoadScript(new Funscript());
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+
+            timeline.SetPlayhead(30, followPlayback: true);
+            Assert.IsTrue(timeline.TryStartShiftPan(
+                new MouseEventArgs(MouseButtons.Left, 1, 500, 30, 0), Keys.Shift));
+            Assert.IsTrue(timeline.UpdatePan(-500, Keys.Shift));
+            typeof(TimelineControl).GetMethod("OnMouseUp",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, -500, 30, 0)]);
+            var manuallyPannedOffset = scrollbar.Value;
+            Assert.IsTrue(manuallyPannedOffset > 30000);
+            var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+                / timeline.PixelsPerSecond;
+
+            timeline.SetPlayhead(31, followPlayback: true);
+            Assert.AreEqual(manuallyPannedOffset, scrollbar.Value,
+                "Playback follow should not undo the manual pan while the playhead is outside the viewport.");
+
+            timeline.SetPlayhead(manuallyPannedOffset / 1000.0 + 0.1, followPlayback: true);
+            Assert.AreEqual(manuallyPannedOffset, scrollbar.Value,
+                "Re-entering the viewport should clear suppression without recentering immediately.");
+
+            var playheadOutsideViewport = manuallyPannedOffset / 1000.0 + viewportSeconds + 0.1;
+            timeline.SetPlayhead(playheadOutsideViewport, followPlayback: true);
+            var expectedFollowOffset = (int)Math.Round((playheadOutsideViewport - viewportSeconds / 2) * 1000);
+            Assert.AreEqual(expectedFollowOffset, scrollbar.Value,
+                "After re-entry, playback follow should resume when the playhead leaves the viewport again.");
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            form.Close();
         });
     }
 

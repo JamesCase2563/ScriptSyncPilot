@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Verification
 
-**Status:** Baseline recorded; implementation and verification have not started.
+**Status:** In Progress; implementation and verification remain open.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 See the [plan](PLAN.md) for proposed command semantics and milestones.
 
@@ -20,14 +20,16 @@ Verify direct navigation to previous, next, and selected script actions. Preserv
 
 | User action | Expected result |
 | --- | --- |
-| Previous action (proposed Ctrl+Up) | Seek to the closest action strictly earlier than the current playhead. |
-| Next action (proposed Ctrl+Down) | Seek to the closest action strictly later than the current playhead. |
-| Selected action (proposed Enter) | Seek to the selected action; do nothing if there is no current selection. |
+| Previous point button or Ctrl+Up | Seek to the closest action strictly earlier than the current playhead. |
+| Next point button or Ctrl+Down | Seek to the closest action strictly later than the current playhead. |
+| Selected point button or Enter | Seek to the selected action; do nothing if there is no current selection. |
 | Navigate before the first or after the last action | No wrap; leave playhead, viewport, selection, script, and history unchanged. |
 | Navigate an empty script | No-op. |
 | Successful navigation | Set playhead and raise one seek request for the target timestamp; preserve zoom and script data/history. |
 | Focus an editable input or another control | Navigation shortcuts are not consumed; the control retains normal keyboard behavior. |
 | Use existing Left/Right, Shift/Ctrl+Left/Right, Space, Delete, or position-entry keys | Existing behavior remains unchanged. |
+
+The three point buttons are planned for a compact row directly below the existing time/frame seek row. A visible shortcut hint beside them should use the same style as the current seek-control hint. Disable Previous/Next when no point is available in that direction and Selected when no action is selected; update availability when the playhead, selection, or script changes.
 
 The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN.md); confirm them against issue scope and the complete UI before implementation.
 
@@ -39,6 +41,8 @@ The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN
 - Successful commands update the playhead and emit exactly one seek request at the expected timestamp.
 - Every successful and no-op navigation preserves `PixelsPerSecond`, action contents, selection, and undo/redo history.
 - Focused timeline shortcuts route to the matching navigation command; text inputs and other controls are not affected.
+- The Previous/Selected/Next buttons and their corresponding shortcuts invoke the same commands. Button enablement tracks selection and eligible actions in each direction.
+- The shortcut hint is visible next to the point-navigation row, which sits below the unchanged time/frame seek row.
 - Existing playback-step, play/pause, deletion, and physical-position-key tests continue to pass.
 
 Prefer direct `TimelineControl` tests for command semantics and WinForms STA tests for preprocessing/focus routing. Add a form-level test only if required to verify that navigation requests reach `MainForm`'s mpv seek path.

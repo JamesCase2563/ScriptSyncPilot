@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Plan
 
-**Status:** Planned; implementation has not started.
+**Status:** In Progress.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 **Affected project:** FunscriptEditor.
 See [VERIFICATION.md](VERIFICATION.md) for the current behavior and planned checks.
@@ -26,9 +26,15 @@ These bindings use currently unused keys in the inspected editor code; verify th
 
 | Command | Proposed shortcut | Behavior |
 | --- | --- | --- |
-| Previous action | Ctrl+Up | Seek to the action with the greatest timestamp strictly before the playhead. |
-| Next action | Ctrl+Down | Seek to the action with the least timestamp strictly after the playhead. |
-| Selected action | Enter | Seek to the selected action; no selection is a no-op. |
+| Previous point | Ctrl+Up | Seek to the action with the greatest timestamp strictly before the playhead. |
+| Next point | Ctrl+Down | Seek to the action with the least timestamp strictly after the playhead. |
+| Selected point | Enter | Seek to the selected action; no selection is a no-op. |
+
+Add three buttons—**Previous point**, **Selected point**, and **Next point**—in a compact row directly below the existing time/frame seek controls. Keep the existing seek row intact. Show a short shortcut hint beside the new buttons, following the current seek row's visible hint style (for example, `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Enter = selected`). Button clicks and shortcuts invoke the same navigation commands.
+
+- Disable Previous/Next when there is no eligible point in that direction; do not wrap at either end.
+- Disable Selected when there is no selected point.
+- Refresh button availability when the playhead, selection, or script changes.
 
 - Do not wrap at the first or last action. If no action exists in the requested direction, leave the playhead and viewport unchanged.
 - A navigation command with no script actions is a no-op.
@@ -45,13 +51,16 @@ These bindings use currently unused keys in the inspected editor code; verify th
 - [ ] Confirm next/previous navigation is relative to the playhead and uses strict timestamp comparisons.
 - [ ] Confirm no-wrap boundary behavior and no-selection behavior.
 - [ ] Confirm the proposed Ctrl+Up, Ctrl+Down, and Enter bindings, or record an alternative before coding.
+- [ ] Confirm the compact point-navigation row below the existing seek controls and the visible shortcut hint.
 
 ### 2. Implement navigation
 
 - [ ] Add timeline navigation operations for previous, next, and selected actions.
 - [ ] Update the playhead and raise the existing seek request without changing zoom or script history.
 - [ ] Route the agreed shortcuts only when the timeline is focused; preserve text-field input and existing keyboard commands.
+- [ ] Add Previous/Selected/Next point buttons below the seek row and keep each button in sync with its shortcut's enabled state.
 - [ ] Add focused tests for action ordering, selection, boundaries, empty scripts, seek requests, zoom preservation, and key routing.
+- [ ] Verify button clicks invoke the same navigation operations as their corresponding shortcuts and the shortcut hint is visible.
 
 ### 3. Verify and close
 

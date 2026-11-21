@@ -22,8 +22,8 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 - Solution: `src/ScriptSyncPilot.slnx`; current projects are Common, FunscriptEditor, HandySync, Common.Tests, and FunscriptEditor.Tests.
 - Shared tests cover Funscript/action history, pattern generation/insertion, and mpv session behavior.
 - FunscriptEditor.Tests references both app projects and contains the WinForms, Handy HTTP, timeout, settings, and lifecycle coverage.
-- `.github/workflows/windows-release-verification.yml` restores, builds Release, and tests the solution on `windows-latest` with .NET 10. It runs for pull requests targeting `main` and `production-readiness` when `src/**` changes, and for pushes to `production-readiness`.
-- Reusable completed evidence is archived in `dev/archive/2026-11-timeout-shutdown`, `dev/archive/2026-11-command-ordering`, and `dev/archive/2026-11-firmware-capabilities`, plus the completed error-reporting and production-readiness records.
+- `.github/workflows/windows-release-verification.yml` restores, builds Release, and tests the solution on `windows-latest` with .NET 10. It runs for pull requests targeting `main` when `src/**` or `.github/workflows/**` changes, and for pushes to `main`.
+- Reusable completed evidence is archived in `dev/archive/2026-11-timeout-shutdown`, `dev/archive/2026-11-command-ordering`, and `dev/archive/2026-11-firmware-capabilities`, plus the completed error-reporting and release-verification records.
 
 ## Milestones
 
@@ -35,7 +35,7 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 
 ### 2. Fill focused test gaps
 
-- [ ] Update the PR CI path filters to include workflow and root build/test configuration changes, not only `src/**`.
+- [x] Update the PR CI path filters to include workflow changes alongside `src/**` (M2.1). All solution, project, and test files are under `src/`; no root-level .NET build/restore configuration files are present in the current checkout.
 - [ ] Add/complete controlled local pipe-server coverage for mpv attach failure, cancellation, observable state changes, and disposal.
 - [ ] Add/complete deterministic session-replacement tests for both applications, including suppression of stale queued notifications.
 - [ ] Add/complete fake-transport tests for Handy setup ordering when script selection changes, draining in-flight requests, and stop-before-dispose.

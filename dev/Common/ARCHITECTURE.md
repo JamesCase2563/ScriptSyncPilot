@@ -18,4 +18,4 @@ Empty action lists are supported for editing; HandySync imposes its own playback
 
 Consumers retain emitting session identity and reject stale callbacks. Disposal/cancellation does not make already-queued application notifications current. UI dispatch belongs to each application, not the IPC library.
 
-Device HTTP clients remain in HandySync. Add code here only for genuine cross-project contracts, not to recreate obsolete Core/ControllerHost abstractions. Tests/CI/privacy guidance live in the [shared backlog](../BACKLOG.md).
+Device HTTP clients remain in HandySync. Add code here only for genuine cross-project contracts, not to recreate obsolete Core/ControllerHost abstractions. Tests/CI/privacy guidance live in the [shared backlog](../BACKLOG.md) and [GitHub Issues](https://github.com/JamesCase2563/ScriptSyncPilot/issues).

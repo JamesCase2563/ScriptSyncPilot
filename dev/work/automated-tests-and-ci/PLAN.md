@@ -1,6 +1,6 @@
 # Automated Tests and CI Plan
 
-**Status:** In progress; M1.1–M1.3 and M2.1–M2.4 are complete. Remaining focused test gaps and current-revision CI evidence are tracked below.
+**Status:** In progress; M1.1–M1.3 and M2.1–M2.5 are complete. Current-revision clean-checkout CI evidence remains open.
 **Issue:** [#21 — Automated Tests and CI](https://github.com/JamesCase2563/ScriptSyncPilot/issues/21).
 **Goal:** Establish focused, repeatable regression coverage and a reliable build/test gate for the projects that exist in this repository.
 
@@ -39,13 +39,13 @@ Out of scope: creating the former controller plan's nonexistent projects, hardwa
 - [x] Add/complete controlled local pipe-server coverage for mpv attach failure, cancellation, observable state changes, and disposal (M2.2; see [VERIFICATION.md](VERIFICATION.md)).
 - [x] Add/complete deterministic session-replacement tests for both applications, including suppression of stale queued notifications (M2.3; see [VERIFICATION.md](VERIFICATION.md)).
 - [x] Add/complete fake-transport tests for Handy setup ordering when script selection changes, draining in-flight requests, and stop-before-dispose (M2.4; see [VERIFICATION.md](VERIFICATION.md)).
-- [ ] Add/complete timeline tests for zoom/scroll bounds, deletion during drag, and keyboard input routing.
-- [ ] Fix only defects exposed by these tests, preserving current supported behavior and the existing project boundaries.
+- [x] Add/complete timeline tests for zoom/scroll bounds, deletion during drag, and keyboard input routing (M2.5; see [VERIFICATION.md](VERIFICATION.md)).
+- [x] Review test results for defects; none were exposed, so no behavior change was needed.
 
 ### 3. Verify and close
 
-- [ ] Run the focused tests for changed scenarios and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
-- [ ] Run the full solution Release build and test suite locally; record counts, environment, and limitations.
+- [x] Run the focused tests for changed scenarios and record exact commands/results in [VERIFICATION.md](VERIFICATION.md).
+- [x] Run the full solution Release build and test suite locally; record counts, environment, and limitations.
 - [ ] Obtain a passing clean-checkout GitHub Actions run for the intended PR/source revision; record the workflow run and commit.
 - [ ] Record any remaining uncovered or hardware-dependent behavior and link final evidence from issue #21.
 

@@ -28,6 +28,7 @@ public sealed class MpvSession : IDisposable
 
     private NamedPipeClientStream? _pipe;
     private CancellationTokenSource? _readCts;
+    private AttachReadState? _readState;
     private volatile bool _disposed;
 
     public bool IsPaused { get; private set; } = true;
@@ -49,18 +50,35 @@ public sealed class MpvSession : IDisposable
         }
         catch (TimeoutException)
         {
+            CleanupFailedAttach();
             throw new IOException(
                 $"Could not connect to mpv IPC pipe '{pipePath}'. Start mpv (or VR-Flat-Player) with " +
                 $"--input-ipc-server={pipePath} first.");
         }
+        catch
+        {
+            CleanupFailedAttach();
+            throw;
+        }
 
+        var readState = new AttachReadState();
+        _readState = readState;
         _readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = ReadLoopAsync(_readCts.Token);
+        _ = ReadLoopAsync(_readCts.Token, readState);
 
-        await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
-        await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+        try
+        {
+            await SendAsync(new { command = new object[] { "observe_property", 1, "time-pos" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+            readState.AttachCompleted.TrySetResult(true);
+        }
+        catch
+        {
+            CleanupFailedAttach(readState);
+            throw;
+        }
     }
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
@@ -94,7 +112,19 @@ public sealed class MpvSession : IDisposable
         await _pipe.FlushAsync(ct);
     }
 
-    private async Task ReadLoopAsync(CancellationToken ct)
+    private void CleanupFailedAttach(AttachReadState? readState = null)
+    {
+        (readState ?? _readState)?.AttachCompleted.TrySetResult(false);
+        var pipe = _pipe;
+        _pipe = null;
+        var readCts = _readCts;
+        _readCts = null;
+        readCts?.Cancel();
+        pipe?.Dispose();
+        readCts?.Dispose();
+    }
+
+    private async Task ReadLoopAsync(CancellationToken ct, AttachReadState readState)
     {
         if (_pipe is null) return;
         using var reader = new StreamReader(_pipe, Encoding.UTF8, leaveOpen: true);
@@ -122,9 +152,15 @@ public sealed class MpvSession : IDisposable
         }
         finally
         {
-            if (!_disposed)
+            if (await readState.AttachCompleted.Task.ConfigureAwait(false) && !_disposed)
                 Disconnected?.Invoke();
         }
+    }
+
+    private sealed class AttachReadState
+    {
+        public TaskCompletionSource<bool> AttachCompleted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private void HandleLine(string line)
@@ -159,8 +195,14 @@ public sealed class MpvSession : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
         _disposed = true;
-        _readCts?.Cancel();
+        _readState?.AttachCompleted.TrySetResult(false);
+        var readCts = _readCts;
+        _readCts = null;
+        readCts?.Cancel();
         _pipe?.Dispose();
+        _pipe = null;
+        readCts?.Dispose();
     }
 }

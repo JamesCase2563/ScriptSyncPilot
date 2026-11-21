@@ -3,13 +3,13 @@ name: Windows release verification
 on:
   push:
     branches:
-      - production-readiness
+      - main
   pull_request:
     branches:
       - main
-      - production-readiness
     paths:
       - 'src/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:

@@ -490,18 +490,7 @@ public sealed class MainForm : Form
             session.PositionChanged += pos => _ = OnMpvPositionChangedAsync(session, pos);
             session.DurationChanged += seconds => OnMpvDurationChanged(session, seconds);
             session.SpeedChanged += _ => OnMpvSpeedChanged(session);
-            session.Disconnected += () =>
-            {
-                if (ShutdownStarted || IsDisposed || !IsHandleCreated) return;
-                try
-                {
-                    BeginInvoke(() =>
-                    {
-                        if (ReferenceEquals(_mpv, session)) _ = DetachMpvAsync();
-                    });
-                }
-                catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
-            };
+            session.Disconnected += () => OnMpvDisconnected(session);
             await session.AttachAsync(_mpvPipeBox.Text.Trim(), _lifetimeCts.Token);
             if (ShutdownStarted) return;
             Log("Attached to mpv IPC pipe.");
@@ -1044,6 +1033,19 @@ public sealed class MainForm : Form
             if (!ReferenceEquals(_mpv, session)) return;
             _waveform.SetMediaDuration(seconds);
         });
+    }
+
+    private void OnMpvDisconnected(MpvSession disconnectedSession)
+    {
+        if (ShutdownStarted || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (ReferenceEquals(_mpv, disconnectedSession)) _ = DetachMpvAsync();
+            });
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated) { }
     }
 
     private void OnWaveformSeekRequested(double seconds)

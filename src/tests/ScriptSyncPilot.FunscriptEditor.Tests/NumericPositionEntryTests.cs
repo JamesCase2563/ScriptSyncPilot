@@ -83,6 +83,108 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
+    public void ZoomAndScroll_StayWithinDurationAndViewportBounds()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            timeline.LoadScript(new Funscript());
+            timeline.UpdateDuration(120);
+            form.Show();
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+
+            timeline.PixelsPerSecond = 0.0001;
+            Assert.AreEqual(timeline.MinPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
+            Assert.AreEqual(0, scrollbar.Value);
+            Assert.IsTrue(scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+
+            timeline.PixelsPerSecond = double.MaxValue;
+            Assert.AreEqual(timeline.MaxPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
+            timeline.ZoomByWheel(12000, timeline.ClientSize.Width / 2);
+            Assert.AreEqual(timeline.MaxPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
+            Assert.IsTrue(scrollbar.Value >= 0);
+            Assert.IsTrue(scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+
+            timeline.ZoomByWheel(-12000, timeline.ClientSize.Width / 2);
+            Assert.AreEqual(timeline.MinPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
+            Assert.IsTrue(scrollbar.Value >= 0);
+            Assert.IsTrue(scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+
+            timeline.PixelsPerSecond = 50;
+            timeline.UpdateDuration(10);
+            Assert.AreEqual(timeline.MinPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
+            Assert.IsTrue(scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void DeleteDuringActionDrag_EndsDragAndCannotMutateNextAction()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            script.AddOrReplace(new FunscriptAction(5000, 50));
+            script.AddOrReplace(new FunscriptAction(30000, 80));
+            timeline.LoadScript(script);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+
+            var x = timeline.Padding.Left + 500;
+            var trackTop = timeline.Padding.Top + 10;
+            var trackBottom = timeline.Height - timeline.Padding.Bottom - 24 - 10;
+            var y = (int)Math.Round(trackBottom - 0.5 * (trackBottom - trackTop));
+            void Mouse(string method, MouseEventArgs args) => typeof(TimelineControl)
+                .GetMethod(method, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [args]);
+
+            Mouse("OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, x, y, 0));
+            Mouse("OnMouseMove", new MouseEventArgs(MouseButtons.Left, 1, x + 20, y - 10, 0));
+            Assert.AreEqual(new FunscriptAction(5200, 57), script.Actions[0]);
+
+            typeof(TimelineControl).GetMethod("OnKeyDown", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new KeyEventArgs(Keys.Delete)]);
+            Assert.AreEqual(1, script.Actions.Count);
+            Assert.AreEqual(new FunscriptAction(30000, 80), script.Actions[0]);
+
+            Mouse("OnMouseMove", new MouseEventArgs(MouseButtons.Left, 1, x + 300, y - 20, 0));
+            Mouse("OnMouseUp", new MouseEventArgs(MouseButtons.Left, 1, x + 300, y - 20, 0));
+            Assert.AreEqual(1, script.Actions.Count);
+            Assert.AreEqual(new FunscriptAction(30000, 80), script.Actions[0]);
+            Assert.IsTrue(timeline.History.CanUndo);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void Routing_UnfocusedTimelineDoesNotConsumePositionKey()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form();
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            var other = new TextBox();
+            form.Controls.Add(timeline);
+            form.Controls.Add(other);
+            var script = new Funscript();
+            timeline.LoadScript(script);
+            form.Show();
+            other.Focus();
+            var message = Message.Create(timeline.Handle, 0x0100, (IntPtr)Keys.D1, (IntPtr)KeyData(0x02));
+
+            timeline.PreProcessControlMessage(ref message);
+            Assert.AreEqual(0, script.Actions.Count);
+            Assert.IsFalse(timeline.Focused);
+            form.Close();
+        });
+    }
+
+    [TestMethod]
     public void Insertion_ReplacesWithoutDuplicatesAndPreservesNoOpRedo()
     {
         RunSta(() =>

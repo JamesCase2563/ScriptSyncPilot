@@ -188,6 +188,79 @@ public sealed class MpvSessionTests
         Assert.IsNull(session.Speed);
     }
 
+    [TestMethod]
+    public async Task Attach_ConnectCancellationReleasesPendingPipe()
+    {
+        using var session = new MpvSession();
+        using var cancellation = new CancellationTokenSource();
+        var pipePath = $@"\\.\pipe\ssp-mpv-cancel-{Guid.NewGuid():N}";
+
+        var attach = session.AttachAsync(pipePath, cancellation.Token);
+        cancellation.Cancel();
+
+        await AssertCancelledAsync(() => attach);
+        Assert.IsNull(GetPipe(session), "A canceled attach must release its pending client pipe.");
+    }
+
+    [TestMethod]
+    public async Task Attach_CancellationDuringPropertySubscriptionsDoesNotReportRemoteDisconnect()
+    {
+        using var endpoint = new PipeEndpoint();
+        using var cancellation = new CancellationTokenSource();
+        var disconnects = 0;
+        endpoint.Session.Disconnected += () => Interlocked.Increment(ref disconnects);
+
+        await endpoint.ConnectAsync(cancellation.Token, cancellation.Cancel);
+        await AssertCancelledAsync(() => endpoint.Attachment);
+        await endpoint.ReadCompletion.WaitAsync(endpoint.Token);
+
+        Assert.AreEqual(0, Volatile.Read(ref disconnects),
+            "Cancellation while installing property observations is a failed local attach, not a remote disconnect.");
+        Assert.IsNull(GetPipe(endpoint.Session), "A canceled attach must release its connected client pipe.");
+    }
+
+    [TestMethod]
+    public async Task Attach_ConnectionTimeoutReportsPipePathAndReleasesPipe()
+    {
+        using var session = new MpvSession();
+        var pipePath = $@"\\.\pipe\ssp-mpv-timeout-{Guid.NewGuid():N}";
+
+        var error = await Assert.ThrowsExceptionAsync<IOException>(
+            () => session.AttachAsync(pipePath, CancellationToken.None));
+
+        StringAssert.Contains(error.Message, pipePath);
+        StringAssert.Contains(error.Message, "--input-ipc-server=");
+        Assert.IsNull(GetPipe(session), "A failed attach must release its disconnected client pipe.");
+    }
+
+    [TestMethod]
+    public async Task Dispose_StopsPropertyObservationWithoutDisconnectNotification()
+    {
+        using var endpoint = new PipeEndpoint();
+        var disconnected = 0;
+        var position = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
+        endpoint.Session.Disconnected += () => Interlocked.Increment(ref disconnected);
+        endpoint.Session.PositionChanged += value => position.TrySetResult(value);
+        await endpoint.ConnectAndDrainAsync();
+
+        await endpoint.SendPropertyAsync("time-pos", 18.25);
+        Assert.AreEqual(18.25, await position.Task.WaitAsync(endpoint.Token));
+        Assert.AreEqual(18.25, endpoint.Session.PositionSeconds);
+
+        endpoint.Session.Dispose();
+        await endpoint.ReadCompletion.WaitAsync(endpoint.Token);
+        endpoint.Session.Dispose();
+
+        Assert.AreEqual(0, Volatile.Read(ref disconnected), "Local disposal is not a remote disconnect.");
+        await Assert.ThrowsExceptionAsync<IOException>(
+            () => endpoint.Session.SeekAsync(20, endpoint.Token));
+    }
+
+    private static NamedPipeClientStream? GetPipe(MpvSession session) =>
+        (NamedPipeClientStream?)typeof(MpvSession)
+            .GetField("_pipe", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(session);
+
     private static async Task AssertCancelledAsync(Func<Task> action)
     {
         try { await action(); }
@@ -207,6 +280,7 @@ public sealed class MpvSessionTests
         public MpvSession Session { get; } = new();
         public CancellationToken Token => _timeout.Token;
         public Task Attachment { get; private set; } = Task.CompletedTask;
+        public Task ReadCompletion => _readTask;
 
         public PipeEndpoint()
         {
@@ -215,20 +289,28 @@ public sealed class MpvSessionTests
             _reader = new StreamReader(Server, Encoding.UTF8, leaveOpen: true);
         }
 
-        public async Task ConnectAsync(CancellationToken? lifetime = null)
+        public async Task ConnectAsync(CancellationToken? lifetime = null, Action? onFirstCommand = null)
         {
             var connection = Server.WaitForConnectionAsync(Token);
             Attachment = Session.AttachAsync($@"\\.\pipe\{_name}", lifetime ?? Token);
             await connection;
-            _readTask = ReadCommandsAsync();
+            _readTask = ReadCommandsAsync(onFirstCommand);
         }
 
-        private async Task ReadCommandsAsync()
+        private async Task ReadCommandsAsync(Action? onFirstCommand)
         {
             try
             {
+                var firstCommand = true;
                 while (await _reader.ReadLineAsync(Token).ConfigureAwait(false) is { } line)
+                {
                     _commands.Writer.TryWrite(line);
+                    if (firstCommand)
+                    {
+                        firstCommand = false;
+                        onFirstCommand?.Invoke();
+                    }
+                }
                 _commands.Writer.TryComplete();
             }
             catch (Exception exception) when (exception is OperationCanceledException or IOException or ObjectDisposedException)

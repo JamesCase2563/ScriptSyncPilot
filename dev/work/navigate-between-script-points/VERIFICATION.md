@@ -2,7 +2,7 @@
 
 **Status:** In Progress; implementation and verification remain open.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
-See the [plan](PLAN.md) for proposed command semantics and milestones.
+See the [plan](PLAN.md) for confirmed command semantics and milestones.
 
 ## Scope
 
@@ -28,12 +28,12 @@ Reviewed `MainForm`, `TimelineControl`, and `PatternInsertionDialog` keyboard ha
 | Space | Focused timeline preprocesses Space as play/pause and consumes key repeat without repeated toggles. | Preserve. |
 | Top-row position keys | Focused timeline maps eleven physical scan codes to positions; modifiers/extended keys are excluded and held repeats are consumed. | Preserve all bindings and focus scope. |
 | Delete | Focused timeline handles Delete to remove the selected action. | Preserve. |
-| Ctrl+N / Ctrl+O / Ctrl+S | MainForm menu accelerators for New/Open/Save; PatternInsertionDialog forwards these file shortcuts to the owner. | No collision with the proposed point-navigation shortcuts. |
+| Ctrl+N / Ctrl+O / Ctrl+S | MainForm menu accelerators for New/Open/Save; PatternInsertionDialog forwards these file shortcuts to the owner. | No collision with the confirmed point-navigation shortcuts. |
 | Ctrl+Z / Ctrl+Y | MainForm menu accelerators for Undo/Redo. | No collision. |
 | Ctrl+Up / Ctrl+Down | No application-level handler or menu binding found in the inspected editor code. Up/Down are not currently claimed by `TimelineControl.IsInputKey`. | Available in the main editor when the timeline owns focus, but implementation must explicitly route them to the timeline rather than relying on current input-key behavior. Never handle them while a NumericUpDown or other input owns focus. |
 | Enter | No MainForm or TimelineControl shortcut handler found. PatternInsertionDialog has an AcceptButton and standard controls may use Enter for their normal action. | Available in the main editor while the timeline owns focus; scope the selected-point command to that focus and leave dialogs/other controls unchanged. |
 
-**M1.1 result:** No additional main-editor shortcut conflict was found for proposed Ctrl+Up, Ctrl+Down, and Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down require explicit timeline input routing; Enter must be consumed only in timeline focus. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the proposed bindings.
+**M1.1 result:** No additional main-editor shortcut conflict was found for Ctrl+Up, Ctrl+Down, and Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down require explicit timeline input routing; Enter must be consumed only in timeline focus. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the bindings.
 
 ## M1.2 — Next/previous reference and comparison
 
@@ -47,29 +47,62 @@ Confirmed the intended rule: next and previous navigation are relative to `Timel
 
 The comparison should use the actual playhead time at sufficient precision against action timestamps in milliseconds; do not round the playhead to a millisecond before deciding which side an action is on. M1.2 is a confirmed behavior contract; code and automated tests remain for M2.
 
-## Proposed behavior to verify
+## M1.3 — Boundaries and no-selection behavior
+
+Confirmed no-wrap behavior for next/previous navigation. A command with no eligible action is a no-op: it does not move the playhead, change the viewport or zoom, alter selection, edit the script, or add history. The corresponding Previous/Next button is disabled whenever no eligible action exists in its direction.
+
+- Before the first action, Previous is disabled/no-op; Next targets the first action.
+- After the last action, Next is disabled/no-op; Previous targets the last action.
+- Exactly on the first action, Previous is disabled/no-op; Next targets the following action if one exists.
+- Exactly on the last action, Next is disabled/no-op; Previous targets the preceding action if one exists.
+- With one action, both direction buttons are disabled when the playhead is exactly on it; on either side, only the direction with an eligible action is enabled.
+- With an empty script, all three point-navigation buttons are disabled and every point-navigation command is a no-op.
+- With no selected action, Selected is disabled and Enter does nothing. The Selected point button and Enter become available only while a current action is selected; both invoke the same selected-action command.
+
+These are confirmed behavior decisions for M1.3. Automated implementation and regression checks remain for M2.
+
+## M1.4 — Shortcut bindings
+
+Confirmed the planned bindings without an alternative:
+
+- **Ctrl+Up:** Previous point.
+- **Ctrl+Down:** Next point.
+- **Enter:** Selected point.
+
+These commands are available only while the timeline itself has focus. They must not be handled while a text/numeric input, dialog, or other control owns focus. The bindings are independent of mpv attachment so the playhead can still move locally; the existing seek handler sends the request only when a session is available. Keep the displayed shortcut hint beside the point-navigation buttons and ensure button clicks use the same operations.
+
+The source audit found no conflicting main-editor command. The timeline does not currently claim Up/Down as input keys, so implementation must explicitly route Ctrl+Up/Down and test WinForms focus behavior. M1.4 confirms the design choices; it does not yet verify the implemented routing.
+
+## M1.5 — Point-navigation controls layout
+
+Confirmed with the user: put **Previous point**, **Selected point**, and **Next point** in a compact row immediately below the existing time/frame seek controls. Keep the existing seek row unchanged. Show the three shortcuts beside the point buttons in a subdued hint styled like the existing seek-shortcut hint. The proposed hint is `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Enter = selected`.
+
+Button and shortcut actions must call the same commands. The button row and hint are planned layout requirements; visual rendering and button enablement remain to be verified during M2/M3 implementation.
+
+## Confirmed behavior to verify
 
 | User action | Expected result |
 | --- | --- |
 | Previous point button or Ctrl+Up | Seek to the closest action strictly earlier than the current playhead. |
 | Next point button or Ctrl+Down | Seek to the closest action strictly later than the current playhead. |
 | Selected point button or Enter | Seek to the selected action; do nothing if there is no current selection. |
-| Navigate before the first or after the last action | No wrap; leave playhead, viewport, selection, script, and history unchanged. |
-| Navigate an empty script | No-op. |
+| Previous before first / Next after last | No wrap; button disabled and keyboard command is a no-op, leaving playhead, viewport, zoom, selection, script, and history unchanged. |
+| Navigate an empty script | All point buttons disabled; commands are no-ops. |
+| Selected point with no selection | Selected button disabled; Enter is a no-op. |
 | Successful navigation | Set playhead and raise one seek request for the target timestamp; preserve zoom and script data/history. |
 | Focus an editable input or another control | Navigation shortcuts are not consumed; the control retains normal keyboard behavior. |
 | Use existing Left/Right, Shift/Ctrl+Left/Right, Space, Delete, or position-entry keys | Existing behavior remains unchanged. |
 
 The three point buttons are planned for a compact row directly below the existing time/frame seek row. A visible shortcut hint beside them should use the same style as the current seek-control hint. Disable Previous/Next when no point is available in that direction and Selected when no action is selected; update availability when the playhead, selection, or script changes.
 
-The shortcuts and selection/playhead semantics are proposals from [PLAN.md](PLAN.md). M1.1 found no app-level conflicts for the shortcuts, but final binding and semantics confirmation remain open in M1.
+The shortcut and selection/playhead semantics are confirmed in [PLAN.md](PLAN.md) and M1.1–M1.4 above. Runtime behavior remains to be implemented and verified.
 
 ## Automated coverage to add
 
 - Previous/next choose the nearest strictly earlier/later action, including when the playhead equals an action timestamp.
 - Previous/next behavior is based on playhead time even when another point is selected; add cases for exact timestamp and between-action playhead positions.
-- Selected-action navigation targets the selected timestamp; no selection and stale selection are no-ops.
-- Empty scripts and both navigation boundaries are no-ops.
+- Selected-action navigation targets the selected timestamp; no selection is a no-op and the button is disabled.
+- Empty scripts, both navigation boundaries, first/last action positions, and a one-action script have the specified no-wrap/button enablement behavior.
 - Successful commands update the playhead and emit exactly one seek request at the expected timestamp.
 - Every successful and no-op navigation preserves `PixelsPerSecond`, action contents, selection, and undo/redo history.
 - Focused timeline shortcuts route to the matching navigation command; text inputs and other controls are not affected.

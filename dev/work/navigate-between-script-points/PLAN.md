@@ -20,11 +20,11 @@ Let an editor user move the playhead directly to the next or previous action, or
 
 Out of scope: multi-point selection, point nudging, marker/snap behavior, timeline zoom/follow redesign, or changing the existing playback stepping shortcuts.
 
-## Proposed interaction contract
+## Confirmed interaction contract
 
-These bindings use currently unused keys in the inspected editor code; verify them against the full UI before implementation.
+M1.4 confirms these bindings. They are unused by the inspected main-editor shortcut handlers; implementation and tests must still verify WinForms routing and focus isolation.
 
-| Command | Proposed shortcut | Behavior |
+| Command | Confirmed shortcut | Behavior |
 | --- | --- | --- |
 | Previous point | Ctrl+Up | Seek to the action with the greatest timestamp strictly before the playhead. |
 | Next point | Ctrl+Down | Seek to the action with the least timestamp strictly after the playhead. |
@@ -38,10 +38,10 @@ Add three buttonsâ€”**Previous point**, **Selected point**, and **Next point**â€
 
 - Do not wrap at the first or last action. If no action exists in the requested direction, leave the playhead and viewport unchanged.
 - A navigation command with no script actions is a no-op.
-- A selected-action command uses the current selection at invocation time. If selection is absent or stale, it is a no-op.
+- A selected-action command uses the current selection at invocation time. If selection is absent, it is a no-op.
 - Successful navigation updates the playhead and requests a seek to the action timestamp. It does not change action data, selection, history, or zoom.
 - Keep the current Left/Right frame stepping and Shift/Ctrl+Left/Right time stepping unchanged.
-- Accept the proposed shortcuts only while the timeline has focus. Do not consume them in text/numeric inputs, dialogs, or other controls.
+- Accept these shortcuts only while the timeline has focus. Do not consume them in text/numeric inputs, dialogs, or other controls.
 
 ## Milestones
 
@@ -49,9 +49,9 @@ Add three buttonsâ€”**Previous point**, **Selected point**, and **Next point**â€
 
 - [x] M1.1 Confirm current playback, editing, position-entry, and form shortcut routing; identify any additional conflicts (see [VERIFICATION.md](VERIFICATION.md)).
 - [x] M1.2 Confirm next/previous navigation is relative to the playhead and uses strict timestamp comparisons (see [VERIFICATION.md](VERIFICATION.md)).
-- [ ] Confirm no-wrap boundary behavior and no-selection behavior.
-- [ ] Confirm the proposed Ctrl+Up, Ctrl+Down, and Enter bindings, or record an alternative before coding.
-- [ ] Confirm the compact point-navigation row below the existing seek controls and the visible shortcut hint.
+- [x] M1.3 Confirm no-wrap boundary behavior and no-selection behavior (see [VERIFICATION.md](VERIFICATION.md)).
+- [x] M1.4 Confirm Ctrl+Up for Previous, Ctrl+Down for Next, and Enter for Selected, scoped to timeline focus (see [VERIFICATION.md](VERIFICATION.md)).
+- [x] M1.5 Confirm the compact point-navigation row below the existing seek controls and visible shortcut hint (see [VERIFICATION.md](VERIFICATION.md)).
 
 ### 2. Implement navigation
 

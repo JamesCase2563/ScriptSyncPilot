@@ -117,6 +117,89 @@ public sealed class TimelineNavigationTests
         Assert.IsFalse(timeline.History.CanUndo);
     }
 
+    [STATestMethod]
+    public void FocusedTimeline_RoutesConfirmedShortcutsWithoutMpv()
+    {
+        using var form = new Form { ClientSize = new Size(1040, 200), KeyPreview = true };
+        using var timeline = CreateTimeline();
+        var script = CreateScript(1000, 2000, 3000);
+        timeline.Dock = DockStyle.Fill;
+        timeline.LoadScript(script);
+        timeline.UpdateDuration(10);
+        timeline.PixelsPerSecond = 100;
+        form.Controls.Add(timeline);
+        form.Show();
+        form.Activate();
+        Assert.IsTrue(timeline.Focus());
+        Assert.IsTrue(timeline.Focused);
+
+        Assert.IsTrue(IsInputKey(timeline, Keys.Control | Keys.Up));
+        Assert.IsTrue(IsInputKey(timeline, Keys.Control | Keys.Down));
+        Assert.IsTrue(IsInputKey(timeline, Keys.Enter));
+        Assert.IsTrue(IsInputKey(timeline, Keys.Left), "Existing playback stepping remains an input key.");
+        Assert.IsFalse(IsInputKey(timeline, Keys.Control | Keys.Shift | Keys.Up));
+        Assert.IsFalse(IsInputKey(timeline, Keys.Shift | Keys.Enter));
+
+        var originalZoom = timeline.PixelsPerSecond;
+        var originalActions = script.Actions.ToArray();
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+
+        var noSelection = SendKeyDown(timeline, Keys.Enter);
+        Assert.IsTrue(noSelection.Handled);
+        Assert.IsTrue(noSelection.SuppressKeyPress);
+        Assert.AreEqual(0, seeks.Count);
+
+        timeline.SetPlayhead(1);
+        var next = SendKeyDown(timeline, Keys.Control | Keys.Down);
+        Assert.IsTrue(next.Handled);
+        Assert.AreEqual(2.0, timeline.PlayheadSeconds);
+
+        var previous = SendKeyDown(timeline, Keys.Control | Keys.Up);
+        Assert.IsTrue(previous.Handled);
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds);
+
+        SelectAction(timeline, 3000);
+        timeline.SetPlayhead(5);
+        var selected = SendKeyDown(timeline, Keys.Enter);
+        Assert.IsTrue(selected.Handled);
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds);
+        CollectionAssert.AreEqual(new[] { 2.0, 1.0, 3.0 }, seeks);
+        Assert.AreEqual(originalZoom, timeline.PixelsPerSecond);
+        CollectionAssert.AreEqual(originalActions, script.Actions.ToArray());
+        Assert.IsFalse(timeline.History.CanUndo);
+        form.Close();
+    }
+
+    [STATestMethod]
+    public void UnfocusedTimeline_DoesNotConsumePointShortcuts()
+    {
+        using var form = new Form { ClientSize = new Size(1040, 200) };
+        using var timeline = CreateTimeline();
+        var input = new TextBox();
+        var script = CreateScript(1000, 2000);
+        timeline.LoadScript(script);
+        form.Controls.Add(timeline);
+        form.Controls.Add(input);
+        form.Show();
+        Assert.IsTrue(input.Focus());
+        Assert.IsFalse(timeline.Focused);
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+        timeline.SetPlayhead(1);
+
+        foreach (var shortcut in new[] { Keys.Control | Keys.Up, Keys.Control | Keys.Down, Keys.Enter })
+        {
+            var key = SendKeyDown(timeline, shortcut);
+            Assert.IsFalse(key.Handled, $"{shortcut} should not be consumed while the text input has focus.");
+        }
+
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(0, seeks.Count);
+        Assert.AreEqual(2, script.Actions.Count);
+        form.Close();
+    }
+
     private static TimelineControl CreateTimeline() => new() { Size = new Size(1040, 200) };
 
     private static Funscript CreateScript(params int[] timestamps)
@@ -136,5 +219,17 @@ public sealed class TimelineNavigationTests
         timeline.HandleMouseDown(new MouseEventArgs(MouseButtons.Left, 1, x, y, 0), Keys.None);
         typeof(TimelineControl).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, x, y, 0)]);
+    }
+
+    private static bool IsInputKey(TimelineControl timeline, Keys keyData) =>
+        (bool)typeof(TimelineControl).GetMethod("IsInputKey", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(timeline, [keyData])!;
+
+    private static KeyEventArgs SendKeyDown(TimelineControl timeline, Keys keyData)
+    {
+        var args = new KeyEventArgs(keyData);
+        typeof(TimelineControl).GetMethod("OnKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(timeline, [args]);
+        return args;
     }
 }

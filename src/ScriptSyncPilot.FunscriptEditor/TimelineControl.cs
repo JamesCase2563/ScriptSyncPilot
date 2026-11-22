@@ -729,6 +729,27 @@ public sealed class TimelineControl : Control
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (Focused && e.Modifiers == Keys.Control && e.KeyCode == Keys.Up)
+        {
+            NavigateToPreviousAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (Focused && e.Modifiers == Keys.Control && e.KeyCode == Keys.Down)
+        {
+            NavigateToNextAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (Focused && e.Modifiers == Keys.None && e.KeyCode == Keys.Enter)
+        {
+            NavigateToSelectedAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
         if (e.KeyCode == Keys.Delete && _selectedIndex is { } index)
         {
             Commit(() => _script.RemoveAt(index));
@@ -780,7 +801,11 @@ public sealed class TimelineControl : Control
     protected override bool IsInputKey(Keys keyData)
     {
         var keyCode = keyData & Keys.KeyCode;
-        return keyCode == Keys.Delete || keyCode == Keys.Left || keyCode == Keys.Right || base.IsInputKey(keyData);
+        var modifiers = keyData & Keys.Modifiers;
+        var pointNavigationKey = ((keyCode is Keys.Up or Keys.Down) && modifiers == Keys.Control)
+            || (keyCode == Keys.Enter && modifiers == Keys.None);
+        return pointNavigationKey || keyCode == Keys.Delete || keyCode == Keys.Left || keyCode == Keys.Right
+            || base.IsInputKey(keyData);
     }
 
     private void Seek(int x)

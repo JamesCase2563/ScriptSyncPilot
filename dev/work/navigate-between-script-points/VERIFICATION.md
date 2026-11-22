@@ -118,6 +118,12 @@ Implemented three public timeline commands: `NavigateToPreviousAction`, `Navigat
 
 `TimelineNavigationTests` verifies strict previous/next navigation at exact and fractional playhead positions, no-wrap boundaries, empty scripts, selected-action navigation, no-selection behavior, seek event counts, and preservation of zoom/script/history. Keyboard routing and the point-navigation button row are not implemented in M2.1 and remain open for the later milestones.
 
+## M2.2 — Focused shortcut routing
+
+`TimelineControl.IsInputKey` now claims Ctrl+Up, Ctrl+Down, and unmodified Enter so WinForms routes these keys to the timeline. `OnKeyDown` invokes the matching operation only when the timeline is focused, consumes the key even when there is no eligible target, and suppresses the keypress. Other modifier combinations are left alone. This keeps navigation independent of mpv attachment and avoids consuming keys in text/numeric inputs or dialogs, which do not route their keys through the timeline.
+
+The new `TimelineNavigationTests.FocusedTimeline_RoutesConfirmedShortcutsWithoutMpv` checks the three bindings, no-mpv operation, no-selection Enter behavior, exact modifier acceptance, and continued Left input-key routing. `UnfocusedTimeline_DoesNotConsumePointShortcuts` gives a sibling text field focus and verifies synthetic keydown calls do not navigate or mark keys handled. Existing `NumericPositionEntryTests` continue to cover physical position keys and Space/play-pause routing.
+
 ## Planned commands
 
 Run with isolated build output to avoid sharing test binaries with an open editor process:
@@ -136,8 +142,9 @@ If a Windows editor session is available, check previous/next and selected-point
 
 ## Results
 
-M2.1 navigation operations and focused tests are implemented and verified below. Keyboard routing, button UI, the full FunscriptEditor suite, and manual checks remain open.
+M2.1 operations and M2.2 shortcut routing are implemented and focused tests pass below. The point-navigation button row, full FunscriptEditor suite, and manual checks remain open.
 
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 4/4 focused timeline navigation tests. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~NumericPositionEntryTests" --verbosity minimal` | Passed: 21/21; includes all six `TimelineNavigationTests` and existing position-entry and playback-shortcut routing coverage. |

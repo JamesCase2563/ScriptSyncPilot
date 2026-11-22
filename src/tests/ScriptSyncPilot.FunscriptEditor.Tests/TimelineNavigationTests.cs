@@ -69,6 +69,30 @@ public sealed class TimelineNavigationTests
     }
 
     [STATestMethod]
+    public void RepeatedPreviousAndNext_NavigateOnePointPerCommand()
+    {
+        using var timeline = CreateTimeline();
+        timeline.LoadScript(CreateScript(1000, 2000, 3000, 4000, 5000));
+        timeline.SetPlayhead(3);
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+
+        Assert.IsTrue(timeline.NavigateToNextAction());
+        Assert.AreEqual(4.0, timeline.PlayheadSeconds);
+        Assert.IsTrue(timeline.NavigateToNextAction());
+        Assert.AreEqual(5.0, timeline.PlayheadSeconds);
+        Assert.IsFalse(timeline.NavigateToNextAction());
+
+        Assert.IsTrue(timeline.NavigateToPreviousAction());
+        Assert.AreEqual(4.0, timeline.PlayheadSeconds);
+        Assert.IsTrue(timeline.NavigateToPreviousAction());
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds);
+        Assert.IsTrue(timeline.NavigateToPreviousAction());
+        Assert.AreEqual(2.0, timeline.PlayheadSeconds);
+        CollectionAssert.AreEqual(new[] { 4.0, 5.0, 4.0, 3.0, 2.0 }, seeks);
+    }
+
+    [STATestMethod]
     public void SelectedNavigation_SeeksSelectedActionAndNoSelectionIsNoOp()
     {
         using var timeline = CreateTimeline();

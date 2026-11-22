@@ -11,6 +11,9 @@ namespace ScriptSyncPilot.FunscriptEditor;
 /// </summary>
 public sealed class MainForm : Form
 {
+    private const double SeekPositionToleranceSeconds = 0.005;
+    private const long PendingSeekPositionTimeoutMs = 2000;
+
     private readonly EditorSettings _settings;
     private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
@@ -53,6 +56,7 @@ public sealed class MainForm : Form
     private bool IsDirty => _timeline.History.IsDirty;
 
     private MpvSession? _mpv;
+    private PendingMpvSeek? _pendingMpvSeek;
     private Process? _ownedMpvProcess;
     private string? _ownedMpvPipe;
     private CancellationTokenSource _lifetimeCts = new();
@@ -606,9 +610,37 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             if (!ReferenceEquals(_mpv, session)) return;
+            if (!ShouldApplyMpvPositionUpdate(session, seconds)) return;
             _timeline.SetPlayhead(seconds, followPlayback: !session.IsPaused);
             _timeLabel.Text = $"{seconds:0.000} / {session.DurationSeconds:0.000} s";
         });
+    }
+
+    private bool ShouldApplyMpvPositionUpdate(MpvSession session, double seconds)
+    {
+        if (_pendingMpvSeek is not { } pending || !ReferenceEquals(pending.Session, session))
+            return true;
+
+        if (Environment.TickCount64 - pending.RequestedAtTick >= PendingSeekPositionTimeoutMs)
+        {
+            _pendingMpvSeek = null;
+            return true;
+        }
+
+        if (!HasReachedSeekTarget(pending.StartingPositionSeconds, pending.TargetSeconds, seconds))
+            return false;
+
+        _pendingMpvSeek = null;
+        return true;
+    }
+
+    internal static bool HasReachedSeekTarget(double startingPositionSeconds, double targetSeconds, double reportedPositionSeconds)
+    {
+        if (targetSeconds > startingPositionSeconds)
+            return reportedPositionSeconds >= targetSeconds - SeekPositionToleranceSeconds;
+        if (targetSeconds < startingPositionSeconds)
+            return reportedPositionSeconds <= targetSeconds + SeekPositionToleranceSeconds;
+        return Math.Abs(reportedPositionSeconds - targetSeconds) <= SeekPositionToleranceSeconds;
     }
 
     private void OnMpvPauseChanged(MpvSession session, bool paused)
@@ -809,8 +841,11 @@ public sealed class MainForm : Form
 
     private void OnSeekRequested(double seconds)
     {
-        if (_mpv is null) return;
-        _ = SeekAsync(seconds);
+        var session = _mpv;
+        if (session is null) return;
+        var pending = new PendingMpvSeek(session, session.PositionSeconds, seconds, Environment.TickCount64);
+        _pendingMpvSeek = pending;
+        _ = SeekAsync(session, seconds, pending);
     }
 
     private void MovePlayheadTo(double seconds)
@@ -819,15 +854,17 @@ public sealed class MainForm : Form
         OnSeekRequested(seconds);
     }
 
-    private async Task SeekAsync(double seconds)
+    private async Task SeekAsync(MpvSession session, double seconds, PendingMpvSeek pendingSeek)
     {
         try
         {
-            await _mpv!.SeekAsync(seconds, _lifetimeCts.Token);
+            await session.SeekAsync(seconds, _lifetimeCts.Token);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
             Log($"Seek failed: {ex.Message}");
+            if (ReferenceEquals(_pendingMpvSeek, pendingSeek))
+                _pendingMpvSeek = null;
         }
     }
 
@@ -836,6 +873,7 @@ public sealed class MainForm : Form
         _lifetimeCts.Cancel();
         _mpv?.Dispose();
         _mpv = null;
+        _pendingMpvSeek = null;
         _activePipe = null;
         _attachButton.Text = "Attach";
         _timeline.UpdateDuration(0);
@@ -852,4 +890,6 @@ public sealed class MainForm : Form
             _ownedMpvPipe = null;
         }
     }
+
+    private sealed record PendingMpvSeek(MpvSession Session, double StartingPositionSeconds, double TargetSeconds, long RequestedAtTick);
 }

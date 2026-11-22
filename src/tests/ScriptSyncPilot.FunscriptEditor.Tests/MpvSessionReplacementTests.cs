@@ -12,6 +12,18 @@ public sealed class MpvSessionReplacementTests
 {
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
 
+    [TestMethod]
+    public void Editor_RecognizesWhenMpvPositionHasReachedPendingSeekTarget()
+    {
+        Assert.IsFalse(EditorForm.HasReachedSeekTarget(4, 5, 4), "A stale position before a forward seek target must not replace it.");
+        Assert.IsTrue(EditorForm.HasReachedSeekTarget(4, 5, 4.996), "A position within tolerance of the forward target is an acknowledgment.");
+        Assert.IsTrue(EditorForm.HasReachedSeekTarget(4, 5, 5.2), "Playback moving beyond the target has reached it.");
+
+        Assert.IsFalse(EditorForm.HasReachedSeekTarget(6, 5, 6), "A stale position after a backward seek target must not replace it.");
+        Assert.IsTrue(EditorForm.HasReachedSeekTarget(6, 5, 5.004), "A position within tolerance of the backward target is an acknowledgment.");
+        Assert.IsTrue(EditorForm.HasReachedSeekTarget(6, 5, 4.8), "Playback moving beyond the target has reached it.");
+    }
+
     [STATestMethod]
     public void Editor_DropsQueuedNotificationsAfterSessionReplacement()
     {

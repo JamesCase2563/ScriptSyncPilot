@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Verification
 
-**Status:** In Progress; implementation and verification remain open.
+**Status:** Complete; automated verification passed. No interactive editor/mpv smoke check was performed in this session.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 See the [plan](PLAN.md) for confirmed command semantics and milestones.
 
@@ -8,7 +8,7 @@ See the [plan](PLAN.md) for confirmed command semantics and milestones.
 
 Verify direct navigation to previous, next, and selected script actions. Preserve timeline zoom and action data, use the existing seek request path, and keep the shortcuts scoped to timeline focus.
 
-## Current behavior and evidence
+## Initial baseline (before implementation)
 
 - `TimelineControl` exposes `PlayheadSeconds`, `SetPlayhead`, and the `SeekRequested` event. Mouse scrubbing raises a seek request; `MainForm.OnSeekRequested` sends it to the current mpv session.
 - `TimelineControl` currently handles Delete for the selected action. No next/previous/selected-action navigation method was found.
@@ -128,7 +128,7 @@ The new `TimelineNavigationTests.FocusedTimeline_RoutesConfirmedShortcutsWithout
 
 Added Previous point, Selected point, and Next point buttons in a compact row directly below the existing time/frame seek row, with the agreed shortcut hint. Each button uses the same public timeline navigation operation as its shortcut. `TimelineControl` exposes matching availability properties and raises `NavigationAvailabilityChanged` when the playhead, selection, or script changes; `MainForm` updates button enabled states from those properties. Previous/Next availability follows the same strict timestamp comparisons as the commands, while Selected is enabled only when a valid action is selected.
 
-`TimelineNavigationTests.PointNavigationButtons_TrackShortcutAvailabilityAndSitBelowSeekRow` covers initial states, exact-timestamp availability, selection, the end boundary, reset after loading an empty script, and placement below the seek row. Button-click command parity and shortcut-hint visibility are M2.6 verification items.
+`TimelineNavigationTests.PointNavigationButtons_TrackShortcutAvailabilityAndSitBelowSeekRow` covers initial states, exact-timestamp availability, selection, the end boundary, reset after loading an empty script, and placement below the seek row. Button-click command parity and shortcut-hint visibility are covered in M2.6 below.
 
 ## M2.6 — Button and shortcut parity
 
@@ -141,18 +141,31 @@ Run with isolated build output to avoid sharing test binaries with an open edito
 ```powershell
 dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal
 dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal
+dotnet build src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal
 git diff --check
 ```
 
-The focused navigation test command has been run after M2.5. The full solution Release suite and final diff review remain open.
+All four commands were run; the .NET commands used isolated Release output under `.verification/issue-53/bin/`.
 
 ## Manual check
 
-If a Windows editor session is available, check previous/next and selected-point commands with the timeline focused, then focus a text field and verify its normal input behavior. Confirm the displayed playhead seeks to each action while the zoom level remains fixed. Record separately whether a live mpv session was attached; UI event tests alone do not prove external-player transport behavior.
+No interactive editor/mpv session was used for this verification. The user previously asked that computer control stop, so this session stayed with automated WinForms coverage and did not launch or operate the app UI. No live mpv seek was exercised. The form-level button test confirms the hint is visible and button commands raise the same `SeekRequested` requests as shortcuts; it does not verify transport against an attached mpv process.
+
+## M3 — Verification and acceptance mapping
+
+| Issue #53 acceptance criterion | Evidence | Result |
+| --- | --- | --- |
+| Navigate to next, previous, and selected points. | `TimelineNavigationTests` covers each public operation and `PointNavigationButtons_MatchShortcutDestinationsAndShowHint` covers the matching buttons and shortcuts. | Passed. |
+| Seek the playhead to the target without changing zoom. | Operation tests assert target playhead time and unchanged `PixelsPerSecond`; successful commands raise a seek request. | Passed. |
+| Specify shortcuts and whether next/previous follow playhead or selection. | [PLAN.md](PLAN.md) records Ctrl+Up / Ctrl+Down / Enter; M1.2 records strict playhead-relative comparisons. | Specified and tested. |
+| Define no-selection and first/last-point behavior. | M1.3 defines no-op/no-wrap behavior; `TimelineNavigationTests` covers no selection, empty script, and both boundaries. | Defined and tested. |
+| Avoid conflicts with existing controls and focused inputs. | Shortcut routing tests verify exact modifiers and focused-only behavior; the sibling TextBox case preserves input focus. Existing position-entry and playback routing tests passed in the full suite. | Automated coverage passed; no interactive smoke test. |
+
+No acceptance-criterion defect remains open. The remaining limitation is that no live mpv transport or manual visual interaction was exercised in this session.
 
 ## Results
 
-M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state synchronization, button/shortcut parity, and shortcut-hint visibility are implemented and focused tests pass below. The full solution Release suite, final diff review, and manual checks remain open.
+M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state synchronization, button/shortcut parity, and shortcut-hint visibility are implemented. Focused tests, the full solution Release suite, Release build, and diff check passed. Manual UI/mpv interaction was not performed; see the limitation above.
 
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
@@ -160,3 +173,7 @@ M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state sync
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~NumericPositionEntryTests" --verbosity minimal` | Passed: 21/21; includes all six `TimelineNavigationTests` and existing position-entry and playback-shortcut routing coverage. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 7/7; includes button enabled-state updates and row placement. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 8/8; includes all M2 navigation tests, button enabled-state/layout, click/shortcut parity, and visible shortcut hint. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Passed: 364 total — 94 Common tests and 270 FunscriptEditor tests; 0 failed, 0 skipped. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet build src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Succeeded: 0 warnings, 0 errors. |
+| 2026-11-22 | Windows; repository working tree | `git diff --check` | Passed; no whitespace errors. |
+| 2026-11-22 | This session | Interactive Windows editor/mpv smoke check | Not performed; no live mpv seek was exercised. Automated WinForms tests cover focus routing, button/shortcut parity, and visible hint. |

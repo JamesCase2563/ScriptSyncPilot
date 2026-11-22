@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Plan
 
-**Status:** In Progress.
+**Status:** Complete. Automated verification passed; the manual UI/mpv smoke check was not performed in this session.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 **Affected project:** FunscriptEditor.
 See [VERIFICATION.md](VERIFICATION.md) for the current behavior and planned checks.
@@ -64,10 +64,10 @@ Add three buttons—**Previous point**, **Selected point**, and **Next point**�
 
 ### 3. Verify and close
 
-- [ ] Run the focused navigation tests and full solution Release suite; record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
-- [ ] Build the solution in Release and check the final diff for formatting and scope.
-- [ ] Smoke-check the shortcuts in the running Windows editor if available; record whether a live mpv seek was exercised.
-- [ ] Map every issue #53 acceptance criterion to test or manual evidence and record any remaining limitation.
+- [x] Run the focused navigation tests and full solution Release suite; record exact commands and results in [VERIFICATION.md](VERIFICATION.md).
+- [x] Build the solution in Release and check the final diff for formatting and scope.
+- [x] Record that an interactive Windows editor/mpv smoke check was unavailable in this session and whether a live mpv seek was exercised (see [VERIFICATION.md](VERIFICATION.md)).
+- [x] Map every issue #53 acceptance criterion to test or manual evidence and record any remaining limitation (see [VERIFICATION.md](VERIFICATION.md)).
 
 ## Acceptance criteria
 

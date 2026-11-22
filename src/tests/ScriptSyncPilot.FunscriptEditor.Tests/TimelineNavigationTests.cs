@@ -93,6 +93,25 @@ public sealed class TimelineNavigationTests
     }
 
     [STATestMethod]
+    public void FrameRateTolerance_SnapsNavigationToTheClosestPointWithinHalfAFrame()
+    {
+        using var timeline = CreateTimeline();
+        timeline.LoadScript(CreateScript(1000, 2000, 3000));
+        timeline.VideoFrameRate = 30;
+        timeline.SetPlayhead(1.01);
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+
+        Assert.IsTrue(timeline.NavigateToNextAction());
+        Assert.AreEqual(2.0, timeline.PlayheadSeconds, "Next should advance beyond the point matched within half a frame.");
+
+        timeline.SetPlayhead(2.01);
+        Assert.IsTrue(timeline.NavigateToPreviousAction());
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds, "Previous should advance before the point matched within half a frame.");
+        CollectionAssert.AreEqual(new[] { 2.0, 1.0 }, seeks);
+    }
+
+    [STATestMethod]
     public void SelectedNavigation_SeeksSelectedActionAndNoSelectionIsNoOp()
     {
         using var timeline = CreateTimeline();
@@ -159,7 +178,8 @@ public sealed class TimelineNavigationTests
 
         Assert.IsTrue(IsInputKey(timeline, Keys.Control | Keys.Up));
         Assert.IsTrue(IsInputKey(timeline, Keys.Control | Keys.Down));
-        Assert.IsTrue(IsInputKey(timeline, Keys.Enter));
+        Assert.IsTrue(IsInputKey(timeline, Keys.Control | Keys.Enter));
+        Assert.IsFalse(IsInputKey(timeline, Keys.Enter));
         Assert.IsTrue(IsInputKey(timeline, Keys.Left), "Existing playback stepping remains an input key.");
         Assert.IsFalse(IsInputKey(timeline, Keys.Control | Keys.Shift | Keys.Up));
         Assert.IsFalse(IsInputKey(timeline, Keys.Shift | Keys.Enter));
@@ -169,7 +189,10 @@ public sealed class TimelineNavigationTests
         var seeks = new List<double>();
         timeline.SeekRequested += seeks.Add;
 
-        var noSelection = SendKeyDown(timeline, Keys.Enter);
+        var plainEnter = SendKeyDown(timeline, Keys.Enter);
+        Assert.IsFalse(plainEnter.Handled, "Unmodified Enter retains its normal WinForms behavior.");
+
+        var noSelection = SendKeyDown(timeline, Keys.Control | Keys.Enter);
         Assert.IsTrue(noSelection.Handled);
         Assert.IsTrue(noSelection.SuppressKeyPress);
         Assert.AreEqual(0, seeks.Count);
@@ -185,7 +208,7 @@ public sealed class TimelineNavigationTests
 
         SelectAction(timeline, 3000);
         timeline.SetPlayhead(5);
-        var selected = SendKeyDown(timeline, Keys.Enter);
+        var selected = SendKeyDown(timeline, Keys.Control | Keys.Enter);
         Assert.IsTrue(selected.Handled);
         Assert.AreEqual(3.0, timeline.PlayheadSeconds);
         CollectionAssert.AreEqual(new[] { 2.0, 1.0, 3.0 }, seeks);
@@ -212,7 +235,7 @@ public sealed class TimelineNavigationTests
         timeline.SeekRequested += seeks.Add;
         timeline.SetPlayhead(1);
 
-        foreach (var shortcut in new[] { Keys.Control | Keys.Up, Keys.Control | Keys.Down, Keys.Enter })
+        foreach (var shortcut in new[] { Keys.Control | Keys.Up, Keys.Control | Keys.Down, Keys.Control | Keys.Enter })
         {
             var key = SendKeyDown(timeline, shortcut);
             Assert.IsFalse(key.Handled, $"{shortcut} should not be consumed while the text input has focus.");
@@ -308,7 +331,7 @@ public sealed class TimelineNavigationTests
         Assert.AreEqual(2.0, seeks[^1]);
         timeline.SetPlayhead(5);
         Assert.IsTrue(timeline.Focus());
-        SendKeyDown(timeline, Keys.Enter);
+        SendKeyDown(timeline, Keys.Control | Keys.Enter);
         Assert.AreEqual(2.0, timeline.PlayheadSeconds);
         Assert.AreEqual(2.0, seeks[^1]);
 
@@ -316,7 +339,7 @@ public sealed class TimelineNavigationTests
         Assert.IsTrue(hint.Visible);
         StringAssert.Contains(hint.Text, "Ctrl+Up = previous");
         StringAssert.Contains(hint.Text, "Ctrl+Down = next");
-        StringAssert.Contains(hint.Text, "Enter = selected");
+        StringAssert.Contains(hint.Text, "Ctrl+Enter = selected");
         Assert.AreEqual(6, seeks.Count);
         form.Close();
     }

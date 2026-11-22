@@ -13,15 +13,60 @@ public sealed class MpvSessionReplacementTests
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
 
     [TestMethod]
-    public void Editor_RecognizesWhenMpvPositionHasReachedPendingSeekTarget()
+    public void Editor_UsesMillisecondPrecisionWhenConfirmingSeekPosition()
     {
-        Assert.IsFalse(EditorForm.HasReachedSeekTarget(4, 5, 4), "A stale position before a forward seek target must not replace it.");
-        Assert.IsTrue(EditorForm.HasReachedSeekTarget(4, 5, 4.996), "A position within tolerance of the forward target is an acknowledgment.");
-        Assert.IsTrue(EditorForm.HasReachedSeekTarget(4, 5, 5.2), "Playback moving beyond the target has reached it.");
+        Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 4), "A stale position before the target must not confirm it.");
+        Assert.IsTrue(EditorForm.IsPositionNearSeekTarget(5, 5.0004), "A sub-millisecond difference is within seek precision.");
+        Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 5.001), "A neighboring millisecond timestamp must remain distinguishable.");
+        Assert.IsTrue(EditorForm.IsPositionNearSeekTarget(5, 4.9996), "A sub-millisecond difference is within seek precision.");
+        Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 6), "A stale position after the target must not confirm it.");
+    }
 
-        Assert.IsFalse(EditorForm.HasReachedSeekTarget(6, 5, 6), "A stale position after a backward seek target must not replace it.");
-        Assert.IsTrue(EditorForm.HasReachedSeekTarget(6, 5, 5.004), "A position within tolerance of the backward target is an acknowledgment.");
-        Assert.IsTrue(EditorForm.HasReachedSeekTarget(6, 5, 4.8), "Playback moving beyond the target has reached it.");
+    [TestMethod]
+    public void Editor_UsesGenerationToRejectSupersededPausedSeekResults()
+    {
+        using var form = new EditorForm(new EditorSettings());
+        using var session = new MpvSession();
+        var timeline = (TimelineControl)GetField(form, "_timeline");
+        SetField(form, "_mpv", session);
+        var pendingType = typeof(EditorForm).GetNestedType("PendingMpvSeek", BindingFlags.NonPublic)!;
+        var superseded = Activator.CreateInstance(pendingType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null, args: [session, 2.0, 1L], culture: null)!;
+        var current = Activator.CreateInstance(pendingType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null, args: [session, 3.0, 2L], culture: null)!;
+        SetField(form, "_mpvSeekGeneration", 2L);
+        SetField(form, "_pendingMpvSeek", current);
+        timeline.SetPlayhead(3.0);
+
+        Assert.IsFalse((bool)InvokeResult(form, "IsCurrentPendingSeek", superseded)!,
+            "An older seek generation must no longer own paused navigation state.");
+        Assert.IsTrue((bool)InvokeResult(form, "IsCurrentPendingSeek", current)!);
+        Assert.IsFalse((bool)InvokeResult(form, "ShouldApplyMpvPositionUpdate", session)!,
+            "An observation matching an older seek must not replace the newest paused navigation target.");
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds);
+    }
+
+    [STATestMethod]
+    public void Editor_KeepsPausedNavigationCursorWhenMpvHasNotConfirmedSeek()
+    {
+        using var form = new EditorForm(new EditorSettings());
+        using var session = new MpvSession();
+        var timeline = (TimelineControl)GetField(form, "_timeline");
+        timeline.SetPlayhead(3.0);
+        SetField(form, "_mpv", session);
+
+        var pendingType = typeof(EditorForm).GetNestedType("PendingMpvSeek", BindingFlags.NonPublic)!;
+        var pending = Activator.CreateInstance(pendingType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null, args: [session, 3.0, 1L], culture: null)!;
+        SetField(form, "_mpvSeekGeneration", 1L);
+        SetField(form, "_pendingMpvSeek", pending);
+
+        Invoke(form, "KeepRequestedPausedSeek", pending, 1.0);
+
+        Assert.AreSame(pending, GetField(form, "_pendingMpvSeek"));
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds,
+            "An unconfirmed mpv position must not roll the paused navigation cursor back.");
+        Assert.IsFalse((bool)InvokeResult(form, "ShouldApplyMpvPositionUpdate", session)!);
     }
 
     [STATestMethod]
@@ -96,6 +141,9 @@ public sealed class MpvSessionReplacementTests
         target.GetType().GetField(name, PrivateInstance)!.SetValue(target, value);
 
     private static void Invoke(object target, string method, params object[] arguments) =>
+        target.GetType().GetMethod(method, PrivateInstance)!.Invoke(target, arguments);
+
+    private static object? InvokeResult(object target, string method, params object[] arguments) =>
         target.GetType().GetMethod(method, PrivateInstance)!.Invoke(target, arguments);
 
     private static Task InvokeTask(object target, string method, params object[] arguments) =>

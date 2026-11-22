@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Verification
 
-**Status:** Complete; automated verification passed. No interactive editor/mpv smoke check was performed in this session.
+**Status:** M3 was completed before the paused-seek follow-up. The follow-up is implemented and focused checks pass; the post-change full editor suite did not complete because its test host hung at the 60-second inactivity limit. No interactive editor/mpv smoke check was performed.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 See the [plan](PLAN.md) for confirmed command semantics and milestones.
 
@@ -31,9 +31,9 @@ Reviewed `MainForm`, `TimelineControl`, and `PatternInsertionDialog` keyboard ha
 | Ctrl+N / Ctrl+O / Ctrl+S | MainForm menu accelerators for New/Open/Save; PatternInsertionDialog forwards these file shortcuts to the owner. | No collision with the confirmed point-navigation shortcuts. |
 | Ctrl+Z / Ctrl+Y | MainForm menu accelerators for Undo/Redo. | No collision. |
 | Ctrl+Up / Ctrl+Down | No application-level handler or menu binding found in the inspected editor code. Up/Down are not currently claimed by `TimelineControl.IsInputKey`. | Available in the main editor when the timeline owns focus, but implementation must explicitly route them to the timeline rather than relying on current input-key behavior. Never handle them while a NumericUpDown or other input owns focus. |
-| Enter | No MainForm or TimelineControl shortcut handler found. PatternInsertionDialog has an AcceptButton and standard controls may use Enter for their normal action. | Available in the main editor while the timeline owns focus; scope the selected-point command to that focus and leave dialogs/other controls unchanged. |
+| Ctrl+Enter | No MainForm or TimelineControl shortcut handler found. PatternInsertionDialog has an AcceptButton and standard controls may use Enter for their normal action. | Available in the main editor while the timeline owns focus; scope the selected-point command to that focus and leave dialogs/other controls unchanged. |
 
-**M1.1 result:** No additional main-editor shortcut conflict was found for Ctrl+Up, Ctrl+Down, and Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down require explicit timeline input routing; Enter must be consumed only in timeline focus. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the bindings.
+**M1.1 result:** No additional main-editor shortcut conflict was found for Ctrl+Up, Ctrl+Down, and Ctrl+Enter. Keep point navigation independent of mpv attachment so it can update the timeline playhead even when `OnSeekRequested` has no session to send to. Ctrl+Up/Down and Ctrl+Enter require explicit timeline input routing; Enter without Ctrl retains its normal WinForms behavior. The existing form's arrow-key playback commands already require timeline focus and an attached mpv session. This is a source audit, not a runtime test of the bindings.
 
 ## M1.2 — Next/previous reference and comparison
 
@@ -57,7 +57,7 @@ Confirmed no-wrap behavior for next/previous navigation. A command with no eligi
 - Exactly on the last action, Next is disabled/no-op; Previous targets the preceding action if one exists.
 - With one action, both direction buttons are disabled when the playhead is exactly on it; on either side, only the direction with an eligible action is enabled.
 - With an empty script, all three point-navigation buttons are disabled and every point-navigation command is a no-op.
-- With no selected action, Selected is disabled and Enter does nothing. The Selected point button and Enter become available only while a current action is selected; both invoke the same selected-action command.
+- With no selected action, Selected is disabled and Ctrl+Enter does nothing. The Selected point button and Ctrl+Enter become available only while a current action is selected; both invoke the same selected-action command.
 
 These are confirmed behavior decisions for M1.3. Automated implementation and regression checks remain for M2.
 
@@ -67,15 +67,15 @@ Confirmed the planned bindings without an alternative:
 
 - **Ctrl+Up:** Previous point.
 - **Ctrl+Down:** Next point.
-- **Enter:** Selected point.
+- **Ctrl+Enter:** Selected point.
 
 These commands are available only while the timeline itself has focus. They must not be handled while a text/numeric input, dialog, or other control owns focus. The bindings are independent of mpv attachment so the playhead can still move locally; the existing seek handler sends the request only when a session is available. Keep the displayed shortcut hint beside the point-navigation buttons and ensure button clicks use the same operations.
 
-The source audit found no conflicting main-editor command. The timeline does not currently claim Up/Down as input keys, so implementation must explicitly route Ctrl+Up/Down and test WinForms focus behavior. M1.4 confirms the design choices; it does not yet verify the implemented routing.
+The source audit found no conflicting main-editor command. The timeline does not currently claim Up/Down or Ctrl+Enter as input keys, so implementation must explicitly route these shortcuts and test WinForms focus behavior. M1.4 confirms the design choices; it does not yet verify the implemented routing.
 
 ## M1.5 — Point-navigation controls layout
 
-Confirmed with the user: put **Previous point**, **Selected point**, and **Next point** in a compact row immediately below the existing time/frame seek controls. Keep the existing seek row unchanged. Show the three shortcuts beside the point buttons in a subdued hint styled like the existing seek-shortcut hint. The proposed hint is `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Enter = selected`.
+Confirmed with the user: put **Previous point**, **Selected point**, and **Next point** in a compact row immediately below the existing time/frame seek controls. Keep the existing seek row unchanged. Show the three shortcuts beside the point buttons in a subdued hint styled like the existing seek-shortcut hint. The current hint is `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Ctrl+Enter = selected`.
 
 Button and shortcut actions must call the same commands. The button row and hint are planned layout requirements; visual rendering and button enablement remain to be verified during M2/M3 implementation.
 
@@ -85,10 +85,10 @@ Button and shortcut actions must call the same commands. The button row and hint
 | --- | --- |
 | Previous point button or Ctrl+Up | Seek to the closest action strictly earlier than the current playhead. |
 | Next point button or Ctrl+Down | Seek to the closest action strictly later than the current playhead. |
-| Selected point button or Enter | Seek to the selected action; do nothing if there is no current selection. |
+| Selected point button or Ctrl+Enter | Seek to the selected action; do nothing if there is no current selection. |
 | Previous before first / Next after last | No wrap; button disabled and keyboard command is a no-op, leaving playhead, viewport, zoom, selection, script, and history unchanged. |
 | Navigate an empty script | All point buttons disabled; commands are no-ops. |
-| Selected point with no selection | Selected button disabled; Enter is a no-op. |
+| Selected point with no selection | Selected button disabled; Ctrl+Enter is a no-op. |
 | Successful navigation | Set playhead and raise one seek request for the target timestamp; preserve zoom and script data/history. |
 | Focus an editable input or another control | Navigation shortcuts are not consumed; the control retains normal keyboard behavior. |
 | Use existing Left/Right, Shift/Ctrl+Left/Right, Space, Delete, or position-entry keys | Existing behavior remains unchanged. |
@@ -120,9 +120,9 @@ Implemented three public timeline commands: `NavigateToPreviousAction`, `Navigat
 
 ## M2.2 — Focused shortcut routing
 
-`TimelineControl.IsInputKey` now claims Ctrl+Up, Ctrl+Down, and unmodified Enter so WinForms routes these keys to the timeline. `OnKeyDown` invokes the matching operation only when the timeline is focused, consumes the key even when there is no eligible target, and suppresses the keypress. Other modifier combinations are left alone. This keeps navigation independent of mpv attachment and avoids consuming keys in text/numeric inputs or dialogs, which do not route their keys through the timeline.
+`TimelineControl.IsInputKey` claims Ctrl+Up, Ctrl+Down, and Ctrl+Enter so WinForms routes these keys to the timeline. `OnKeyDown` invokes the matching operation only when the timeline is focused, consumes the key even when there is no eligible target, and suppresses the keypress. Other modifier combinations, including unmodified Enter, are left alone. This keeps navigation independent of mpv attachment and avoids consuming keys in text/numeric inputs or dialogs, which do not route their keys through the timeline.
 
-The new `TimelineNavigationTests.FocusedTimeline_RoutesConfirmedShortcutsWithoutMpv` checks the three bindings, no-mpv operation, no-selection Enter behavior, exact modifier acceptance, and continued Left input-key routing. `UnfocusedTimeline_DoesNotConsumePointShortcuts` gives a sibling text field focus and verifies synthetic keydown calls do not navigate or mark keys handled. Existing `NumericPositionEntryTests` continue to cover physical position keys and Space/play-pause routing.
+The new `TimelineNavigationTests.FocusedTimeline_RoutesConfirmedShortcutsWithoutMpv` checks the three bindings, no-mpv operation, no-selection Ctrl+Enter behavior, unmodified Enter preservation, exact modifier acceptance, and continued Left input-key routing. `UnfocusedTimeline_DoesNotConsumePointShortcuts` gives a sibling text field focus and verifies synthetic keydown calls do not navigate or mark keys handled. Existing `NumericPositionEntryTests` continue to cover physical position keys and Space/play-pause routing.
 
 ## M2.5 — Point-navigation buttons and availability
 
@@ -132,11 +132,11 @@ Added Previous point, Selected point, and Next point buttons in a compact row di
 
 ## M2.6 — Button and shortcut parity
 
-`TimelineNavigationTests.PointNavigationButtons_MatchShortcutDestinationsAndShowHint` clicks each button and then invokes its matching shortcut from the same starting state. Previous, Next, and Selected each reach the same timestamp by both routes and emit one seek request per action. The form-level test also confirms that the visible shortcut hint names Ctrl+Up, Ctrl+Down, and Enter.
+`TimelineNavigationTests.PointNavigationButtons_MatchShortcutDestinationsAndShowHint` clicks each button and then invokes its matching shortcut from the same starting state. Previous, Next, and Selected each reach the same timestamp by both routes and emit one seek request per action. The form-level test also confirms that the visible shortcut hint names Ctrl+Up, Ctrl+Down, and Ctrl+Enter.
 
 ## Follow-up — Repeated navigation with mpv attached
 
-The timeline commands already advance strictly from their current playhead. The editor now also protects that local target from stale mpv `time-pos` notifications while an absolute seek is pending: notifications are applied once they reach or pass the target, with a 5 ms acknowledgment tolerance, or after a 2 second fallback timeout. This prevents an older reported position from resetting the playhead between repeated point-navigation commands. `TimelineNavigationTests.RepeatedPreviousAndNext_NavigateOnePointPerCommand` covers repeated commands in both directions; `MpvSessionReplacementTests.Editor_RecognizesWhenMpvPositionHasReachedPendingSeekTarget` covers stale and acknowledged forward/backward positions.
+The timeline commands already advance strictly from their current playhead. While mpv is paused, the editor keeps the latest requested point as a navigation cursor and ignores uncorrelated `time-pos` notifications until the current seek is verified or playback resumes. Each seek has a generation; delayed verification for a superseded seek is discarded. A delayed correlated `get_property time-pos` query reconciles the latest request without blocking button clicks. If the first query still sees the old position, the editor retries the same absolute seek once and polls again. If further queries still report another position or time out, it logs the uncertainty but keeps the requested cursor and continues low-rate polling until confirmation, supersession, or playback resume. The Selected-point shortcut is now Ctrl+Enter; plain Enter is not consumed. Navigation/session-replacement tests cover shortcut routing, generation filtering, and retention of the requested cursor; `MpvSessionTests.GetPosition_WaitsForItsCorrelatedPropertyResponse` covers the correlated query.
 
 ## Planned commands
 
@@ -161,16 +161,16 @@ No interactive editor/mpv session was used for this verification. The user previ
 | --- | --- | --- |
 | Navigate to next, previous, and selected points. | `TimelineNavigationTests` covers each public operation and `PointNavigationButtons_MatchShortcutDestinationsAndShowHint` covers the matching buttons and shortcuts. | Passed. |
 | Seek the playhead to the target without changing zoom. | Operation tests assert target playhead time and unchanged `PixelsPerSecond`; successful commands raise a seek request. | Passed. |
-| Specify shortcuts and whether next/previous follow playhead or selection. | [PLAN.md](PLAN.md) records Ctrl+Up / Ctrl+Down / Enter; M1.2 records strict playhead-relative comparisons. | Specified and tested. |
+| Specify shortcuts and whether next/previous follow playhead or selection. | [PLAN.md](PLAN.md) records Ctrl+Up / Ctrl+Down / Ctrl+Enter; M1.2 records strict playhead-relative comparisons. | Specified and tested; Selected now uses Ctrl+Enter. |
 | Define no-selection and first/last-point behavior. | M1.3 defines no-op/no-wrap behavior; `TimelineNavigationTests` covers no selection, empty script, and both boundaries. | Defined and tested. |
-| Avoid conflicts with existing controls and focused inputs. | Shortcut routing tests verify exact modifiers and focused-only behavior; the sibling TextBox case preserves input focus. Existing position-entry and playback routing tests passed in the full suite. | Automated coverage passed; no interactive smoke test. |
-| Repeated next/previous commands advance after an mpv seek. | Repeated navigation test plus pending-seek position guard tests; the full FunscriptEditor test project passed after this follow-up. | Passed in automated coverage; no live mpv session was used. |
+| Avoid conflicts with existing controls and focused inputs. | Shortcut routing tests verify Ctrl+Up, Ctrl+Down, Ctrl+Enter, exact modifiers, focused-only behavior, and preserve unmodified Enter; the sibling TextBox case preserves input focus. Existing position-entry and playback routing tests passed in the full suite. | Automated coverage passed; no interactive smoke test. |
+| Repeated next/previous commands advance after an mpv seek. | Repeated navigation, paused-seek generation, cursor-retention, millisecond-target precision, and correlated-position-query tests. | Focused automated coverage passed; no live mpv session was used. |
 
-No acceptance-criterion defect remains open. The remaining limitation is that no live mpv transport or manual visual interaction was exercised in this session.
+No known acceptance-criterion defect remains open. The remaining limitations are that no live mpv transport or manual visual interaction was exercised, and the post-follow-up full editor suite needs a clean rerun after its test host stalled.
 
 ## Results
 
-M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state synchronization, button/shortcut parity, and shortcut-hint visibility are implemented. Focused tests, the full solution Release suite, Release build, and diff check passed. Manual UI/mpv interaction was not performed; see the limitation above.
+M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state synchronization, button/shortcut parity, and shortcut-hint visibility are implemented. The paused-seek follow-up also passes focused tests and the Release build. The full editor suite did not complete after that follow-up because the test host reached the hang timeout; the earlier full-suite pass predates the follow-up. Manual UI/mpv interaction was not performed; see the limitations above.
 
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
@@ -178,7 +178,13 @@ M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state sync
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~NumericPositionEntryTests" --verbosity minimal` | Passed: 21/21; includes all six `TimelineNavigationTests` and existing position-entry and playback-shortcut routing coverage. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 7/7; includes button enabled-state updates and row placement. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 8/8; includes all M2 navigation tests, button enabled-state/layout, click/shortcut parity, and visible shortcut hint. |
-| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~Editor_RecognizesWhenMpvPositionHasReachedPendingSeekTarget" --verbosity minimal` | Passed: 10/10; covers repeated next/previous commands and stale/acknowledged mpv position handling. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~MpvSessionTests" --verbosity minimal` | Passed: 15/15; includes correlated `get_property time-pos` response coverage. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~MpvSessionReplacementTests" --verbosity minimal` | Passed: 13/13; covers repeated navigation and paused-seek generation filtering. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.Common.Tests/ScriptSyncPilot.Common.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~MpvSessionTests" --verbosity minimal` | Passed: 15/15; includes correlated `get_property time-pos` response coverage. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~MpvSessionReplacementTests" --verbosity minimal` | Passed: 13/13 after the Ctrl+Enter change; includes exact-modifier routing, plain-Enter preservation, repeated navigation, and paused-seek generation filtering. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~MpvSessionReplacementTests" --verbosity minimal` | Passed: 14/14; adds coverage that an unconfirmed paused seek does not roll the requested playhead back. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --blame-hang-timeout 60s --verbosity minimal` | Incomplete: test host hit the 60-second inactivity timeout before reporting results. Do not treat as a pass; rerun after investigating the test-host hang. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet build src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Succeeded after the paused-seek change: 0 warnings, 0 errors. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Passed: 272/272 FunscriptEditor tests after the repeated-navigation follow-up; 0 failed, 0 skipped. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Passed: 364 total — 94 Common tests and 270 FunscriptEditor tests; 0 failed, 0 skipped. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet build src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --verbosity minimal` | Succeeded: 0 warnings, 0 errors. |

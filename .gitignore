@@ -41,3 +41,4 @@ node_modules/
 # Workspace
 ScriptSyncPilot.code-workspace
 .vscode/settings.json
+/src/tests/ScriptSyncPilot.FunscriptEditor.Tests/TestResults

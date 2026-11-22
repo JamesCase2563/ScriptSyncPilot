@@ -1,6 +1,6 @@
 # Navigate Between Script Points — Plan
 
-**Status:** Complete. Automated verification passed; the manual UI/mpv smoke check was not performed in this session.
+**Status:** M3 complete; paused-seek race follow-up implemented. Focused tests and Release build pass; the full editor suite needs a clean rerun after a test-host hang. No manual UI/mpv smoke check was performed.
 **Issue:** [#53 — Navigate between script points](https://github.com/JamesCase2563/ScriptSyncPilot/issues/53).
 **Affected project:** FunscriptEditor.
 See [VERIFICATION.md](VERIFICATION.md) for the current behavior and planned checks.
@@ -28,9 +28,9 @@ M1.4 confirms these bindings. They are unused by the inspected main-editor short
 | --- | --- | --- |
 | Previous point | Ctrl+Up | Seek to the action with the greatest timestamp strictly before the playhead. |
 | Next point | Ctrl+Down | Seek to the action with the least timestamp strictly after the playhead. |
-| Selected point | Enter | Seek to the selected action; no selection is a no-op. |
+| Selected point | Ctrl+Enter | Seek to the selected action; no selection is a no-op. |
 
-Add three buttons—**Previous point**, **Selected point**, and **Next point**—in a compact row directly below the existing time/frame seek controls. Keep the existing seek row intact. Show a short shortcut hint beside the new buttons, following the current seek row's visible hint style (for example, `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Enter = selected`). Button clicks and shortcuts invoke the same navigation commands.
+Add three buttons—**Previous point**, **Selected point**, and **Next point**—in a compact row directly below the existing time/frame seek controls. Keep the existing seek row intact. Show a short shortcut hint beside the new buttons, following the current seek row's visible hint style (for example, `Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Ctrl+Enter = selected`). Button clicks and shortcuts invoke the same navigation commands.
 
 - Disable Previous/Next when there is no eligible point in that direction; do not wrap at either end.
 - Disable Selected when there is no selected point.
@@ -50,14 +50,14 @@ Add three buttons—**Previous point**, **Selected point**, and **Next point**�
 - [x] M1.1 Confirm current playback, editing, position-entry, and form shortcut routing; identify any additional conflicts (see [VERIFICATION.md](VERIFICATION.md)).
 - [x] M1.2 Confirm next/previous navigation is relative to the playhead and uses strict timestamp comparisons (see [VERIFICATION.md](VERIFICATION.md)).
 - [x] M1.3 Confirm no-wrap boundary behavior and no-selection behavior (see [VERIFICATION.md](VERIFICATION.md)).
-- [x] M1.4 Confirm Ctrl+Up for Previous, Ctrl+Down for Next, and Enter for Selected, scoped to timeline focus (see [VERIFICATION.md](VERIFICATION.md)).
+- [x] M1.4 Confirm Ctrl+Up for Previous, Ctrl+Down for Next, and Ctrl+Enter for Selected, scoped to timeline focus (see [VERIFICATION.md](VERIFICATION.md)).
 - [x] M1.5 Confirm the compact point-navigation row below the existing seek controls and visible shortcut hint (see [VERIFICATION.md](VERIFICATION.md)).
 
 ### 2. Implement navigation
 
 - [x] M2.1 Add timeline navigation operations for previous, next, and selected actions; successful operations update the playhead and raise the existing seek request without changing zoom, script data, or selection.
 - [x] M2.2 Add focused tests for action ordering, selection, strict boundaries, empty scripts, seek requests, and zoom/history preservation.
-- [x] M2.3 Route Ctrl+Up/Down and Enter only when the timeline is focused; preserve text-field input and existing keyboard commands.
+- [x] M2.3 Route Ctrl+Up/Down and Ctrl+Enter only when the timeline is focused; preserve text-field input and existing keyboard commands.
 - [x] M2.4 Add focused WinForms tests for shortcut routing, focus isolation, exact modifiers, and existing-key compatibility.
 - [x] M2.5 Add Previous/Selected/Next point buttons below the seek row and keep each button in sync with its shortcut's enabled state (see [VERIFICATION.md](VERIFICATION.md)).
 - [x] M2.6 Verify button clicks invoke the same navigation operations as their corresponding shortcuts and the shortcut hint is visible (see [VERIFICATION.md](VERIFICATION.md)).

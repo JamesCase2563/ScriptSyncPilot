@@ -12,7 +12,7 @@ No code findings.
 - Selected-point navigation preserves selection and is a no-op when no action is selected.
 - Successful navigation updates the playhead and raises one seek request while preserving zoom, script data, selection, and undo/redo history.
 - Empty scripts, exact timestamps, fractional playhead positions, and first/last-point behavior are covered.
-- Ctrl+Up, Ctrl+Down, and Enter are routed only while the timeline has focus, with exact modifier checks.
+- Ctrl+Up, Ctrl+Down, and Ctrl+Enter are routed only while the timeline has focus, with exact modifier checks.
 - Previous, Selected, and Next buttons share the timeline commands with their shortcuts and track availability.
 - The unrelated media files reported in the first review are absent from the cleaned branch.
 

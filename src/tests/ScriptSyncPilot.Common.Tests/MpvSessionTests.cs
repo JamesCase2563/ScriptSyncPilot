@@ -17,7 +17,7 @@ public sealed class MpvSessionTests
         Assert.IsNull(endpoint.Session.Speed);
         await endpoint.ConnectAsync();
 
-        var names = new[] { "time-pos", "pause", "duration", "speed" };
+        var names = new[] { "time-pos", "pause", "duration", "speed", "estimated-vf-fps", "container-fps" };
         for (var index = 0; index < names.Length; index++)
             await endpoint.AssertCommandAsync("observe_property", index + 1, names[index]);
         await endpoint.Attachment.WaitAsync(endpoint.Token);
@@ -129,6 +129,51 @@ public sealed class MpvSessionTests
         await endpoint.AssertCommandAsync("frame-back-step");
         await endpoint.Session.SetPauseAsync(true, endpoint.Token);
         await endpoint.AssertCommandAsync("set_property", "pause", true);
+    }
+
+    [TestMethod]
+    public async Task GetPosition_WaitsForItsCorrelatedPropertyResponse()
+    {
+        using var endpoint = new PipeEndpoint();
+        var observedPositions = Channel.CreateUnbounded<double>();
+        endpoint.Session.PositionChanged += value => observedPositions.Writer.TryWrite(value);
+        await endpoint.ConnectAndDrainAsync();
+
+        var query = endpoint.Session.GetPositionAsync(endpoint.Token);
+        using var command = JsonDocument.Parse(await endpoint.ReadCommandAsync());
+        var actualCommand = command.RootElement.GetProperty("command");
+        Assert.AreEqual("get_property", actualCommand[0].GetString());
+        Assert.AreEqual("time-pos", actualCommand[1].GetString());
+        var requestId = command.RootElement.GetProperty("request_id").GetInt32();
+
+        await endpoint.SendPropertyAsync("time-pos", 4.0);
+        Assert.AreEqual(4.0, await observedPositions.Reader.ReadAsync(endpoint.Token));
+        Assert.IsFalse(query.IsCompleted, "An observation event must not stand in for the matching query response.");
+
+        await endpoint.SendRawAsync(JsonSerializer.Serialize(new
+        {
+            request_id = requestId,
+            error = "success",
+            data = 5.25,
+        }));
+        Assert.AreEqual(5.25, await query.WaitAsync(endpoint.Token));
+    }
+
+    [TestMethod]
+    public async Task FrameRate_UsesMeasuredRateAndFallsBackToContainerRate()
+    {
+        using var endpoint = new PipeEndpoint();
+        var rates = Channel.CreateUnbounded<double?>();
+        endpoint.Session.FrameRateChanged += value => rates.Writer.TryWrite(value);
+        await endpoint.ConnectAndDrainAsync();
+
+        await endpoint.SendPropertyAsync("container-fps", 30.0);
+        Assert.AreEqual(30.0, await rates.Reader.ReadAsync(endpoint.Token));
+        Assert.AreEqual(30.0, endpoint.Session.FrameRate);
+
+        await endpoint.SendPropertyAsync("estimated-vf-fps", 29.97);
+        Assert.AreEqual(29.97, await rates.Reader.ReadAsync(endpoint.Token));
+        Assert.AreEqual(29.97, endpoint.Session.FrameRate);
     }
 
     [TestMethod]
@@ -322,7 +367,7 @@ public sealed class MpvSessionTests
         public async Task ConnectAndDrainAsync(CancellationToken? lifetime = null)
         {
             await ConnectAsync(lifetime);
-            foreach (var name in new[] { "time-pos", "pause", "duration", "speed" })
+            foreach (var name in new[] { "time-pos", "pause", "duration", "speed", "estimated-vf-fps", "container-fps" })
             {
                 using var command = JsonDocument.Parse(await _commands.Reader.ReadAsync(Token));
                 Assert.AreEqual("observe_property", command.RootElement.GetProperty("command")[0].GetString());
@@ -347,6 +392,8 @@ public sealed class MpvSessionTests
                 }
             }
         }
+
+        public Task<string> ReadCommandAsync() => _commands.Reader.ReadAsync(Token).AsTask();
 
         public Task SendPropertyAsync(string name, object value) =>
             SendRawAsync(JsonSerializer.Serialize(new { @event = "property-change", name, data = value }));

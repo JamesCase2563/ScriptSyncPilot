@@ -44,6 +44,9 @@ public sealed class MainForm : Form
     private readonly Button _forwardFrameButton = new() { Text = "frame ▶", Enabled = false };
     private readonly Button _forward1SButton = new() { Text = "1s ▶", Enabled = false };
     private readonly Button _forward10SButton = new() { Text = "10s ▶▶", Enabled = false };
+    private readonly Button _previousPointButton = new() { Text = "Previous point", AutoSize = true, Enabled = false };
+    private readonly Button _selectedPointButton = new() { Text = "Selected point", AutoSize = true, Enabled = false };
+    private readonly Button _nextPointButton = new() { Text = "Next point", AutoSize = true, Enabled = false };
 
     private Funscript _script = new();
     private string? _scriptPath;
@@ -77,6 +80,7 @@ public sealed class MainForm : Form
         _pipeBox.Text = _settings.MpvIpcPipe;
 
         Controls.Add(_timeline);
+        Controls.Add(BuildPointNavigationBar());
         Controls.Add(BuildStepBar());
         Controls.Add(BuildZoomBar());
         Controls.Add(BuildTransportBar());
@@ -119,9 +123,15 @@ public sealed class MainForm : Form
         _forwardFrameButton.Click += async (_, _) => await StepFrameAsync(forward: true);
         _forward1SButton.Click += async (_, _) => await StepAsync(1);
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
+        _previousPointButton.Click += (_, _) => _timeline.NavigateToPreviousAction();
+        _selectedPointButton.Click += (_, _) => _timeline.NavigateToSelectedAction();
+        _nextPointButton.Click += (_, _) => _timeline.NavigateToNextAction();
+        _timeline.NavigationAvailabilityChanged += (_, _) => UpdatePointNavigationButtons();
+        UpdatePointNavigationButtons();
 
         foreach (var button in new[] { _launchButton, _attachButton, _playPauseButton, _resetSpeedButton,
-            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton })
+            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton,
+            _previousPointButton, _selectedPointButton, _nextPointButton })
             button.Click += (_, _) =>
             {
                 if (!_isClosing && _timeline.CanFocus) _timeline.Focus();
@@ -348,6 +358,36 @@ public sealed class MainForm : Form
             ForeColor = SystemColors.GrayText,
         });
         return bar;
+    }
+
+    private Control BuildPointNavigationBar()
+    {
+        var bar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(6, 0, 6, 6),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+        };
+        bar.Controls.Add(_previousPointButton);
+        bar.Controls.Add(_selectedPointButton);
+        bar.Controls.Add(_nextPointButton);
+        bar.Controls.Add(new Label
+        {
+            Text = "  Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Enter = selected",
+            AutoSize = true,
+            Margin = new Padding(12, 8, 3, 0),
+            ForeColor = SystemColors.GrayText,
+        });
+        return bar;
+    }
+
+    private void UpdatePointNavigationButtons()
+    {
+        _previousPointButton.Enabled = _timeline.CanNavigateToPreviousAction;
+        _selectedPointButton.Enabled = _timeline.CanNavigateToSelectedAction;
+        _nextPointButton.Enabled = _timeline.CanNavigateToNextAction;
     }
 
     private void Log(string message)

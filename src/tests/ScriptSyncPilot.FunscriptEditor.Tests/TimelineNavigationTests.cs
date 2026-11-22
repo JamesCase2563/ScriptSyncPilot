@@ -200,6 +200,103 @@ public sealed class TimelineNavigationTests
         form.Close();
     }
 
+    [STATestMethod]
+    public void PointNavigationButtons_TrackShortcutAvailabilityAndSitBelowSeekRow()
+    {
+        using var form = new MainForm(new EditorSettings());
+        var timeline = GetField<TimelineControl>(form, "_timeline");
+        var previous = GetField<Button>(form, "_previousPointButton");
+        var selected = GetField<Button>(form, "_selectedPointButton");
+        var next = GetField<Button>(form, "_nextPointButton");
+        var script = CreateScript(1000, 2000, 3000);
+        timeline.LoadScript(script);
+        timeline.UpdateDuration(10);
+        timeline.PixelsPerSecond = 100;
+
+        Assert.IsFalse(previous.Enabled);
+        Assert.IsFalse(selected.Enabled);
+        Assert.IsTrue(next.Enabled);
+
+        timeline.SetPlayhead(2);
+        Assert.IsTrue(previous.Enabled);
+        Assert.IsTrue(next.Enabled);
+        SelectAction(timeline, 2000);
+        Assert.IsTrue(selected.Enabled);
+
+        timeline.SetPlayhead(3);
+        Assert.IsTrue(previous.Enabled);
+        Assert.IsFalse(next.Enabled);
+        Assert.IsTrue(selected.Enabled);
+
+        var stepBar = GetField<Button>(form, "_backFrameButton").Parent!;
+        Assert.AreSame(stepBar, GetField<Button>(form, "_forwardFrameButton").Parent);
+        Assert.IsTrue(selected.Parent!.Top >= stepBar.Bottom, "Point navigation row should be below the seek row.");
+
+        timeline.LoadScript(new Funscript());
+        Assert.IsFalse(previous.Enabled);
+        Assert.IsFalse(selected.Enabled);
+        Assert.IsFalse(next.Enabled);
+    }
+
+    [STATestMethod]
+    public void PointNavigationButtons_MatchShortcutDestinationsAndShowHint()
+    {
+        using var form = new MainForm(new EditorSettings());
+        var timeline = GetField<TimelineControl>(form, "_timeline");
+        var previous = GetField<Button>(form, "_previousPointButton");
+        var selected = GetField<Button>(form, "_selectedPointButton");
+        var next = GetField<Button>(form, "_nextPointButton");
+        var script = CreateScript(1000, 2000, 3000);
+        timeline.LoadScript(script);
+        form.Show();
+        form.Activate();
+        timeline.UpdateDuration(10);
+        timeline.PixelsPerSecond = 100;
+        Assert.IsTrue(timeline.Focus());
+
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+
+        timeline.SetPlayhead(2);
+        previous.PerformClick();
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(1.0, seeks[^1]);
+        timeline.SetPlayhead(2);
+        Assert.IsTrue(timeline.Focus());
+        SendKeyDown(timeline, Keys.Control | Keys.Up);
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(1.0, seeks[^1]);
+
+        timeline.SetPlayhead(2);
+        next.PerformClick();
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(3.0, seeks[^1]);
+        timeline.SetPlayhead(2);
+        Assert.IsTrue(timeline.Focus());
+        SendKeyDown(timeline, Keys.Control | Keys.Down);
+        Assert.AreEqual(3.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(3.0, seeks[^1]);
+
+        SelectAction(timeline, 2000);
+        timeline.SetPlayhead(5);
+        selected.PerformClick();
+        Assert.AreEqual(2.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(2.0, seeks[^1]);
+        timeline.SetPlayhead(5);
+        Assert.IsTrue(timeline.Focus());
+        SendKeyDown(timeline, Keys.Enter);
+        Assert.AreEqual(2.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(2.0, seeks[^1]);
+
+        var hint = selected.Parent!.Controls.OfType<Label>().Single(label => label.Text.Contains("Shortcuts:"));
+        Assert.IsTrue(hint.Visible);
+        StringAssert.Contains(hint.Text, "Ctrl+Up = previous");
+        StringAssert.Contains(hint.Text, "Ctrl+Down = next");
+        StringAssert.Contains(hint.Text, "Enter = selected");
+        Assert.AreEqual(6, seeks.Count);
+        form.Close();
+    }
+
     private static TimelineControl CreateTimeline() => new() { Size = new Size(1040, 200) };
 
     private static Funscript CreateScript(params int[] timestamps)
@@ -232,4 +329,7 @@ public sealed class TimelineNavigationTests
             .Invoke(timeline, [args]);
         return args;
     }
+
+    private static T GetField<T>(object target, string name) =>
+        (T)target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;
 }

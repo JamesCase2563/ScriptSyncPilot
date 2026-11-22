@@ -116,13 +116,23 @@ Prefer direct `TimelineControl` tests for command semantics and WinForms STA tes
 
 Implemented three public timeline commands: `NavigateToPreviousAction`, `NavigateToNextAction`, and `NavigateToSelectedAction`. Previous/Next compare sorted action timestamps directly against the current playhead using the confirmed strict rule. A successful command sets the playhead to the target timestamp and raises one `SeekRequested` event; it does not edit the script, change zoom, alter selection, or add history. Each command returns `false` without changing state or raising a seek request when there is no target.
 
-`TimelineNavigationTests` verifies strict previous/next navigation at exact and fractional playhead positions, no-wrap boundaries, empty scripts, selected-action navigation, no-selection behavior, seek event counts, and preservation of zoom/script/history. Keyboard routing and the point-navigation button row are not implemented in M2.1 and remain open for the later milestones.
+`TimelineNavigationTests` verifies strict previous/next navigation at exact and fractional playhead positions, no-wrap boundaries, empty scripts, selected-action navigation, no-selection behavior, seek event counts, and preservation of zoom/script/history.
 
 ## M2.2 — Focused shortcut routing
 
 `TimelineControl.IsInputKey` now claims Ctrl+Up, Ctrl+Down, and unmodified Enter so WinForms routes these keys to the timeline. `OnKeyDown` invokes the matching operation only when the timeline is focused, consumes the key even when there is no eligible target, and suppresses the keypress. Other modifier combinations are left alone. This keeps navigation independent of mpv attachment and avoids consuming keys in text/numeric inputs or dialogs, which do not route their keys through the timeline.
 
 The new `TimelineNavigationTests.FocusedTimeline_RoutesConfirmedShortcutsWithoutMpv` checks the three bindings, no-mpv operation, no-selection Enter behavior, exact modifier acceptance, and continued Left input-key routing. `UnfocusedTimeline_DoesNotConsumePointShortcuts` gives a sibling text field focus and verifies synthetic keydown calls do not navigate or mark keys handled. Existing `NumericPositionEntryTests` continue to cover physical position keys and Space/play-pause routing.
+
+## M2.5 — Point-navigation buttons and availability
+
+Added Previous point, Selected point, and Next point buttons in a compact row directly below the existing time/frame seek row, with the agreed shortcut hint. Each button uses the same public timeline navigation operation as its shortcut. `TimelineControl` exposes matching availability properties and raises `NavigationAvailabilityChanged` when the playhead, selection, or script changes; `MainForm` updates button enabled states from those properties. Previous/Next availability follows the same strict timestamp comparisons as the commands, while Selected is enabled only when a valid action is selected.
+
+`TimelineNavigationTests.PointNavigationButtons_TrackShortcutAvailabilityAndSitBelowSeekRow` covers initial states, exact-timestamp availability, selection, the end boundary, reset after loading an empty script, and placement below the seek row. Button-click command parity and shortcut-hint visibility are M2.6 verification items.
+
+## M2.6 — Button and shortcut parity
+
+`TimelineNavigationTests.PointNavigationButtons_MatchShortcutDestinationsAndShowHint` clicks each button and then invokes its matching shortcut from the same starting state. Previous, Next, and Selected each reach the same timestamp by both routes and emit one seek request per action. The form-level test also confirms that the visible shortcut hint names Ctrl+Up, Ctrl+Down, and Enter.
 
 ## Planned commands
 
@@ -134,7 +144,7 @@ dotnet test src/ScriptSyncPilot.slnx --configuration Release --no-restore -m:1 -
 git diff --check
 ```
 
-The exact focused filter should be updated to match the final test class/name. These commands have not yet been run for issue #53.
+The focused navigation test command has been run after M2.5. The full solution Release suite and final diff review remain open.
 
 ## Manual check
 
@@ -142,9 +152,11 @@ If a Windows editor session is available, check previous/next and selected-point
 
 ## Results
 
-M2.1 operations and M2.2 shortcut routing are implemented and focused tests pass below. The point-navigation button row, full FunscriptEditor suite, and manual checks remain open.
+M2.1–M2.6 navigation operations, shortcut routing, buttons, enabled-state synchronization, button/shortcut parity, and shortcut-hint visibility are implemented and focused tests pass below. The full solution Release suite, final diff review, and manual checks remain open.
 
 | Date | Revision/environment | Command or check | Result |
 | --- | --- | --- | --- |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 4/4 focused timeline navigation tests. |
 | 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests|FullyQualifiedName~NumericPositionEntryTests" --verbosity minimal` | Passed: 21/21; includes all six `TimelineNavigationTests` and existing position-entry and playback-shortcut routing coverage. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 7/7; includes button enabled-state updates and row placement. |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 8/8; includes all M2 navigation tests, button enabled-state/layout, click/shortcut parity, and visible shortcut hint. |

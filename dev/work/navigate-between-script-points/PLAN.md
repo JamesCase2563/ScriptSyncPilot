@@ -55,12 +55,12 @@ Add three buttonsâ€”**Previous point**, **Selected point**, and **Next point**â€
 
 ### 2. Implement navigation
 
-- [ ] Add timeline navigation operations for previous, next, and selected actions.
-- [ ] Update the playhead and raise the existing seek request without changing zoom or script history.
-- [ ] Route the agreed shortcuts only when the timeline is focused; preserve text-field input and existing keyboard commands.
-- [ ] Add Previous/Selected/Next point buttons below the seek row and keep each button in sync with its shortcut's enabled state.
-- [ ] Add focused tests for action ordering, selection, boundaries, empty scripts, seek requests, zoom preservation, and key routing.
-- [ ] Verify button clicks invoke the same navigation operations as their corresponding shortcuts and the shortcut hint is visible.
+- [x] M2.1 Add timeline navigation operations for previous, next, and selected actions; successful operations update the playhead and raise the existing seek request without changing zoom, script data, or selection.
+- [x] M2.1 Add focused tests for action ordering, selection, strict boundaries, empty scripts, seek requests, and zoom/history preservation.
+- [ ] M2.2 Route the agreed shortcuts only when the timeline is focused; preserve text-field input and existing keyboard commands.
+- [ ] M2.3 Add Previous/Selected/Next point buttons below the seek row and keep each button in sync with its shortcut's enabled state.
+- [ ] M2.3 Verify button clicks invoke the same navigation operations as their corresponding shortcuts and the shortcut hint is visible.
+- [ ] Add focused WinForms tests for shortcut routing, text-field isolation, and existing-key compatibility.
 
 ### 3. Verify and close
 

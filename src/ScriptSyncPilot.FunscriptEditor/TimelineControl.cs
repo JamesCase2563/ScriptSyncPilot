@@ -197,6 +197,48 @@ public sealed class TimelineControl : Control
         Invalidate();
     }
 
+    /// <summary>Moves to the closest action strictly before the playhead and requests a seek.</summary>
+    public bool NavigateToPreviousAction()
+    {
+        FunscriptAction? target = null;
+        foreach (var action in _script.Actions)
+        {
+            if (action.At / 1000.0 >= _playheadSeconds) break;
+            target = action;
+        }
+
+        return target is { } previous && NavigateToAction(previous);
+    }
+
+    /// <summary>Moves to the closest action strictly after the playhead and requests a seek.</summary>
+    public bool NavigateToNextAction()
+    {
+        foreach (var action in _script.Actions)
+        {
+            if (action.At / 1000.0 > _playheadSeconds)
+                return NavigateToAction(action);
+        }
+
+        return false;
+    }
+
+    /// <summary>Moves to the selected action and requests a seek, or returns false when none is selected.</summary>
+    public bool NavigateToSelectedAction()
+    {
+        if (_selectedIndex is not { } index || index < 0 || index >= _script.Actions.Count)
+            return false;
+
+        return NavigateToAction(_script.Actions[index]);
+    }
+
+    private bool NavigateToAction(FunscriptAction action)
+    {
+        var seconds = action.At / 1000.0;
+        SetPlayhead(seconds);
+        SeekRequested?.Invoke(seconds);
+        return true;
+    }
+
     public void SetPatternPreview(GeneratedPattern? pattern)
     {
         var durationBefore = DurationSeconds;

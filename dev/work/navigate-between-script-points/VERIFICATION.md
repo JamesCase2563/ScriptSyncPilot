@@ -112,6 +112,12 @@ The shortcut and selection/playhead semantics are confirmed in [PLAN.md](PLAN.md
 
 Prefer direct `TimelineControl` tests for command semantics and WinForms STA tests for preprocessing/focus routing. Add a form-level test only if required to verify that navigation requests reach `MainForm`'s mpv seek path.
 
+## M2.1 — Timeline navigation operations
+
+Implemented three public timeline commands: `NavigateToPreviousAction`, `NavigateToNextAction`, and `NavigateToSelectedAction`. Previous/Next compare sorted action timestamps directly against the current playhead using the confirmed strict rule. A successful command sets the playhead to the target timestamp and raises one `SeekRequested` event; it does not edit the script, change zoom, alter selection, or add history. Each command returns `false` without changing state or raising a seek request when there is no target.
+
+`TimelineNavigationTests` verifies strict previous/next navigation at exact and fractional playhead positions, no-wrap boundaries, empty scripts, selected-action navigation, no-selection behavior, seek event counts, and preservation of zoom/script/history. Keyboard routing and the point-navigation button row are not implemented in M2.1 and remain open for the later milestones.
+
 ## Planned commands
 
 Run with isolated build output to avoid sharing test binaries with an open editor process:
@@ -130,4 +136,8 @@ If a Windows editor session is available, check previous/next and selected-point
 
 ## Results
 
-No implementation, test command, build, or manual check has been performed for issue #53 yet.
+M2.1 navigation operations and focused tests are implemented and verified below. Keyboard routing, button UI, the full FunscriptEditor suite, and manual checks remain open.
+
+| Date | Revision/environment | Command or check | Result |
+| --- | --- | --- | --- |
+| 2026-11-22 | Windows; .NET 10; isolated Release output under `.verification/issue-53/bin/` | `dotnet test src/tests/ScriptSyncPilot.FunscriptEditor.Tests/ScriptSyncPilot.FunscriptEditor.Tests.csproj --configuration Release --no-restore -m:1 -p:BaseOutputPath=F:\Users\email\repos\ScriptSyncPilot\.verification\issue-53\bin\ --filter "FullyQualifiedName~TimelineNavigationTests" --verbosity minimal` | Passed: 4/4 focused timeline navigation tests. |

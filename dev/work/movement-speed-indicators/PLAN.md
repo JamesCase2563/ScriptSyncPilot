@@ -65,7 +65,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 - [x] M2.1 Add a pure calculation for elapsed milliseconds, absolute position distance, and average percentage-points-per-second.
 - [x] M2.2 Validate adjacent timestamps in the calculation itself; represent duplicate/decreasing times as invalid, and positive-duration zero-distance segments as zero speed.
-- [ ] M2.3 Add focused automated coverage for normal, rising, falling, zero-distance, duplicate-time, and synthetic decreasing-time cases.
+- [x] M2.3 Add focused automated coverage for normal, rising, falling, zero-distance, duplicate-time, and synthetic decreasing-time cases.
 
 ### M3 — Show numerical movement details
 
@@ -92,6 +92,10 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 #### M2.2 implementation — 2026-11-23
 
 - The calculation now returns an explicit timing status: `Valid`, `DuplicateTimestamp`, or `DecreasingTimestamp`. Both invalid cases retain signed elapsed milliseconds and absolute distance but have no speed; a positive-duration zero-distance pair has valid timing and speed `0`.
+
+#### M2.3 automated coverage — 2026-11-23
+
+- Added [`SegmentSpeedCalculatorTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/SegmentSpeedCalculatorTests.cs) for rising and falling position changes, duration/distance/speed values, zero-distance movement, duplicate timestamps, and a synthetic decreasing-time pair at the calculator boundary.
 
 ## Review feedback incorporated — 2026-11-23
 

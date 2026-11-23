@@ -63,7 +63,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 ### M2 — Calculate script-space segment speeds
 
-- [ ] M2.1 Add a pure calculation for elapsed milliseconds, absolute position distance, and average percentage-points-per-second.
+- [x] M2.1 Add a pure calculation for elapsed milliseconds, absolute position distance, and average percentage-points-per-second.
 - [ ] M2.2 Validate adjacent timestamps in the calculation itself; represent duplicate/decreasing times as invalid, and positive-duration zero-distance segments as zero speed.
 - [ ] M2.3 Add focused automated coverage for normal, rising, falling, zero-distance, duplicate-time, and synthetic decreasing-time cases.
 
@@ -84,6 +84,10 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - [ ] M5.1 Run focused calculation and timeline tests, including an assertion that a segment's mapped color is unchanged across different zoom and viewport settings; then run the relevant editor test suite.
 - [ ] M5.2 Manually verify hover, selection, drag updates, invalid timing, color toggle, legend, and zoom independence.
 - [ ] M5.3 Update the permanent editor architecture documentation and record remaining limitations here and in `VERIFICATION.md`.
+
+#### M2.1 implementation — 2026-11-23
+
+- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.2 will add focused automated coverage for invalid timestamp cases.
 
 ## Review feedback incorporated — 2026-11-23
 

@@ -13,7 +13,7 @@ average script speed (percentage points/second)
     = abs(end position - start position) * 1000 / elapsed milliseconds
 ```
 
-The pure `SegmentSpeedCalculator` returns signed elapsed milliseconds, absolute position distance, and nullable average pp/s. A speed exists only when elapsed time is positive; zero or negative time keeps its measured duration and distance but has no finite speed.
+The pure `SegmentSpeedCalculator` returns signed elapsed milliseconds, absolute position distance, nullable average pp/s, and a timing status (`Valid`, `DuplicateTimestamp`, or `DecreasingTimestamp`). A speed exists only when elapsed time is positive; zero or negative time keeps its measured duration and distance but has no finite speed. A positive-duration zero-distance pair has valid timing and speed zero.
 
 It is an average over the segment at normal (1x) playback. It is not a measurement of a physical actuator and does not, by itself, say whether a movement is safe or achievable by a particular device.
 

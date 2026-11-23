@@ -64,7 +64,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 ### M2 — Calculate script-space segment speeds
 
 - [x] M2.1 Add a pure calculation for elapsed milliseconds, absolute position distance, and average percentage-points-per-second.
-- [ ] M2.2 Validate adjacent timestamps in the calculation itself; represent duplicate/decreasing times as invalid, and positive-duration zero-distance segments as zero speed.
+- [x] M2.2 Validate adjacent timestamps in the calculation itself; represent duplicate/decreasing times as invalid, and positive-duration zero-distance segments as zero speed.
 - [ ] M2.3 Add focused automated coverage for normal, rising, falling, zero-distance, duplicate-time, and synthetic decreasing-time cases.
 
 ### M3 — Show numerical movement details
@@ -87,7 +87,11 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 #### M2.1 implementation — 2026-11-23
 
-- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.2 will add focused automated coverage for invalid timestamp cases.
+- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.3 covers these cases with focused automated tests.
+
+#### M2.2 implementation — 2026-11-23
+
+- The calculation now returns an explicit timing status: `Valid`, `DuplicateTimestamp`, or `DecreasingTimestamp`. Both invalid cases retain signed elapsed milliseconds and absolute distance but have no speed; a positive-duration zero-distance pair has valid timing and speed `0`.
 
 ## Review feedback incorporated — 2026-11-23
 

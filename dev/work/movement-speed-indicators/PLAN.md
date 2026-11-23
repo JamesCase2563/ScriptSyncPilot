@@ -69,9 +69,9 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 ### M3 — Show numerical movement details
 
-- [ ] M3.1 Show segment values on hover, including duration, absolute distance, and average speed, without stealing point hit targets.
-- [ ] M3.2 Show incoming/outgoing values for the dragged or hovered point using in-progress values; use the selected point as readout fallback and handle missing endpoints.
-- [ ] M3.3 Keep the readout legible and non-obstructive while preserving existing selection, drag, and zoom behavior.
+- [x] M3.1 Show segment values on hover, including duration, absolute distance, and average speed, without stealing point hit targets.
+- [x] M3.2 Show incoming/outgoing values for the dragged or hovered point using in-progress values; use the selected point as readout fallback and handle missing endpoints.
+- [x] M3.3 Keep the readout legible and non-obstructive while preserving existing selection, drag, and zoom behavior.
 
 ### M4 — Add optional speed coloring
 
@@ -96,6 +96,20 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 #### M2.3 automated coverage — 2026-11-23
 
 - Added [`SegmentSpeedCalculatorTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/SegmentSpeedCalculatorTests.cs) for rising and falling position changes, duration/distance/speed values, zero-distance movement, duplicate timestamps, and a synthetic decreasing-time pair at the calculator boundary.
+
+#### M3.1 implementation — 2026-11-23
+
+- Added passive segment-line hover detection with a 6-pixel tolerance. Existing point hit testing runs first, so point targets suppress segment hover. Hover is also cleared/suppressed during drag, scrub, pan, value-bar interaction, and pointer exit.
+- Added a compact readout below the timeline that displays duration in ms, absolute distance in pp, and average speed to one decimal pp/s. Invalid timing displays its measured duration/distance and `Invalid timing` without a speed value.
+
+#### M3.2 implementation — 2026-11-23
+
+- The timeline now resolves readout context in priority order: active dragged point, value-bar insertion/replacement preview, point under the pointer, nearby segment, then selected point. The value-bar preview uses a hypothetical action list and does not mutate the script; hover does not alter selection. Pan/scrub suppress hover contexts and retain selected-point fallback.
+- Point readouts show separate incoming/outgoing measurements from the current action list, so both values update as a dragged point moves. First/last points show `No incoming segment` / `No outgoing segment`; invalid adjacent timing shows its duration and distance without a speed.
+
+#### M3.3 layout fix — 2026-11-23
+
+- The readout now occupies a fixed-height area sized for its three-line point presentation. Switching among segment, point, and drag contexts no longer changes the footer height or resizes the timeline.
 
 ## Review feedback incorporated — 2026-11-23
 

@@ -6,6 +6,7 @@
 ## Acceptance criteria
 
 - [ ] A compact persistent readout directly below the timeline and above seek/point-navigation controls identifies values as script-space average speed at 1x; playback time remains in the transport row.
+- [ ] Switching between one-line segment values and three-line point/drag values does not change the readout container height or resize the timeline.
 - [ ] Hovering a segment shows whole-millisecond duration, whole-pp absolute distance, and speed to one decimal pp/s with units.
 - [ ] A selected or dragged point shows both incoming and outgoing segment values; values update from the in-progress action list as the point is edited.
 - [ ] Segment hover does not capture point hit targets or interfere with dragging; readout context follows the precedence confirmed in M1.2 without changing selection.

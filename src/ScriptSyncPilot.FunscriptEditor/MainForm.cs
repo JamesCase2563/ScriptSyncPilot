@@ -21,6 +21,15 @@ public sealed class MainForm : Form
     private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
+    private readonly Label _segmentSpeedReadout = new()
+    {
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        Text = "Movement speed: hover over a segment or point",
+        ForeColor = SystemColors.ControlText,
+        TextAlign = ContentAlignment.MiddleLeft,
+        Margin = new Padding(6, 3, 3, 3),
+    };
 
     private readonly TextBox _videoPathBox = new() { ReadOnly = true };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -88,8 +97,7 @@ public sealed class MainForm : Form
         _pipeBox.Text = _settings.MpvIpcPipe;
 
         Controls.Add(_timeline);
-        Controls.Add(BuildPointNavigationBar());
-        Controls.Add(BuildStepBar());
+        Controls.Add(BuildTimelineFooter());
         Controls.Add(BuildZoomBar());
         Controls.Add(BuildTransportBar());
         Controls.Add(BuildFilesBar());
@@ -102,6 +110,7 @@ public sealed class MainForm : Form
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
+        _timeline.MovementReadoutChanged += UpdateMovementReadout;
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
         {
@@ -318,6 +327,85 @@ public sealed class MainForm : Form
         speedControls.Controls.Add(_speedLabel);
         bar.Controls.Add(speedControls);
         return bar;
+    }
+
+    private Control BuildTimelineFooter()
+    {
+        var footer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 3,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (var row = 0; row < footer.RowCount; row++)
+            footer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        footer.Controls.Add(BuildSegmentSpeedReadoutBar(), 0, 0);
+        footer.Controls.Add(BuildPointNavigationBar(), 0, 1);
+        footer.Controls.Add(BuildStepBar(), 0, 2);
+        return footer;
+    }
+
+    private Control BuildSegmentSpeedReadoutBar()
+    {
+        var height = _segmentSpeedReadout.Font.Height * 3 + 12;
+        var bar = new Panel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = height,
+            MinimumSize = new Size(0, height),
+            Margin = new Padding(0),
+        };
+        bar.Controls.Add(_segmentSpeedReadout);
+        return bar;
+    }
+
+    private void UpdateMovementReadout(TimelineMovementReadout? readout)
+    {
+        if (readout is not { } value)
+        {
+            _segmentSpeedReadout.Text = "Movement speed: hover over a segment or point";
+            return;
+        }
+
+        if (value.Kind == TimelineMovementReadoutKind.Segment && value.Segment is { } segment)
+        {
+            _segmentSpeedReadout.Text = $"Movement speed (script average at 1x): {FormatSegmentMeasurement(segment)}";
+            return;
+        }
+
+        if (value.Kind is TimelineMovementReadoutKind.Point or TimelineMovementReadoutKind.ValueBarPreview
+            && value.PointAction is { } point)
+        {
+            var at = point.At.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var position = point.Pos.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var context = value.Kind == TimelineMovementReadoutKind.ValueBarPreview
+                ? "Value bar preview at"
+                : "Point at";
+            _segmentSpeedReadout.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "{0} {1} ms · {2} pp (script average at 1x){3}Incoming: {4}{3}Outgoing: {5}",
+                context, at, position, Environment.NewLine,
+                FormatSegmentMeasurement(value.HasIncomingSegment, value.IncomingSegment, "No incoming segment"),
+                FormatSegmentMeasurement(value.HasOutgoingSegment, value.OutgoingSegment, "No outgoing segment"));
+        }
+    }
+
+    private static string FormatSegmentMeasurement(SegmentSpeed measurement) =>
+        FormatSegmentMeasurement(true, measurement, "No segment");
+
+    private static string FormatSegmentMeasurement(bool exists, SegmentSpeed? measurement, string missingText)
+    {
+        if (!exists) return missingText;
+        if (measurement is not { } value) return "Invalid timing";
+        var duration = value.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var distance = value.DistancePercentagePoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return value.AveragePercentagePointsPerSecond is { } speed
+            ? string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · {2:0.0} pp/s", duration, distance, speed)
+            : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · Invalid timing", duration, distance);
     }
 
     private Control BuildZoomBar()

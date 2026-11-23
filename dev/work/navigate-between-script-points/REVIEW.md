@@ -30,7 +30,7 @@ Interactive visual and live-mpv smoke verification remains unperformed, as recor
 
 ### Findings
 
-- **[P2] Frame-rounded paused seeks are treated as failures — resolved.** Seek confirmation now uses half of mpv's detected frame duration (with the existing sub-millisecond tolerance as a floor). If verification reaches its deadline without confirmation, it logs the result and clears the pending seek so later paused position observations are no longer suppressed.
+- **[P2] Frame-rounded paused seeks are treated as failures — resolved with a limitation.** Seek confirmation now uses half of mpv's detected frame duration (with the existing sub-millisecond tolerance as a floor). If verification reaches its deadline without confirmation, it logs the result and clears the pending seek so later paused position observations are no longer suppressed. If mpv provides no usable frame rate, confirmation falls back to 0.5 ms; a frame-rounded seek may still be retried and remain pending until the 2.5-second timeout.
 
 ### Verification
 

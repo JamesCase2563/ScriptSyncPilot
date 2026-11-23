@@ -75,7 +75,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 ### M4 — Add optional speed coloring
 
-- [ ] M4.1 Implement the selected manual and/or whole-script-fit modes; derive fit values from all valid segments, not the viewport, and clamp speeds over the color maximum without altering reported speeds.
+- [x] M4.1 Implement the selected manual and/or whole-script-fit modes; derive fit values from all valid segments, not the viewport, and clamp speeds over the color maximum without altering reported speeds.
 - [ ] M4.2 Add the preferences controls and legend using the decided vivid, ordered multi-hue palette; ensure settings and readout remain usable in high-contrast mode.
 - [ ] M4.3 Keep numeric values available and avoid safe/unsafe claims.
 
@@ -110,6 +110,12 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 #### M3.3 layout fix — 2026-11-23
 
 - The readout now occupies a fixed-height area sized for its three-line point presentation. Switching among segment, point, and drag contexts no longer changes the footer height or resizes the timeline.
+
+#### M4.1 scale implementation — 2026-11-23
+
+- Added [`SegmentSpeedScaleCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedScale.cs), which fits the selected 0-to-P99 range from every valid adjacent segment in the script, independent of viewport and zoom. The P99 nearest-rank value is rounded up to the next 100 pp/s with a 100 pp/s minimum upper bound.
+- Added validated manual ranges and low/high clamp metadata. Clamping produces a normalized color position and cap direction while leaving the `SegmentSpeed` measurement and displayed pp/s unchanged.
+- Wired fit/manual mode, coloring enablement, and manual bounds through `EditorSettings`; script loads recalculate fit mode, while edits do not. The readout notes high/low color caps when coloring is enabled.
 
 ## Review feedback incorporated — 2026-11-23
 

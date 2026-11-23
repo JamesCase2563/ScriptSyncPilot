@@ -51,6 +51,10 @@ public sealed class TimelineControl : Control
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
     private TimelineMovementReadout? _movementReadout;
+    private bool _speedColoringEnabled = true;
+    private SegmentSpeedScaleMode _speedScaleMode = SegmentSpeedScaleMode.FitToScript;
+    private SegmentSpeedColorRange _manualSpeedColorRange = new(0, 700);
+    private SegmentSpeedColorRange _fittedSpeedColorRange = new(0, 100);
 
     public event Action<double>? SeekRequested;
     public event EventHandler? PlayPauseRequested;
@@ -58,6 +62,21 @@ public sealed class TimelineControl : Control
     public event EventHandler? ZoomChanged;
     public event EventHandler? NavigationAvailabilityChanged;
     public event Action<TimelineMovementReadout?>? MovementReadoutChanged;
+    public event EventHandler? SpeedColorScaleChanged;
+
+    [System.ComponentModel.Browsable(false)]
+    public bool SpeedColoringEnabled => _speedColoringEnabled;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedScaleMode SpeedScaleMode => _speedScaleMode;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange ManualSpeedColorRange => _manualSpeedColorRange;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange ActiveSpeedColorRange => _speedScaleMode == SegmentSpeedScaleMode.Manual
+        ? _manualSpeedColorRange
+        : _fittedSpeedColorRange;
 
     [System.ComponentModel.Browsable(false)]
     public bool CanNavigateToPreviousAction => FindPreviousActionIndex() >= 0;
@@ -148,12 +167,43 @@ public sealed class TimelineControl : Control
         MovementReadoutChanged?.Invoke(null);
         _suppressPlaybackFollowUntilVisible = false;
         _script = script;
+        FitSpeedColorScaleToCurrentScript();
         _selectedIndex = null;
         _draggingIndex = null;
         _dragBefore = null;
         History.Reset();
         ReclampZoom();
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ConfigureSpeedColoring(bool enabled, SegmentSpeedScaleMode mode, double manualMinimum, double manualMaximum)
+    {
+        _speedColoringEnabled = enabled;
+        _speedScaleMode = Enum.IsDefined(mode) ? mode : SegmentSpeedScaleMode.FitToScript;
+        try
+        {
+            _manualSpeedColorRange = new SegmentSpeedColorRange(manualMinimum, manualMaximum);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            _manualSpeedColorRange = new SegmentSpeedColorRange(0, 700);
+        }
+
+        FitSpeedColorScaleToCurrentScript();
+    }
+
+    public void FitSpeedColorScaleToCurrentScript()
+    {
+        _fittedSpeedColorRange = SegmentSpeedScaleCalculator.FitToScript(_script.Actions);
+        SpeedColorScaleChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    public SegmentSpeedColorPosition? MapSpeedColor(SegmentSpeed? segment)
+    {
+        if (!_speedColoringEnabled || segment is not { HasValidTiming: true, AveragePercentagePointsPerSecond: { } speed })
+            return null;
+        return ActiveSpeedColorRange.Map(speed);
     }
 
     /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>

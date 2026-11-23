@@ -88,6 +88,11 @@ public sealed class MainForm : Form
     internal MainForm(EditorSettings settings, Func<bool>? confirmDiscardChanges = null)
     {
         _settings = settings;
+        _timeline.ConfigureSpeedColoring(
+            _settings.SpeedColoringEnabled,
+            _settings.SpeedScaleMode,
+            _settings.ManualSpeedMinimumPpS,
+            _settings.ManualSpeedMaximumPpS);
         _confirmDiscardChanges = confirmDiscardChanges ?? ConfirmDiscardChangesFromUser;
         Text = "ScriptSyncPilot – Funscript Editor";
         Width = 1100;
@@ -165,6 +170,10 @@ public sealed class MainForm : Form
             _isClosing = true;
             _settings.LastVideoPath = _videoPathBox.Text;
             _settings.MpvIpcPipe = _pipeBox.Text;
+            _settings.SpeedColoringEnabled = _timeline.SpeedColoringEnabled;
+            _settings.SpeedScaleMode = _timeline.SpeedScaleMode;
+            _settings.ManualSpeedMinimumPpS = _timeline.ManualSpeedColorRange.Minimum;
+            _settings.ManualSpeedMaximumPpS = _timeline.ManualSpeedColorRange.Maximum;
             if (_scriptPath is not null) _settings.LastScriptPath = _scriptPath;
             _settings.Save();
             if (_wheelFilter is not null) Application.RemoveMessageFilter(_wheelFilter);
@@ -394,18 +403,25 @@ public sealed class MainForm : Form
         }
     }
 
-    private static string FormatSegmentMeasurement(SegmentSpeed measurement) =>
+    private string FormatSegmentMeasurement(SegmentSpeed measurement) =>
         FormatSegmentMeasurement(true, measurement, "No segment");
 
-    private static string FormatSegmentMeasurement(bool exists, SegmentSpeed? measurement, string missingText)
+    private string FormatSegmentMeasurement(bool exists, SegmentSpeed? measurement, string missingText)
     {
         if (!exists) return missingText;
         if (measurement is not { } value) return "Invalid timing";
         var duration = value.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var distance = value.DistancePercentagePoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return value.AveragePercentagePointsPerSecond is { } speed
-            ? string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · {2:0.0} pp/s", duration, distance, speed)
-            : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · Invalid timing", duration, distance);
+        if (value.AveragePercentagePointsPerSecond is not { } speed)
+            return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · Invalid timing", duration, distance);
+
+        var capNote = _timeline.MapSpeedColor(value)?.Clamp switch
+        {
+            SegmentSpeedClamp.High => " · color capped",
+            SegmentSpeedClamp.Low => " · color capped low",
+            _ => "",
+        };
+        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · {2:0.0} pp/s{3}", duration, distance, speed, capNote);
     }
 
     private Control BuildZoomBar()

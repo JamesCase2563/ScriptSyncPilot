@@ -67,6 +67,8 @@ The supplied sample's nearest-rank P99 is 680 pp/s, so its fitted range rounds t
 
 The palette communicates increasing script-space speed only, not device capability or safety. Pair it with a labeled legend and numeric readout, and provide a high-contrast alternative.
 
+The implemented scale model fits from every valid adjacent segment in the loaded script, regardless of viewport or zoom. It calculates nearest-rank P99, rounds the upper bound up to the next 100 pp/s, and uses a 100 pp/s minimum upper bound. Manual bounds are validated and persisted through `EditorSettings`. A color mapping returns a normalized position plus low/high clamp status; it never changes the segment's measured speed. Fit mode recalculates on script load or explicit Fit invocation, not while editing.
+
 ## Decision 2: Device capability warnings
 
 **Status: Deferred from issue #34.** The speed indicator will show script-space segment speed only. Users can choose a manual color range that helps them recognize speeds relevant to their current device setup, but the editor will not detect the device's limit, calculate physical actuator speed, or label segments as safe/unsafe. The colors are not a device warning or a measured capability indicator.

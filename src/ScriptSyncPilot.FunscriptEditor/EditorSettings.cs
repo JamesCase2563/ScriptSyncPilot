@@ -9,6 +9,10 @@ public sealed class EditorSettings
     public string LastScriptPath { get; set; } = "";
     public string MpvPath { get; set; } = "mpv";
     public string MpvIpcPipe { get; set; } = @"\\.\pipe\vrheadtrack";
+    public bool SpeedColoringEnabled { get; set; } = true;
+    public SegmentSpeedScaleMode SpeedScaleMode { get; set; } = SegmentSpeedScaleMode.FitToScript;
+    public double ManualSpeedMinimumPpS { get; set; } = 0;
+    public double ManualSpeedMaximumPpS { get; set; } = 700;
     public decimal? PatternOutputStartSeconds { get; set; }
     public decimal? PatternOutputEndSeconds { get; set; }
     public int? PatternCycleCount { get; set; }

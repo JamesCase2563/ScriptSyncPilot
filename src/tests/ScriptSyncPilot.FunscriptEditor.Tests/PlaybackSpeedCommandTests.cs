@@ -240,29 +240,39 @@ public sealed class PlaybackSpeedCommandTests
     }
 
     [TestMethod]
-    public async Task SendPlaybackSpeedAsync_LateCompletionUsesCapturedSessionAndDoesNotReportStaleFailure()
+    public void SendPlaybackSpeedAsync_LateCompletionUsesCapturedSessionAndDoesNotReportStaleFailure()
     {
         var capturedSession = new object();
         var activeSession = capturedSession;
-        var writeStarted = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var completeWrite = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completeWrite = new TaskCompletionSource();
         var messages = new List<string>();
-        var write = MainForm.SendPlaybackSpeedAsync(
-            capturedSession,
-            async (targetSession, _) =>
-            {
-                writeStarted.SetResult(targetSession);
-                await completeWrite.Task;
-                throw new IOException("old pipe closed");
-            },
-            CancellationToken.None,
-            targetSession => ReferenceEquals(activeSession, targetSession),
-            messages.Add);
+        var previousContext = SynchronizationContext.Current;
+        try
+        {
+            // The test deliberately completes the captured write after replacing the
+            // active session. Run the helper without the test adapter's sync context
+            // so the controlled continuation cannot be stranded by suite-level context
+            // scheduling.
+            SynchronizationContext.SetSynchronizationContext(null);
+            var write = MainForm.SendPlaybackSpeedAsync(
+                capturedSession,
+                (targetSession, _) =>
+                {
+                    Assert.AreSame(capturedSession, targetSession);
+                    return completeWrite.Task;
+                },
+                CancellationToken.None,
+                targetSession => ReferenceEquals(activeSession, targetSession),
+                messages.Add);
 
-        Assert.AreSame(capturedSession, await writeStarted.Task);
-        activeSession = new object();
-        completeWrite.SetResult(true);
-        await write;
+            activeSession = new object();
+            completeWrite.SetException(new IOException("old pipe closed"));
+            write.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previousContext);
+        }
 
         Assert.AreEqual(0, messages.Count);
     }

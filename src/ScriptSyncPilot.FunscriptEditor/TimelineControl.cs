@@ -16,6 +16,7 @@ namespace ScriptSyncPilot.FunscriptEditor;
 public sealed class TimelineControl : Control
 {
     private const int PointRadius = 5;
+    private const int PlayheadPointHaloRadius = PointRadius + 4;
     private const int HitRadius = 8;
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
@@ -34,6 +35,7 @@ public sealed class TimelineControl : Control
     private bool _patternRangeInvalid;
     private double _mediaDurationSeconds;
     private double _pixelsPerSecond = 100;
+    private double? _videoFrameRate;
     private double _viewStartSeconds;
     private double _playheadSeconds;
 
@@ -52,9 +54,32 @@ public sealed class TimelineControl : Control
     public event EventHandler? PlayPauseRequested;
     public event EventHandler? ScriptChanged;
     public event EventHandler? ZoomChanged;
+    public event EventHandler? NavigationAvailabilityChanged;
+
+    [System.ComponentModel.Browsable(false)]
+    public bool CanNavigateToPreviousAction => FindPreviousActionIndex() >= 0;
+
+    [System.ComponentModel.Browsable(false)]
+    public bool CanNavigateToNextAction => FindNextActionIndex() >= 0;
+
+    [System.ComponentModel.Browsable(false)]
+    public bool CanNavigateToSelectedAction => _selectedIndex is { } index && index >= 0 && index < _script.Actions.Count;
 
     [System.ComponentModel.Browsable(false)]
     public double PlayheadSeconds => _playheadSeconds;
+
+    [System.ComponentModel.Browsable(false)]
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public double? VideoFrameRate
+    {
+        get => _videoFrameRate;
+        set
+        {
+            _videoFrameRate = value is > 0 && double.IsFinite(value.Value) ? value : null;
+            NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+            Invalidate();
+        }
+    }
 
     /// <summary>Undo/redo history of the loaded script; reset by <see cref="LoadScript"/>.</summary>
     [System.ComponentModel.Browsable(false)]
@@ -123,6 +148,7 @@ public sealed class TimelineControl : Control
         _dragBefore = null;
         History.Reset();
         ReclampZoom();
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>
@@ -138,6 +164,7 @@ public sealed class TimelineControl : Control
         _selectedIndex = edit is { Inserted.Count: > 0 } ? edit.Index : null;
 
         ScriptChanged?.Invoke(this, EventArgs.Empty);
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
         return true;
     }
@@ -153,6 +180,7 @@ public sealed class TimelineControl : Control
         _scrubbing = false;
         _selectedIndex = applied.Inserted.Count > 0 ? applied.Index : null;
         ScriptChanged?.Invoke(this, EventArgs.Empty);
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
         return true;
     }
@@ -165,6 +193,7 @@ public sealed class TimelineControl : Control
         mutate();
         if (!History.Record(ActionEdit.Between(before, _script.Actions))) return false;
         ScriptChanged?.Invoke(this, EventArgs.Empty);
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }
 
@@ -183,6 +212,7 @@ public sealed class TimelineControl : Control
     public void SetPlayhead(double seconds, bool followPlayback)
     {
         _playheadSeconds = seconds;
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         if (_suppressPlaybackFollowUntilVisible && IsPlayheadInViewport())
             _suppressPlaybackFollowUntilVisible = false;
 
@@ -195,6 +225,94 @@ public sealed class TimelineControl : Control
             UpdateScrollBar();
         }
         Invalidate();
+    }
+
+    /// <summary>Moves to the closest action strictly before the playhead and requests a seek.</summary>
+    public bool NavigateToPreviousAction()
+    {
+        var index = FindPreviousActionIndex();
+        return index >= 0 && NavigateToAction(_script.Actions[index]);
+    }
+
+    /// <summary>Moves to the closest action strictly after the playhead and requests a seek.</summary>
+    public bool NavigateToNextAction()
+    {
+        var index = FindNextActionIndex();
+        return index >= 0 && NavigateToAction(_script.Actions[index]);
+    }
+
+    /// <summary>Moves to the selected action and requests a seek, or returns false when none is selected.</summary>
+    public bool NavigateToSelectedAction()
+    {
+        if (_selectedIndex is not { } index || index < 0 || index >= _script.Actions.Count)
+            return false;
+
+        return NavigateToAction(_script.Actions[index]);
+    }
+
+    private bool NavigateToAction(FunscriptAction action)
+    {
+        var seconds = action.At / 1000.0;
+        SetPlayhead(seconds);
+        SeekRequested?.Invoke(seconds);
+        return true;
+    }
+
+    private int FindPreviousActionIndex()
+    {
+        var actions = _script.Actions;
+        var referenceSeconds = GetNavigationReferenceSeconds();
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var mid = low + (high - low) / 2;
+            if (actions[mid].At / 1000.0 < referenceSeconds) low = mid + 1;
+            else high = mid;
+        }
+        return low - 1;
+    }
+
+    private int FindNextActionIndex()
+    {
+        var actions = _script.Actions;
+        var referenceSeconds = GetNavigationReferenceSeconds();
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var mid = low + (high - low) / 2;
+            if (actions[mid].At / 1000.0 <= referenceSeconds) low = mid + 1;
+            else high = mid;
+        }
+        return low < actions.Count ? low : -1;
+    }
+
+    private double GetNavigationReferenceSeconds()
+    {
+        var alignedIndex = FindPlayheadAlignedActionIndex(_script.Actions, _playheadSeconds);
+        return alignedIndex >= 0 ? _script.Actions[alignedIndex].At / 1000.0 : _playheadSeconds;
+    }
+
+    private int FindPlayheadAlignedActionIndex(IReadOnlyList<FunscriptAction> actions, double playheadSeconds)
+    {
+        if (_videoFrameRate is not { } frameRate || actions.Count == 0) return -1;
+
+        var closestIndex = -1;
+        var closestDistance = double.PositiveInfinity;
+        for (var i = 0; i < actions.Count; i++)
+        {
+            var distance = Math.Abs(actions[i].At / 1000.0 - playheadSeconds);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestIndex = i;
+            }
+        }
+
+        // A half-frame window treats mpv's frame-based position as aligned while
+        // choosing only the nearest timestamp, independent of timeline zoom.
+        return closestDistance <= 0.5 / frameRate ? closestIndex : -1;
     }
 
     public void SetPatternPreview(GeneratedPattern? pattern)
@@ -340,6 +458,7 @@ public sealed class TimelineControl : Control
         var actions = _script.Actions;
         if (actions.Count > 0)
         {
+            var alignedActionIndex = FindPlayheadAlignedActionIndex(actions, _playheadSeconds);
             using var linePen = new Pen(Color.FromArgb(90, 170, 255), 2);
             var clipLeft = ContentLeft - 50f;
             var clipRight = BarLeft + 50f;
@@ -359,6 +478,17 @@ public sealed class TimelineControl : Control
                 var x = TimeToX(actions[i].At / 1000.0);
                 if (x < ContentLeft - PointRadius || x > BarLeft + PointRadius) continue;
                 var y = PosToY(actions[i].Pos);
+                if (i == alignedActionIndex)
+                {
+                    // Contrasting strokes keep the ring visible over the graph and
+                    // adapt to Windows high-contrast colors. Draw behind the point so
+                    // its fill and selection styling remain clear.
+                    using var haloContrastPen = new Pen(SystemColors.Window, 4);
+                    using var haloPen = new Pen(SystemColors.Highlight, 2);
+                    var haloDiameter = PlayheadPointHaloRadius * 2;
+                    g.DrawEllipse(haloContrastPen, (float)(x - PlayheadPointHaloRadius), (float)(y - PlayheadPointHaloRadius), haloDiameter, haloDiameter);
+                    g.DrawEllipse(haloPen, (float)(x - PlayheadPointHaloRadius), (float)(y - PlayheadPointHaloRadius), haloDiameter, haloDiameter);
+                }
                 var selected = i == _selectedIndex;
                 using var brush = new SolidBrush(selected ? Color.Orange : Color.White);
                 var r = selected ? PointRadius + 1 : PointRadius;
@@ -541,10 +671,12 @@ public sealed class TimelineControl : Control
             _selectedIndex = index;
             _draggingIndex = index;
             _dragBefore = _script.Actions.ToArray();
+            NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         }
         else
         {
             _selectedIndex = null;
+            NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
             _scrubbing = true;
             Seek(e.X);
         }
@@ -586,6 +718,7 @@ public sealed class TimelineControl : Control
             var newIndex = _script.UpdateAt(index, new FunscriptAction(at, pos));
             _draggingIndex = newIndex;
             _selectedIndex = newIndex;
+            NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
         }
         else if (_scrubbing)
@@ -687,10 +820,32 @@ public sealed class TimelineControl : Control
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
+        if (Focused && e.Modifiers == Keys.Control && e.KeyCode == Keys.Up)
+        {
+            NavigateToPreviousAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (Focused && e.Modifiers == Keys.Control && e.KeyCode == Keys.Down)
+        {
+            NavigateToNextAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
+        if (Focused && e.Modifiers == Keys.Control && e.KeyCode == Keys.Enter)
+        {
+            NavigateToSelectedAction();
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            return;
+        }
         if (e.KeyCode == Keys.Delete && _selectedIndex is { } index)
         {
             Commit(() => _script.RemoveAt(index));
             _selectedIndex = null;
+            NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
             e.Handled = true;
         }
@@ -738,13 +893,18 @@ public sealed class TimelineControl : Control
     protected override bool IsInputKey(Keys keyData)
     {
         var keyCode = keyData & Keys.KeyCode;
-        return keyCode == Keys.Delete || keyCode == Keys.Left || keyCode == Keys.Right || base.IsInputKey(keyData);
+        var modifiers = keyData & Keys.Modifiers;
+        var pointNavigationKey = ((keyCode is Keys.Up or Keys.Down) && modifiers == Keys.Control)
+            || (keyCode == Keys.Enter && modifiers == Keys.Control);
+        return pointNavigationKey || keyCode == Keys.Delete || keyCode == Keys.Left || keyCode == Keys.Right
+            || base.IsInputKey(keyData);
     }
 
     private void Seek(int x)
     {
         var seconds = Math.Clamp(XToTime(x), 0, DurationSeconds);
         _playheadSeconds = seconds;
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         SeekRequested?.Invoke(seconds);
         Invalidate();
     }
@@ -764,6 +924,7 @@ public sealed class TimelineControl : Control
             _selectedIndex = i;
             break;
         }
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
     }
 

@@ -11,6 +11,12 @@ namespace ScriptSyncPilot.FunscriptEditor;
 /// </summary>
 public sealed class MainForm : Form
 {
+    private const double SeekPositionToleranceSeconds = 0.0005;
+    private const int PendingSeekVerificationDelayMs = 200;
+    private const int PendingSeekVerificationTimeoutMs = 2500;
+    private const int PendingSeekQueryTimeoutMs = 500;
+    private const int PendingSeekRetryDelayMs = 150;
+
     private readonly EditorSettings _settings;
     private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
@@ -44,12 +50,17 @@ public sealed class MainForm : Form
     private readonly Button _forwardFrameButton = new() { Text = "frame ▶", Enabled = false };
     private readonly Button _forward1SButton = new() { Text = "1s ▶", Enabled = false };
     private readonly Button _forward10SButton = new() { Text = "10s ▶▶", Enabled = false };
+    private readonly Button _previousPointButton = new() { Text = "Previous point", AutoSize = true, Enabled = false };
+    private readonly Button _selectedPointButton = new() { Text = "Selected point", AutoSize = true, Enabled = false };
+    private readonly Button _nextPointButton = new() { Text = "Next point", AutoSize = true, Enabled = false };
 
     private Funscript _script = new();
     private string? _scriptPath;
     private bool IsDirty => _timeline.History.IsDirty;
 
     private MpvSession? _mpv;
+    private PendingMpvSeek? _pendingMpvSeek;
+    private long _mpvSeekGeneration;
     private Process? _ownedMpvProcess;
     private string? _ownedMpvPipe;
     private CancellationTokenSource _lifetimeCts = new();
@@ -77,6 +88,7 @@ public sealed class MainForm : Form
         _pipeBox.Text = _settings.MpvIpcPipe;
 
         Controls.Add(_timeline);
+        Controls.Add(BuildPointNavigationBar());
         Controls.Add(BuildStepBar());
         Controls.Add(BuildZoomBar());
         Controls.Add(BuildTransportBar());
@@ -119,9 +131,15 @@ public sealed class MainForm : Form
         _forwardFrameButton.Click += async (_, _) => await StepFrameAsync(forward: true);
         _forward1SButton.Click += async (_, _) => await StepAsync(1);
         _forward10SButton.Click += async (_, _) => await StepAsync(10);
+        _previousPointButton.Click += (_, _) => _timeline.NavigateToPreviousAction();
+        _selectedPointButton.Click += (_, _) => _timeline.NavigateToSelectedAction();
+        _nextPointButton.Click += (_, _) => _timeline.NavigateToNextAction();
+        _timeline.NavigationAvailabilityChanged += (_, _) => UpdatePointNavigationButtons();
+        UpdatePointNavigationButtons();
 
         foreach (var button in new[] { _launchButton, _attachButton, _playPauseButton, _resetSpeedButton,
-            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton })
+            _back10SButton, _back1SButton, _backFrameButton, _forwardFrameButton, _forward1SButton, _forward10SButton,
+            _previousPointButton, _selectedPointButton, _nextPointButton })
             button.Click += (_, _) =>
             {
                 if (!_isClosing && _timeline.CanFocus) _timeline.Focus();
@@ -350,6 +368,36 @@ public sealed class MainForm : Form
         return bar;
     }
 
+    private Control BuildPointNavigationBar()
+    {
+        var bar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(6, 0, 6, 6),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+        };
+        bar.Controls.Add(_previousPointButton);
+        bar.Controls.Add(_selectedPointButton);
+        bar.Controls.Add(_nextPointButton);
+        bar.Controls.Add(new Label
+        {
+            Text = "  Shortcuts: Ctrl+Up = previous, Ctrl+Down = next, Ctrl+Enter = selected",
+            AutoSize = true,
+            Margin = new Padding(12, 8, 3, 0),
+            ForeColor = SystemColors.GrayText,
+        });
+        return bar;
+    }
+
+    private void UpdatePointNavigationButtons()
+    {
+        _previousPointButton.Enabled = _timeline.CanNavigateToPreviousAction;
+        _selectedPointButton.Enabled = _timeline.CanNavigateToSelectedAction;
+        _nextPointButton.Enabled = _timeline.CanNavigateToNextAction;
+    }
+
     private void Log(string message)
     {
         AppLog.Write(message);
@@ -510,6 +558,7 @@ public sealed class MainForm : Form
         mpv.PauseChanged += paused => OnMpvPauseChanged(mpv, paused);
         mpv.DurationChanged += seconds => OnMpvDurationChanged(mpv, seconds);
         mpv.SpeedChanged += speed => OnMpvSpeedChanged(mpv, speed);
+        mpv.FrameRateChanged += frameRate => OnMpvFrameRateChanged(mpv, frameRate);
         mpv.Disconnected += () => OnMpvDisconnected(mpv);
 
         try
@@ -535,8 +584,10 @@ public sealed class MainForm : Form
         OnMpvPositionChanged(mpv, mpv.PositionSeconds);
         OnMpvPauseChanged(mpv, mpv.IsPaused);
         OnMpvDurationChanged(mpv, mpv.DurationSeconds);
+        _timeline.VideoFrameRate = mpv.FrameRate;
         SetPlaybackControlsEnabled(true);
         if (mpv.Speed is { } speed) OnMpvSpeedChanged(mpv, speed);
+        _ = RefreshMpvFrameRateAsync(mpv, lifetimeCts.Token);
         Log($"Attached to mpv IPC pipe '{pipe}'.");
     }
 
@@ -566,9 +617,39 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             if (!ReferenceEquals(_mpv, session)) return;
+            if (!ShouldApplyMpvPositionUpdate(session)) return;
             _timeline.SetPlayhead(seconds, followPlayback: !session.IsPaused);
             _timeLabel.Text = $"{seconds:0.000} / {session.DurationSeconds:0.000} s";
         });
+    }
+
+    private bool ShouldApplyMpvPositionUpdate(MpvSession session)
+    {
+        if (_pendingMpvSeek is not { } pending || !ReferenceEquals(pending.Session, session))
+            return true;
+
+        if (!session.IsPaused)
+        {
+            _pendingMpvSeek = null;
+            return true;
+        }
+
+        // time-pos notifications carry no seek generation, so even a plausible value
+        // may belong to an older paused seek. The correlated get_property response
+        // reconciles the current generation instead.
+        return false;
+    }
+
+    internal static bool IsPositionNearSeekTarget(double targetSeconds, double reportedPositionSeconds) =>
+        IsPositionNearSeekTarget(targetSeconds, reportedPositionSeconds, frameRate: null);
+
+    internal static bool IsPositionNearSeekTarget(double targetSeconds, double reportedPositionSeconds, double? frameRate)
+    {
+        if (!double.IsFinite(targetSeconds) || !double.IsFinite(reportedPositionSeconds)) return false;
+        var tolerance = frameRate is > 0 && double.IsFinite(frameRate.Value)
+            ? Math.Max(SeekPositionToleranceSeconds, 0.5 / frameRate.Value)
+            : SeekPositionToleranceSeconds;
+        return Math.Abs(reportedPositionSeconds - targetSeconds) <= tolerance;
     }
 
     private void OnMpvPauseChanged(MpvSession session, bool paused)
@@ -578,6 +659,8 @@ public sealed class MainForm : Form
         {
             if (!ReferenceEquals(_mpv, session)) return;
             _playPauseButton.Text = paused ? "Play" : "Pause";
+            if (!paused && _pendingMpvSeek is { } pending && ReferenceEquals(pending.Session, session))
+                _pendingMpvSeek = null;
         });
     }
 
@@ -589,6 +672,28 @@ public sealed class MainForm : Form
             if (!ReferenceEquals(_mpv, session)) return;
             _timeline.UpdateDuration(seconds);
             _timeLabel.Text = $"{session.PositionSeconds:0.000} / {seconds:0.000} s";
+        });
+    }
+
+    private async Task RefreshMpvFrameRateAsync(MpvSession session, CancellationToken cancellationToken)
+    {
+        try
+        {
+            OnMpvFrameRateChanged(session, await session.GetFrameRateAsync(cancellationToken));
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException)
+        {
+            // Frame-rate observations remain active; the initial query is best-effort.
+        }
+    }
+
+    private void OnMpvFrameRateChanged(MpvSession session, double? frameRate)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(() =>
+        {
+            if (!ReferenceEquals(_mpv, session)) return;
+            _timeline.VideoFrameRate = frameRate;
         });
     }
 
@@ -769,8 +874,14 @@ public sealed class MainForm : Form
 
     private void OnSeekRequested(double seconds)
     {
-        if (_mpv is null) return;
-        _ = SeekAsync(seconds);
+        var session = _mpv;
+        if (session is null) return;
+        var generation = ++_mpvSeekGeneration;
+        var pending = session.IsPaused
+            ? new PendingMpvSeek(session, seconds, generation)
+            : null;
+        _pendingMpvSeek = pending;
+        _ = SeekAsync(session, seconds, pending);
     }
 
     private void MovePlayheadTo(double seconds)
@@ -779,16 +890,104 @@ public sealed class MainForm : Form
         OnSeekRequested(seconds);
     }
 
-    private async Task SeekAsync(double seconds)
+    private async Task SeekAsync(MpvSession session, double seconds, PendingMpvSeek? pendingSeek)
     {
         try
         {
-            await _mpv!.SeekAsync(seconds, _lifetimeCts.Token);
+            await session.SeekAsync(seconds, _lifetimeCts.Token);
+            if (pendingSeek is not null)
+                _ = VerifyPendingPausedSeekAsync(pendingSeek);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
             Log($"Seek failed: {ex.Message}");
+            if (pendingSeek is not null && IsCurrentPendingSeek(pendingSeek))
+            {
+                _pendingMpvSeek = null;
+                _timeline.SetPlayhead(session.PositionSeconds);
+            }
         }
+    }
+
+    private async Task VerifyPendingPausedSeekAsync(PendingMpvSeek pendingSeek)
+    {
+        try
+        {
+            await Task.Delay(PendingSeekVerificationDelayMs, _lifetimeCts.Token);
+            var deadline = Environment.TickCount64 + PendingSeekVerificationTimeoutMs;
+            var retriedSeek = false;
+            double? lastActualSeconds = null;
+
+            while (IsCurrentPendingSeek(pendingSeek) && pendingSeek.Session.IsPaused)
+            {
+                try
+                {
+                    using var queryTimeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+                    queryTimeout.CancelAfter(PendingSeekQueryTimeoutMs);
+                    var actualSeconds = await pendingSeek.Session.GetPositionAsync(queryTimeout.Token);
+                    if (!IsCurrentPendingSeek(pendingSeek) || !pendingSeek.Session.IsPaused) return;
+                    lastActualSeconds = actualSeconds;
+
+                    if (IsPositionNearSeekTarget(pendingSeek.TargetSeconds, actualSeconds, pendingSeek.Session.FrameRate))
+                    {
+                        _pendingMpvSeek = null;
+                        _timeline.SetPlayhead(actualSeconds);
+                        _timeLabel.Text = $"{actualSeconds:0.000} / {pendingSeek.Session.DurationSeconds:0.000} s";
+                        return;
+                    }
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Retry below while this seek generation remains current.
+                }
+
+                if (!IsCurrentPendingSeek(pendingSeek) || !pendingSeek.Session.IsPaused) return;
+                if (!retriedSeek)
+                {
+                    await pendingSeek.Session.SeekAsync(pendingSeek.TargetSeconds, _lifetimeCts.Token);
+                    retriedSeek = true;
+                }
+
+                if (Environment.TickCount64 >= deadline)
+                {
+                    if (!IsCurrentPendingSeek(pendingSeek)) return;
+                    KeepRequestedPausedSeek(pendingSeek, lastActualSeconds);
+                    _pendingMpvSeek = null;
+                    return;
+                }
+
+                await Task.Delay(PendingSeekRetryDelayMs, _lifetimeCts.Token);
+            }
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            if (IsCurrentPendingSeek(pendingSeek))
+            {
+                Log($"Could not verify the paused mpv seek: {ex.Message}");
+                _pendingMpvSeek = null;
+            }
+        }
+    }
+
+    private bool IsCurrentPendingSeek(PendingMpvSeek pendingSeek) =>
+        ReferenceEquals(_pendingMpvSeek, pendingSeek)
+        && pendingSeek.Generation == _mpvSeekGeneration
+        && ReferenceEquals(_mpv, pendingSeek.Session);
+
+    private void KeepRequestedPausedSeek(PendingMpvSeek pendingSeek, double? lastActualSeconds)
+    {
+        if (!IsCurrentPendingSeek(pendingSeek)) return;
+        if (lastActualSeconds is { } actualSeconds)
+            Log($"mpv did not confirm the requested point at {pendingSeek.TargetSeconds:0.000} s (last reported {actualSeconds:0.000} s); resuming position updates.");
+        else
+            Log("Could not verify the paused mpv seek; resuming position updates.");
     }
 
     private void ShutdownPlayback(bool terminateOwnedMpv = true)
@@ -796,9 +995,12 @@ public sealed class MainForm : Form
         _lifetimeCts.Cancel();
         _mpv?.Dispose();
         _mpv = null;
+        _pendingMpvSeek = null;
+        _mpvSeekGeneration++;
         _activePipe = null;
         _attachButton.Text = "Attach";
         _timeline.UpdateDuration(0);
+        _timeline.VideoFrameRate = null;
         SetPlaybackControlsEnabled(false);
 
         if (terminateOwnedMpv && _ownedMpvProcess is { HasExited: false })
@@ -812,4 +1014,6 @@ public sealed class MainForm : Form
             _ownedMpvPipe = null;
         }
     }
+
+    private sealed record PendingMpvSeek(MpvSession Session, double TargetSeconds, long Generation);
 }

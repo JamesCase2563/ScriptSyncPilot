@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Text;
@@ -24,17 +25,24 @@ public sealed class MpvSession : IDisposable
     public event Action<bool>? PauseChanged;
     public event Action<double>? DurationChanged;
     public event Action<double>? SpeedChanged;
+    public event Action<double?>? FrameRateChanged;
     public event Action? Disconnected;
 
     private NamedPipeClientStream? _pipe;
     private CancellationTokenSource? _readCts;
     private AttachReadState? _readState;
     private volatile bool _disposed;
+    private readonly ConcurrentDictionary<int, TaskCompletionSource<double>> _doublePropertyQueries = new();
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private int _nextRequestId;
 
     public bool IsPaused { get; private set; } = true;
     public double PositionSeconds { get; private set; }
     public double DurationSeconds { get; private set; }
     public double? Speed { get; private set; }
+    public double? FrameRate { get; private set; }
+    private double? EstimatedFrameRate { get; set; }
+    private double? ContainerFrameRate { get; set; }
 
     public async Task AttachAsync(string pipePath, CancellationToken ct)
     {
@@ -72,6 +80,8 @@ public sealed class MpvSession : IDisposable
             await SendAsync(new { command = new object[] { "observe_property", 2, "pause" } }, ct);
             await SendAsync(new { command = new object[] { "observe_property", 3, "duration" } }, ct);
             await SendAsync(new { command = new object[] { "observe_property", 4, "speed" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 5, "estimated-vf-fps" } }, ct);
+            await SendAsync(new { command = new object[] { "observe_property", 6, "container-fps" } }, ct);
             readState.AttachCompleted.TrySetResult(true);
         }
         catch
@@ -83,6 +93,49 @@ public sealed class MpvSession : IDisposable
 
     public Task SeekAsync(double seconds, CancellationToken ct) =>
         SendAsync(new { command = new object[] { "seek", seconds, "absolute+exact" } }, ct);
+
+    public Task<double> GetPositionAsync(CancellationToken ct) => GetDoublePropertyAsync("time-pos", ct);
+
+    public async Task<double?> GetFrameRateAsync(CancellationToken ct)
+    {
+        try
+        {
+            var estimated = await GetDoublePropertyAsync("estimated-vf-fps", ct);
+            if (double.IsFinite(estimated) && estimated > 0) return estimated;
+        }
+        catch (IOException) when (!ct.IsCancellationRequested)
+        {
+            // Fall back to the file header rate when no measured rate is available.
+        }
+
+        try
+        {
+            var container = await GetDoublePropertyAsync("container-fps", ct);
+            return double.IsFinite(container) && container > 0 ? container : null;
+        }
+        catch (IOException) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
+    private async Task<double> GetDoublePropertyAsync(string property, CancellationToken ct)
+    {
+        var requestId = Interlocked.Increment(ref _nextRequestId);
+        var response = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_doublePropertyQueries.TryAdd(requestId, response))
+            throw new InvalidOperationException($"Could not register the mpv '{property}' query.");
+
+        try
+        {
+            await SendAsync(new { command = new object[] { "get_property", property }, request_id = requestId }, ct);
+            return await response.Task.WaitAsync(ct);
+        }
+        finally
+        {
+            _doublePropertyQueries.TryRemove(requestId, out _);
+        }
+    }
 
     /// <summary>Seeks by a relative offset (negative to go backwards), frame-accurate rather than keyframe-snapped.</summary>
     public Task SeekRelativeAsync(double deltaSeconds, CancellationToken ct) =>
@@ -104,12 +157,20 @@ public sealed class MpvSession : IDisposable
 
     private async Task SendAsync(object command, CancellationToken ct)
     {
-        if (_pipe is not { IsConnected: true })
-            throw new IOException("mpv IPC pipe is not connected.");
-        var json = JsonSerializer.Serialize(command) + "\n";
-        var bytes = Encoding.UTF8.GetBytes(json);
-        await _pipe.WriteAsync(bytes, ct);
-        await _pipe.FlushAsync(ct);
+        await _writeGate.WaitAsync(ct);
+        try
+        {
+            if (_pipe is not { IsConnected: true })
+                throw new IOException("mpv IPC pipe is not connected.");
+            var json = JsonSerializer.Serialize(command) + "\n";
+            var bytes = Encoding.UTF8.GetBytes(json);
+            await _pipe.WriteAsync(bytes, ct);
+            await _pipe.FlushAsync(ct);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
     }
 
     private void CleanupFailedAttach(AttachReadState? readState = null)
@@ -168,6 +229,22 @@ public sealed class MpvSession : IDisposable
         if (line.Length == 0) return;
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
+        if (root.TryGetProperty("request_id", out var requestIdElement)
+            && requestIdElement.TryGetInt32(out var requestId)
+            && _doublePropertyQueries.TryGetValue(requestId, out var doublePropertyQuery))
+        {
+            if (root.TryGetProperty("error", out var error)
+                && error.ValueKind == JsonValueKind.String
+                && error.GetString() == "success"
+                && root.TryGetProperty("data", out var position)
+                && position.ValueKind == JsonValueKind.Number
+                && position.TryGetDouble(out var seconds)
+                && double.IsFinite(seconds))
+                doublePropertyQuery.TrySetResult(seconds);
+            else
+                doublePropertyQuery.TrySetException(new IOException("mpv could not read the requested numeric property."));
+            return;
+        }
         if (!root.TryGetProperty("event", out var evt) || evt.GetString() != "property-change") return;
         if (!root.TryGetProperty("name", out var name) || !root.TryGetProperty("data", out var data)) return;
 
@@ -190,7 +267,27 @@ public sealed class MpvSession : IDisposable
                 Speed = speed;
                 SpeedChanged?.Invoke(speed);
                 break;
+            case "estimated-vf-fps":
+                EstimatedFrameRate = ReadPositiveNumber(data);
+                UpdateFrameRate();
+                break;
+            case "container-fps":
+                ContainerFrameRate = ReadPositiveNumber(data);
+                UpdateFrameRate();
+                break;
         }
+    }
+
+    private static double? ReadPositiveNumber(JsonElement value) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)
+        && double.IsFinite(number) && number > 0 ? number : null;
+
+    private void UpdateFrameRate()
+    {
+        var frameRate = EstimatedFrameRate ?? ContainerFrameRate;
+        if (FrameRate == frameRate) return;
+        FrameRate = frameRate;
+        FrameRateChanged?.Invoke(frameRate);
     }
 
     public void Dispose()
@@ -203,6 +300,8 @@ public sealed class MpvSession : IDisposable
         readCts?.Cancel();
         _pipe?.Dispose();
         _pipe = null;
+        foreach (var query in _doublePropertyQueries.Values)
+            query.TrySetException(new ObjectDisposedException(nameof(MpvSession)));
         readCts?.Dispose();
     }
 }

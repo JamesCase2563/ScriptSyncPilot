@@ -20,6 +20,9 @@ public sealed class MpvSessionReplacementTests
         Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 5.001), "A neighboring millisecond timestamp must remain distinguishable.");
         Assert.IsTrue(EditorForm.IsPositionNearSeekTarget(5, 4.9996), "A sub-millisecond difference is within seek precision.");
         Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 6), "A stale position after the target must not confirm it.");
+
+        Assert.IsTrue(EditorForm.IsPositionNearSeekTarget(5, 5.016, 30), "A reported position within half a 30 fps frame confirms the seek.");
+        Assert.IsFalse(EditorForm.IsPositionNearSeekTarget(5, 5.017, 30), "A position beyond half a frame does not confirm the seek.");
     }
 
     [TestMethod]

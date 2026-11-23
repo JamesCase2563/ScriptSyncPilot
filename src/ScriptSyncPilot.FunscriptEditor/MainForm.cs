@@ -641,7 +641,16 @@ public sealed class MainForm : Form
     }
 
     internal static bool IsPositionNearSeekTarget(double targetSeconds, double reportedPositionSeconds) =>
-        Math.Abs(reportedPositionSeconds - targetSeconds) <= SeekPositionToleranceSeconds;
+        IsPositionNearSeekTarget(targetSeconds, reportedPositionSeconds, frameRate: null);
+
+    internal static bool IsPositionNearSeekTarget(double targetSeconds, double reportedPositionSeconds, double? frameRate)
+    {
+        if (!double.IsFinite(targetSeconds) || !double.IsFinite(reportedPositionSeconds)) return false;
+        var tolerance = frameRate is > 0 && double.IsFinite(frameRate.Value)
+            ? Math.Max(SeekPositionToleranceSeconds, 0.5 / frameRate.Value)
+            : SeekPositionToleranceSeconds;
+        return Math.Abs(reportedPositionSeconds - targetSeconds) <= tolerance;
+    }
 
     private void OnMpvPauseChanged(MpvSession session, bool paused)
     {
@@ -907,7 +916,6 @@ public sealed class MainForm : Form
             await Task.Delay(PendingSeekVerificationDelayMs, _lifetimeCts.Token);
             var deadline = Environment.TickCount64 + PendingSeekVerificationTimeoutMs;
             var retriedSeek = false;
-            var failureReported = false;
             double? lastActualSeconds = null;
 
             while (IsCurrentPendingSeek(pendingSeek) && pendingSeek.Session.IsPaused)
@@ -920,7 +928,7 @@ public sealed class MainForm : Form
                     if (!IsCurrentPendingSeek(pendingSeek) || !pendingSeek.Session.IsPaused) return;
                     lastActualSeconds = actualSeconds;
 
-                    if (IsPositionNearSeekTarget(pendingSeek.TargetSeconds, actualSeconds))
+                    if (IsPositionNearSeekTarget(pendingSeek.TargetSeconds, actualSeconds, pendingSeek.Session.FrameRate))
                     {
                         _pendingMpvSeek = null;
                         _timeline.SetPlayhead(actualSeconds);
@@ -946,16 +954,13 @@ public sealed class MainForm : Form
 
                 if (Environment.TickCount64 >= deadline)
                 {
-                    if (!failureReported)
-                    {
-                        KeepRequestedPausedSeek(pendingSeek, lastActualSeconds);
-                        failureReported = true;
-                    }
+                    if (!IsCurrentPendingSeek(pendingSeek)) return;
+                    KeepRequestedPausedSeek(pendingSeek, lastActualSeconds);
+                    _pendingMpvSeek = null;
+                    return;
                 }
 
-                await Task.Delay(
-                    failureReported ? PendingSeekQueryTimeoutMs : PendingSeekRetryDelayMs,
-                    _lifetimeCts.Token);
+                await Task.Delay(PendingSeekRetryDelayMs, _lifetimeCts.Token);
             }
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
@@ -964,7 +969,10 @@ public sealed class MainForm : Form
         catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
         {
             if (IsCurrentPendingSeek(pendingSeek))
+            {
                 Log($"Could not verify the paused mpv seek: {ex.Message}");
+                _pendingMpvSeek = null;
+            }
         }
     }
 
@@ -977,9 +985,9 @@ public sealed class MainForm : Form
     {
         if (!IsCurrentPendingSeek(pendingSeek)) return;
         if (lastActualSeconds is { } actualSeconds)
-            Log($"mpv has not confirmed the requested point; keeping the requested playhead at {pendingSeek.TargetSeconds:0.000} s (last reported {actualSeconds:0.000} s).");
+            Log($"mpv did not confirm the requested point at {pendingSeek.TargetSeconds:0.000} s (last reported {actualSeconds:0.000} s); resuming position updates.");
         else
-            Log("Could not verify the paused mpv seek; keeping the requested playhead position.");
+            Log("Could not verify the paused mpv seek; resuming position updates.");
     }
 
     private void ShutdownPlayback(bool terminateOwnedMpv = true)

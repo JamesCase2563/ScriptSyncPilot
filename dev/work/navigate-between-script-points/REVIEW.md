@@ -23,3 +23,17 @@ No code findings.
 - Branch patch passes `git diff --check`.
 
 Interactive visual and live-mpv smoke verification remains unperformed, as recorded in `VERIFICATION.md`.
+
+## Follow-up review — 2026-11-22
+
+**Status:** Resolved
+
+### Findings
+
+- **[P2] Frame-rounded paused seeks are treated as failures — resolved.** Seek confirmation now uses half of mpv's detected frame duration (with the existing sub-millisecond tolerance as a floor). If verification reaches its deadline without confirmation, it logs the result and clears the pending seek so later paused position observations are no longer suppressed.
+
+### Verification
+
+- Focused `TimelineNavigationTests` and `MpvSessionReplacementTests`: 15/15 passed.
+- Focused `MpvSessionTests`: 16/16 passed.
+- No live-mpv or interactive UI smoke test was performed.

@@ -9,6 +9,14 @@ FunscriptEditor is a WinForms editor for standard funscript timestamp/position a
 - `TimelineWheelFilter` routes wheel zoom to the hovered timeline.
 - `EditorSettings` persists paths, pipe configuration, and pattern dialog values on a best-effort basis.
 
+## Movement-Speed Coloring and Readout
+
+`TimelineControl` calculates adjacent segment measurements and uses the shared Common speed-color model for valid segments. The range is either Fit to script (all valid segments, P99) or a persisted manual range. Fit is recalculated on script load or explicit fit; editing, zooming, and scrolling do not change the current fitted range. Invalid-timing segments remain neutral. Color clamping affects only the color; it does not alter the reported speed.
+
+The fixed-height readout reports script-space average speed at 1x. Its fixed columns show segment duration, absolute position distance, and average pp/s; point, value-preview, and drag contexts use incoming/outgoing rows. The legend uses the same square-root transfer and palette as segment drawing. `EditorSettings` owns the editor's independent settings JSON fields for enablement, scale mode, and manual minimum/maximum.
+
+High-contrast adaptation remains in the editor: timeline segments use system highlight and outline colors, and the legend and preferences remain readable. Numeric values remain available when coloring is disabled or high contrast replaces the rainbow colors. These figures describe script data, not device capability or physical movement.
+
 ## Editing Contracts
 
 Actions use milliseconds and 0-100 positions. Common preserves unknown root JSON properties. Empty/new documents are valid. ScriptChanged marks edits and refreshes timeline zoom, viewport, and scrollbar limits.

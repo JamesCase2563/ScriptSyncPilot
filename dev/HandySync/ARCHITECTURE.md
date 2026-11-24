@@ -9,6 +9,12 @@ HandySync follows an external mpv player and controls the Handy using REST API v
 - `ScriptWaveformControl` renders actions and raises video seek requests.
 - Common supplies script parsing/CSV, mpv IPC, and logging.
 
+## Movement-Speed Coloring {#movement-speed-coloring}
+
+`ScriptWaveformControl` colors the existing full-duration action overview using Common's shared segment measurement, Fit/Manual range, square-root mapping, and Jet-style RGB palette. HandySync owns its own matching speed-color fields in its settings JSON; values are not shared with the editor. High-contrast drawing remains UI-specific and uses system colors with contrasting outlines.
+
+The waveform retains its existing per-column position min/max envelope. For speed color, each pixel column receives the maximum valid average speed of any adjacent action segment whose time interval overlaps that column. Invalid-timing segments contribute no color; a column with no valid speed keeps the base waveform color. This maximum summary preserves fast movement in a compressed overview but hides slower overlapping segments and does not show individual segment values. The view still spans the whole available movie/script duration and does not zoom or scroll; use the editor for segment-level numerical inspection. The displayed colors describe script-space average speed at 1x, not physical device speed.
+
 ## Setup and Synchronization
 
 Connection checks connectivity, selects HSSP mode, samples client/server clock offset, and installs the latest selected script. Scripts are hosted as CSV before setup. Empty scripts are rejected; failed replacements retain the previous valid script/path.

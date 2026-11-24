@@ -21,15 +21,15 @@ public sealed class MainForm : Form
     private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
-    private readonly Label _segmentSpeedReadout = new()
-    {
-        AutoSize = false,
-        Dock = DockStyle.Fill,
-        Text = "Movement speed: hover over a segment or point",
-        ForeColor = SystemColors.ControlText,
-        TextAlign = ContentAlignment.MiddleLeft,
-        Margin = new Padding(6, 3, 3, 3),
-    };
+    private readonly Label _movementReadoutContext = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _incomingRelation = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _outgoingRelation = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _incomingDuration = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _incomingDistance = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _incomingSpeed = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingDuration = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingDistance = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingSpeed = CreateReadoutLabel(ContentAlignment.MiddleRight);
     private readonly SegmentSpeedLegend _speedLegend = new() { Dock = DockStyle.Fill, MinimumSize = new Size(220, 0) };
 
     private readonly TextBox _videoPathBox = new() { ReadOnly = true };
@@ -386,7 +386,7 @@ public sealed class MainForm : Form
 
     private Control BuildSegmentSpeedReadoutBar()
     {
-        var height = _segmentSpeedReadout.Font.Height * 3 + 12;
+        var height = _movementReadoutContext.Font.Height * 4 + 8;
         var bar = new Panel
         {
             Dock = DockStyle.Top,
@@ -406,9 +406,40 @@ public sealed class MainForm : Form
         contents.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         contents.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
         contents.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        contents.Controls.Add(_segmentSpeedReadout, 0, 0);
+        var readout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 4,
+            Margin = new Padding(0),
+            Padding = new Padding(6, 2, 6, 2),
+        };
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+        for (var row = 0; row < readout.RowCount; row++)
+            readout.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+
+        _movementReadoutContext.Margin = new Padding(3, 0, 3, 0);
+        readout.Controls.Add(_movementReadoutContext, 0, 0);
+        readout.SetColumnSpan(_movementReadoutContext, 4);
+        AddReadoutHeader(readout, "Segment", 0, 1);
+        AddReadoutHeader(readout, "Time", 1, 1);
+        AddReadoutHeader(readout, "Value", 2, 1);
+        AddReadoutHeader(readout, "Speed", 3, 1);
+        AddReadoutCell(readout, _incomingRelation, 0, 2, "Incoming");
+        AddReadoutCell(readout, _incomingDuration, 1, 2);
+        AddReadoutCell(readout, _incomingDistance, 2, 2);
+        AddReadoutCell(readout, _incomingSpeed, 3, 2);
+        AddReadoutCell(readout, _outgoingRelation, 0, 3, "Outgoing");
+        AddReadoutCell(readout, _outgoingDuration, 1, 3);
+        AddReadoutCell(readout, _outgoingDistance, 2, 3);
+        AddReadoutCell(readout, _outgoingSpeed, 3, 3);
+        contents.Controls.Add(readout, 0, 0);
         contents.Controls.Add(_speedLegend, 1, 0);
         bar.Controls.Add(contents);
+        ClearMovementReadout();
         return bar;
     }
 
@@ -416,13 +447,17 @@ public sealed class MainForm : Form
     {
         if (readout is not { } value)
         {
-            _segmentSpeedReadout.Text = "Movement speed: hover over a segment or point";
+            ClearMovementReadout();
             return;
         }
 
         if (value.Kind == TimelineMovementReadoutKind.Segment && value.Segment is { } segment)
         {
-            _segmentSpeedReadout.Text = $"Movement speed (script average at 1x): {FormatSegmentMeasurement(segment)}";
+            _movementReadoutContext.Text = "Hovered segment · script average at 1x";
+            _incomingRelation.Text = "Segment";
+            _outgoingRelation.Text = "";
+            SetMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed, true, segment);
+            ClearMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed);
             return;
         }
 
@@ -432,35 +467,92 @@ public sealed class MainForm : Form
             var at = point.At.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var position = point.Pos.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var context = value.Kind == TimelineMovementReadoutKind.ValueBarPreview
-                ? "Value bar preview at"
-                : "Point at";
-            _segmentSpeedReadout.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                "{0} {1} ms · {2} pp (script average at 1x){3}Incoming: {4}{3}Outgoing: {5}",
-                context, at, position, Environment.NewLine,
-                FormatSegmentMeasurement(value.HasIncomingSegment, value.IncomingSegment, "No incoming segment"),
-                FormatSegmentMeasurement(value.HasOutgoingSegment, value.OutgoingSegment, "No outgoing segment"));
+                ? "Value preview"
+                : "Point";
+            _movementReadoutContext.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "{0} at {1} ms · {2} pp · script average at 1x", context, at, position);
+            SetMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed,
+                value.HasIncomingSegment, value.IncomingSegment);
+            SetMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed,
+                value.HasOutgoingSegment, value.OutgoingSegment);
         }
     }
 
-    private string FormatSegmentMeasurement(SegmentSpeed measurement) =>
-        FormatSegmentMeasurement(true, measurement, "No segment");
-
-    private string FormatSegmentMeasurement(bool exists, SegmentSpeed? measurement, string missingText)
+    private static Label CreateReadoutLabel(ContentAlignment alignment) => new()
     {
-        if (!exists) return missingText;
-        if (measurement is not { } value) return "Invalid timing";
-        var duration = value.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var distance = value.DistancePercentagePoints.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        if (value.AveragePercentagePointsPerSecond is not { } speed)
-            return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · Invalid timing", duration, distance);
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        ForeColor = SystemColors.ControlText,
+        TextAlign = alignment,
+        Margin = new Padding(3, 0, 3, 0),
+        AutoEllipsis = true,
+    };
+
+    private static void AddReadoutHeader(TableLayoutPanel readout, string text, int column, int row)
+    {
+        var header = CreateReadoutLabel(column == 0 ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleRight);
+        header.Text = text;
+        header.ForeColor = SystemColors.GrayText;
+        header.Font = new Font(header.Font, FontStyle.Bold);
+        AddReadoutCell(readout, header, column, row);
+    }
+
+    private static void AddReadoutCell(TableLayoutPanel readout, Control control, int column, int row, string? text = null)
+    {
+        if (text is not null && control is Label label) label.Text = text;
+        readout.Controls.Add(control, column, row);
+    }
+
+    private void ClearMovementReadout()
+    {
+        _movementReadoutContext.Text = "Movement speed: hover over a segment or point";
+        _incomingRelation.Text = "Incoming";
+        _outgoingRelation.Text = "Outgoing";
+        ClearMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed);
+        ClearMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed);
+    }
+
+    private static void ClearMeasurement(Label duration, Label distance, Label speed)
+    {
+        duration.Text = "—";
+        distance.Text = "—";
+        speed.Text = "—";
+        duration.AccessibleDescription = distance.AccessibleDescription = speed.AccessibleDescription = null;
+    }
+
+    private void SetMeasurement(Label duration, Label distance, Label speed, bool exists, SegmentSpeed? measurement)
+    {
+        if (!exists)
+        {
+            ClearMeasurement(duration, distance, speed);
+            speed.Text = "No segment";
+            return;
+        }
+
+        if (measurement is not { } value)
+        {
+            ClearMeasurement(duration, distance, speed);
+            speed.Text = "Invalid timing";
+            return;
+        }
+
+        duration.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms", value.ElapsedMilliseconds);
+        distance.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} pp", value.DistancePercentagePoints);
+        if (value.AveragePercentagePointsPerSecond is not { } speedValue)
+        {
+            speed.Text = "Invalid timing";
+            return;
+        }
 
         var capNote = _timeline.MapSpeedColor(value)?.Clamp switch
         {
-            SegmentSpeedClamp.High => " · color capped",
-            SegmentSpeedClamp.Low => " · color capped low",
+            SegmentSpeedClamp.High => " · capped high",
+            SegmentSpeedClamp.Low => " · capped low",
             _ => "",
         };
-        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms · {1} pp · {2:0.0} pp/s{3}", duration, distance, speed, capNote);
+        speed.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "{0:0.0} pp/s{1}", speedValue, capNote);
+        speed.AccessibleDescription = speed.Text;
     }
 
     private Control BuildZoomBar()

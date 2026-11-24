@@ -88,8 +88,8 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 ### M6 — Verify and document
 
 - [x] M6.1 Run focused Common calculation/scale tests, HandySync waveform-column aggregation tests, and cross-app mapping parity tests; then run the relevant editor and HandySync test suites.
-- [ ] M6.2 Manually verify editor hover/selection/drag updates, invalid timing, color toggle, legend, zoom independence, HandySync maximum-speed column colors, and high-contrast behavior in both apps.
-- [ ] M6.3 Update permanent editor, Common, and HandySync architecture documentation; record verification evidence and limitations, including the maximum-speed column summary, here and in `VERIFICATION.md`.
+- [x] M6.2 Manually verify editor hover/selection/drag updates, invalid timing, color toggle, legend, zoom independence, HandySync maximum-speed column colors, and high-contrast behavior in both apps.
+- [x] M6.3 Update permanent editor, Common, and HandySync architecture documentation; record verification evidence and limitations, including the maximum-speed column summary, here and in `VERIFICATION.md`.
 
 #### M5 architecture recommendation — 2026-11-24
 
@@ -115,7 +115,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 #### M2.1 implementation — 2026-11-23
 
-- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.3 covers these cases with focused automated tests.
+- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.Common/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.3 covers these cases with focused automated tests.
 
 #### M2.2 implementation — 2026-11-23
 
@@ -135,13 +135,20 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - The timeline now resolves readout context in priority order: active dragged point, value-bar insertion/replacement preview, point under the pointer, nearby segment, then selected point. The value-bar preview uses a hypothetical action list and does not mutate the script; hover does not alter selection. Pan/scrub suppress hover contexts and retain selected-point fallback.
 - Point readouts show separate incoming/outgoing measurements from the current action list, so both values update as a dragged point moves. First/last points show `No incoming segment` / `No outgoing segment`; invalid adjacent timing shows its duration and distance without a speed.
 
-#### M3.3 layout fix — 2026-11-23
+#### M3.3 layout and readout clarity — 2026-11-23 / 2026-11-24
 
-- The readout now occupies a fixed-height area sized for its three-line point presentation. Switching among segment, point, and drag contexts no longer changes the footer height or resizes the timeline.
+- The readout occupies a fixed-height area, so switching among segment, point, preview, and drag contexts does not change the footer height or resize the timeline.
+- On 2026-11-24, replaced the variable-width combined text with a fixed-column table for relation, duration, distance, and speed. Point contexts use Incoming/Outgoing rows; segment hover uses one Segment row. The editor build passes, and the user confirmed the refreshed layout looks good.
+
+#### M6.3 architecture and verification record — 2026-11-24
+
+- Updated [`dev/ARCHITECTURE.md`](../../ARCHITECTURE.md) and the Common, FunscriptEditor, and HandySync architecture documents with component ownership, speed calculation and scale rules, renderer integration, and settings boundaries.
+- Documented HandySync's per-column maximum valid overlapping segment speed, including its compression tradeoff: slower overlapping segments disappear from the speed color summary, and the full-duration overview still has no zoom/pan or per-segment numeric readout.
+- Verification evidence and remaining limitations are recorded in [`VERIFICATION.md`](VERIFICATION.md). M6.1 automated tests passed; the user manually confirmed the planned editor and HandySync behaviors and visually reviewed the refreshed fixed-column editor readout.
 
 #### M4.1 scale implementation — 2026-11-23
 
-- Added [`SegmentSpeedScaleCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedScale.cs), which fits the selected 0-to-P99 range from every valid adjacent segment in the script, independent of viewport and zoom. The P99 nearest-rank value is rounded up to the next 100 pp/s with a 100 pp/s minimum upper bound.
+- Added [`SegmentSpeedScaleCalculator`](../../../src/ScriptSyncPilot.Common/SegmentSpeedScale.cs), which fits the selected 0-to-P99 range from every valid adjacent segment in the script, independent of viewport and zoom. The P99 nearest-rank value is rounded up to the next 100 pp/s with a 100 pp/s minimum upper bound.
 - Added validated manual ranges and low/high clamp metadata. Clamping produces a normalized color position and cap direction while leaving the `SegmentSpeed` measurement and displayed pp/s unchanged.
 - Wired fit/manual mode, coloring enablement, and manual bounds through `EditorSettings`; script loads recalculate fit mode, while edits do not. The readout notes high/low color caps when coloring is enabled.
 

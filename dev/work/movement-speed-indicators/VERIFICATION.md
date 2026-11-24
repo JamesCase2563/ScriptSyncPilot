@@ -6,7 +6,7 @@
 ## Acceptance criteria
 
 - [ ] A compact persistent readout directly below the timeline and above seek/point-navigation controls identifies values as script-space average speed at 1x; playback time remains in the transport row.
-- [ ] Switching between one-line segment values and three-line point/drag values does not change the readout container height or resize the timeline.
+- [ ] Switching among segment, point, preview, and drag readout contexts does not change the fixed readout height or resize the timeline; duration, distance, and speed stay aligned in their columns.
 - [ ] Hovering a segment shows whole-millisecond duration, whole-pp absolute distance, and speed to one decimal pp/s with units.
 - [ ] A selected or dragged point shows both incoming and outgoing segment values; values update from the in-progress action list as the point is edited.
 - [ ] Segment hover does not capture point hit targets or interfere with dragging; readout context follows the precedence confirmed in M1.2 without changing selection.
@@ -48,7 +48,15 @@
 
 ## Results and limitations
 
-The focused calculator tests passed (5 passed, 0 failed, 2026-11-23). The full solution build passed with 0 warnings and 0 errors after the M5.3 HandySync integration (2026-11-24), including Common, both applications, and their test projects. M6.1 verification on 2026-11-24 passed: focused Common calculation/scale tests (3 passed), HandySync column aggregation and cross-app mapping parity tests (4 passed), and the complete editor/HandySync test project (284 passed, 0 failed). The full editor suite exposed and verified a footer layout correction placing the point-navigation row below the seek row. Focused Common verification also caught and fixed swapped RGB channel interpolation in the shared Jet palette. Manual UI checks remain pending. Values describe the script's segment-average motion at 1x in percentage-points-per-second; actual device movement can differ because of playback rate, stroke range, interpolation, and device behavior.
+The focused calculator tests passed (5 passed, 0 failed, 2026-11-23). The full solution build passed with 0 warnings and 0 errors after the M5.3 HandySync integration (2026-11-24), including Common, both applications, and their test projects. M6.1 verification on 2026-11-24 passed: focused Common calculation/scale tests (3 passed), HandySync column aggregation and cross-app mapping parity tests (4 passed), and the complete editor/HandySync test project (284 passed, 0 failed). The full editor suite exposed and verified a footer layout correction placing the point-navigation row below the seek row. Focused Common verification also caught and fixed swapped RGB channel interpolation in the shared Jet palette. The user reports manually checking editor hover, selection, dragging, invalid timing, color toggle, legend, zoom independence, HandySync maximum-speed columns, and high-contrast behavior in both apps; all work as expected. The user also visually reviewed the fixed-column readout after relaunch and confirmed it looks good. Values describe the script's segment-average motion at 1x in percentage-points-per-second; actual device movement can differ because of playback rate, stroke range, interpolation, and device behavior.
+
+### M6.3 architecture and limitations
+
+- Added permanent descriptions to [`dev/ARCHITECTURE.md`](../../ARCHITECTURE.md), [`dev/Common/ARCHITECTURE.md`](../../Common/ARCHITECTURE.md), [`dev/FunscriptEditor/ARCHITECTURE.md`](../../FunscriptEditor/ARCHITECTURE.md), and [`dev/HandySync/ARCHITECTURE.md`](../../HandySync/ARCHITECTURE.md). Common owns pure segment measurement, Fit/Manual range fitting, square-root mapping, clamp metadata, and Jet palette RGB values. Each app owns settings persistence, rendering, and high-contrast adaptation.
+- The Common model tests, HandySync column aggregation tests, cross-app mapping parity test, and full editor/HandySync suite passed as recorded above. Editor build after fixed-column readout change succeeded with 0 warnings and 0 errors. `git diff --check` passed.
+- HandySync summarizes each waveform column with the **maximum valid speed among overlapping action segments**. It preserves the fastest movement in compressed columns, but does not represent the distribution or make slower overlapping segments individually visible. Invalid segments contribute no speed; columns without valid segments use the base waveform color. The overview still covers the full movie/script duration without zoom or pan; a detailed segment inspection belongs in the editor until a separate HandySync zoom feature is implemented.
+- Speed is calculated from adjacent script actions at 1x and is not a measurement of device motion. Fit-to-script intentionally limits the color maximum using P99 to reduce the influence of extreme authoring segments; speeds beyond the selected range keep their actual numeric value in the editor and use endpoint colors with clamp metadata.
+- The new fixed-column readout compiled successfully and the user confirmed its normal-mode appearance after relaunch. High-contrast behavior was manually confirmed before this readout-only layout change; the revised layout uses standard labels/system colors, but a separate high-contrast review of the new layout has not been reported.
 
 ## M6 — Verification and documentation deliverables
 
@@ -56,4 +64,4 @@ The focused calculator tests passed (5 passed, 0 failed, 2026-11-23). The full s
 - [ ] Each app independently saves and restores the same speed-color settings structure; when both use the same range, the shared mapping produces identical colors.
 - [x] HandySync's per-column speed aggregation is documented and tested for multiple overlapping segments, invalid timing, and empty columns.
 - [ ] Both applications remain readable in Windows high-contrast mode while using the shared speed mapping.
-- [ ] Permanent architecture documentation describes the Common speed-color model, editor integration, and HandySync maximum-speed column aggregation; update this plan and verification results with measured outcomes and remaining limitations.
+- [x] Permanent architecture documentation describes the Common speed-color model, editor integration, and HandySync maximum-speed column aggregation; update this plan and verification results with measured outcomes and remaining limitations.

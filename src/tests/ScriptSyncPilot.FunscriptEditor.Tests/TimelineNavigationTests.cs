@@ -255,6 +255,8 @@ public sealed class TimelineNavigationTests
         var previous = GetField<Button>(form, "_previousPointButton");
         var selected = GetField<Button>(form, "_selectedPointButton");
         var next = GetField<Button>(form, "_nextPointButton");
+        form.Show();
+        form.PerformLayout();
         var script = CreateScript(1000, 2000, 3000);
         timeline.LoadScript(script);
         timeline.UpdateDuration(10);

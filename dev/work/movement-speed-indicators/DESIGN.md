@@ -80,6 +80,16 @@ The implemented scale model fits from every valid adjacent segment in the loaded
 
 Revisit device-limit comparison only as separate work if users later need an explicit, data-backed capability warning.
 
+## M5 proposal: share speed colors with HandySync
+
+**Architecture implemented in M5.2; column aggregation decided in M5.1.** `ScriptSyncPilot.Common` now owns the speed calculation, scale fitting, square-root mapping, clamp status, and palette RGB stops. The palette returns a platform-neutral `RgbColor`; rendering, controls, and high-contrast treatment stay in the WinForms applications. Common has no WinForms or `System.Drawing` dependency.
+
+Each app will store its own speed-color settings in its existing JSON settings file, with matching field names and meanings for enabled state, scale mode, and manual minimum/maximum. The apps do not share or synchronize values. Given the same speed and same range, the Common mapping and palette will return the same color; choosing different ranges in each app can intentionally produce different colors.
+
+HandySync's `AppSettings` now mirrors the editor's speed-color fields, and its `Speed colors…` dialog edits its independent values. `ScriptWaveformControl` applies the Common range and palette to the per-column maximum speed while retaining the existing position min/max waveform. High-contrast outlines remain local to the control.
+
+HandySync draws a whole-script min/max waveform compressed into pixel columns, while the editor paints individual adjacent-action segments. For example, if 30 seconds of script are squeezed into 300 pixels, each pixel covers 100 ms and can contain several action segments. The existing waveform combines their positions into one vertical min/max mark, so it cannot display a separate color for each overlapping segment. **Decision:** color each column using the maximum valid speed among segments overlapping that pixel's time interval, mapped with the shared color model. The waveform shape continues using the existing position min/max. This keeps the fastest movement visible in a compressed overview.
+
 ## Interaction and rendering rules
 
 - Point hit targets win over segment hover; hovering a point must not start segment hover behavior.

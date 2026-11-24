@@ -379,8 +379,8 @@ public sealed class MainForm : Form
         for (var row = 0; row < footer.RowCount; row++)
             footer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         footer.Controls.Add(BuildSegmentSpeedReadoutBar(), 0, 0);
-        footer.Controls.Add(BuildPointNavigationBar(), 0, 1);
-        footer.Controls.Add(BuildStepBar(), 0, 2);
+        footer.Controls.Add(BuildStepBar(), 0, 1);
+        footer.Controls.Add(BuildPointNavigationBar(), 0, 2);
         return footer;
     }
 

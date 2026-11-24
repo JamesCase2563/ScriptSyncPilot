@@ -1,6 +1,4 @@
-using ScriptSyncPilot.Common;
-
-namespace ScriptSyncPilot.FunscriptEditor;
+namespace ScriptSyncPilot.Common;
 
 /// <summary>Script-space measurements for one adjacent action pair.</summary>
 public readonly record struct SegmentSpeed(

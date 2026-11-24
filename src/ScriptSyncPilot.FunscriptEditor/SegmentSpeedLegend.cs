@@ -1,4 +1,5 @@
 using System.Globalization;
+using ScriptSyncPilot.Common;
 
 namespace ScriptSyncPilot.FunscriptEditor;
 
@@ -57,8 +58,9 @@ public sealed class SegmentSpeedLegend : Control
             {
                 var linearPosition = bar.Width <= 1 ? 0 : x / (double)(bar.Width - 1);
                 var speed = _range.Minimum + linearPosition * (_range.Maximum - _range.Minimum);
-                var mapped = _range.Map(speed);
-                using var brush = new SolidBrush(SegmentSpeedPalette.GetColor(mapped.NormalizedPosition));
+                var mapped = _range.MapColor(speed);
+                using var brush = new SolidBrush(Color.FromArgb(
+                    mapped.Color.A, mapped.Color.R, mapped.Color.G, mapped.Color.B));
                 graphics.FillRectangle(brush, bar.X + x, bar.Y, 1, bar.Height);
             }
         }

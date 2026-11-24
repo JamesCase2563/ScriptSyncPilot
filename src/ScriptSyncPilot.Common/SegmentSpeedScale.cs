@@ -1,6 +1,4 @@
-using ScriptSyncPilot.Common;
-
-namespace ScriptSyncPilot.FunscriptEditor;
+namespace ScriptSyncPilot.Common;
 
 public enum SegmentSpeedScaleMode
 {
@@ -16,6 +14,8 @@ public enum SegmentSpeedClamp
 }
 
 public readonly record struct SegmentSpeedColorPosition(double NormalizedPosition, SegmentSpeedClamp Clamp);
+
+public readonly record struct SegmentSpeedColor(SegmentSpeedColorPosition Position, RgbColor Color);
 
 /// <summary>A script-space speed interval used only to map segments to colors.</summary>
 public readonly record struct SegmentSpeedColorRange
@@ -41,6 +41,12 @@ public readonly record struct SegmentSpeedColorRange
         if (speed > Maximum) return new SegmentSpeedColorPosition(1, SegmentSpeedClamp.High);
         var linearPosition = (speed - Minimum) / (Maximum - Minimum);
         return new SegmentSpeedColorPosition(Math.Sqrt(linearPosition), SegmentSpeedClamp.None);
+    }
+
+    public SegmentSpeedColor MapColor(double speed)
+    {
+        var position = Map(speed);
+        return new SegmentSpeedColor(position, SegmentSpeedPalette.GetColor(position.NormalizedPosition));
     }
 }
 

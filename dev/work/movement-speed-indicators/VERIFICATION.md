@@ -33,7 +33,7 @@
 - Test point-versus-segment hover precedence, value-bar insertion/replacement preview, pan/scrub suppression, and readout clearing; verify dragging reads in-progress values.
 - Test selected range modes, boundary values, endpoint clamping, and an unchanged mapped color for the same segment speed at different zoom and viewport settings.
 - Test fit-to-script uses the full script, not the currently visible time range; test manual preference save/load and invalid-bound rejection.
-- Run the focused editor tests and the complete Release solution test suite after implementation.
+- Run focused Common and editor tests, plus the HandySync test suite and complete Release solution test suite after implementation.
 
 ## Manual verification plan
 
@@ -42,7 +42,18 @@
 - Inspect zero-distance and invalid-timing examples.
 - Toggle segment coloring, read the legend, and verify colors remain stable while zooming and scrolling.
 - Check that the readout and legend do not cover important timeline content or interfere with editing.
+- In HandySync, inspect pixel columns containing multiple segments and confirm each uses the maximum valid overlapping segment speed, including invalid and empty intervals.
+- Set the same manual range in each app and confirm the same speed maps to the same palette color; verify each app persists its own settings independently.
+- Check the timeline and HandySync overview in Windows high-contrast mode.
 
 ## Results and limitations
 
-No tests or manual checks have been run. Values are intended to describe the script's segment-average motion at 1x in percentage-points-per-second. Actual device movement can differ because of playback rate, stroke range, interpolation, and device behavior.
+The focused calculator tests passed (5 passed, 0 failed, 2026-11-23). The full solution build passed with 0 warnings and 0 errors after the M5.3 HandySync integration (2026-11-24), including Common, both applications, and their test projects. M6.1 verification on 2026-11-24 passed: focused Common calculation/scale tests (3 passed), HandySync column aggregation and cross-app mapping parity tests (4 passed), and the complete editor/HandySync test project (284 passed, 0 failed). The full editor suite exposed and verified a footer layout correction placing the point-navigation row below the seek row. Focused Common verification also caught and fixed swapped RGB channel interpolation in the shared Jet palette. Manual UI checks remain pending. Values describe the script's segment-average motion at 1x in percentage-points-per-second; actual device movement can differ because of playback rate, stroke range, interpolation, and device behavior.
+
+## M6 — Verification and documentation deliverables
+
+- [x] For the same speed, color range, and enabled palette, Common returns the same normalized mapping and palette RGB value to both applications.
+- [ ] Each app independently saves and restores the same speed-color settings structure; when both use the same range, the shared mapping produces identical colors.
+- [x] HandySync's per-column speed aggregation is documented and tested for multiple overlapping segments, invalid timing, and empty columns.
+- [ ] Both applications remain readable in Windows high-contrast mode while using the shared speed mapping.
+- [ ] Permanent architecture documentation describes the Common speed-color model, editor integration, and HandySync maximum-speed column aggregation; update this plan and verification results with measured outcomes and remaining limitations.

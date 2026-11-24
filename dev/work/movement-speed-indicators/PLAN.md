@@ -79,11 +79,39 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - [x] M4.2 Add the preferences controls and legend using the decided Jet-style rainbow palette; ensure settings and readout remain usable in high-contrast mode.
 - [x] M4.3 Keep numeric values available and avoid safe/unsafe claims.
 
-### M5 — Verify and document
+### M5 — Share speed colors with HandySync
 
-- [ ] M5.1 Run focused calculation and timeline tests, including an assertion that a segment's mapped color is unchanged across different zoom and viewport settings; then run the relevant editor test suite.
-- [ ] M5.2 Manually verify hover, selection, drag updates, invalid timing, color toggle, legend, and zoom independence.
-- [ ] M5.3 Update the permanent editor architecture documentation and record remaining limitations here and in `VERIFICATION.md`.
+- [x] M5.1 Decide HandySync column aggregation and confirm each app keeps its own settings file with the same speed-color settings structure.
+- [x] M5.2 Move the pure segment calculation, Fit/Manual range fitting, square-root mapping, clamp metadata, and Jet palette data into `ScriptSyncPilot.Common`, with no WinForms or `System.Drawing` dependency.
+- [x] M5.3 Update the editor and HandySync renderers to consume the same Common speed-color model and preference structure; keep drawing and high-contrast adaptation in each UI project.
+
+### M6 — Verify and document
+
+- [x] M6.1 Run focused Common calculation/scale tests, HandySync waveform-column aggregation tests, and cross-app mapping parity tests; then run the relevant editor and HandySync test suites.
+- [ ] M6.2 Manually verify editor hover/selection/drag updates, invalid timing, color toggle, legend, zoom independence, HandySync maximum-speed column colors, and high-contrast behavior in both apps.
+- [ ] M6.3 Update permanent editor, Common, and HandySync architecture documentation; record verification evidence and limitations, including the maximum-speed column summary, here and in `VERIFICATION.md`.
+
+#### M5 architecture recommendation — 2026-11-24
+
+- Put only UI-independent measurements, range fitting, transfer mapping, and palette RGB data in Common. Keep GDI painting, hover/readout controls, legend drawing, and high-contrast outlines in each app.
+- The apps keep separate settings data. Add the same speed-color preference fields (enabled, scale mode, manual minimum, manual maximum) to each app's existing `settings.json` structure; no shared settings file or runtime synchronization is needed.
+- HandySync currently aggregates action positions into per-pixel min/max columns. Assign each column the maximum valid segment speed whose time interval overlaps it, so the most interesting fast movement remains visible in a compressed overview. This preserves the shared speed-to-color mapping while documenting that the overview summarizes multiple script segments.
+
+#### M5.1 settings and aggregation decision — 2026-11-24
+
+- **Decided:** Editor and HandySync each store their own speed-color settings in their existing settings JSON, using matching field names and meanings. The values do not need to be shared or synchronized.
+- **Decided:** each HandySync pixel column uses the maximum valid speed among segments overlapping its time interval.
+
+#### M5.2 shared model extraction — 2026-11-24
+
+- Moved `SegmentSpeedCalculator`, `SegmentSpeedScaleCalculator`, the Fit/Manual scale and clamp types, and `SegmentSpeedPalette` into `ScriptSyncPilot.Common`.
+- Replaced `System.Drawing.Color` in the shared palette with the UI-neutral `RgbColor` value type. Editor painting and legend code convert the shared RGB result to WinForms `Color`; Common has no WinForms or `System.Drawing` dependency.
+
+#### M5.3 HandySync integration — 2026-11-24
+
+- Added matching `SpeedColoringEnabled`, `SpeedScaleMode`, `ManualSpeedMinimumPpS`, and `ManualSpeedMaximumPpS` fields to HandySync's own settings JSON structure and a Speed colors dialog to configure them.
+- HandySync's waveform bins the maximum valid overlapping segment speed into each pixel column, then uses Common's active range and Jet/square-root mapping. Existing per-column position min/max rendering remains intact.
+- High-contrast line outlines and system highlight adaptation remain in `ScriptWaveformControl`; the settings dialog uses system colors and explains the column-max summary.
 
 #### M2.1 implementation — 2026-11-23
 
@@ -133,4 +161,4 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - Documented load sorting, duplicate preservation, atomic replacement validation, and calculator-level rejection of non-increasing adjacent timestamps.
 - Added explicit hover precedence and in-progress drag values to M1 and M3.
 - Made fixed thresholds, labels, endpoint-color clamping, and high-contrast usability part of the scale design and implementation milestones.
-- Added direct zoom/viewport independence coverage for the segment color mapping to M5.
+- Added direct zoom/viewport independence coverage for the segment color mapping to M6.

@@ -203,10 +203,13 @@ public sealed class TimelineControl : Control
     }
 
     public SegmentSpeedColorPosition? MapSpeedColor(SegmentSpeed? segment)
+        => GetSegmentSpeedColor(segment)?.Position;
+
+    internal SegmentSpeedColor? GetSegmentSpeedColor(SegmentSpeed? segment)
     {
         if (!_speedColoringEnabled || segment is not { HasValidTiming: true, AveragePercentagePointsPerSecond: { } speed })
             return null;
-        return ActiveSpeedColorRange.Map(speed);
+        return ActiveSpeedColorRange.MapColor(speed);
     }
 
     /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>
@@ -579,9 +582,9 @@ public sealed class TimelineControl : Control
                 if (Math.Max(start.X, end.X) < clipLeft || Math.Min(start.X, end.X) > clipRight) continue;
 
                 var speed = SegmentSpeedCalculator.Calculate(startAction, endAction);
-                var mapping = MapSpeedColor(speed);
+                var mapping = GetSegmentSpeedColor(speed);
                 var color = mapping is { } mapped
-                    ? highContrast ? SegmentSpeedPalette.GetHighContrastColor() : SegmentSpeedPalette.GetColor(mapped.NormalizedPosition)
+                    ? highContrast ? SystemColors.Highlight : ToUiColor(mapped.Color)
                     : highContrast ? SystemColors.Highlight : Color.FromArgb(90, 170, 255);
                 if (!pens.TryGetValue(color, out var linePen))
                     pens[color] = linePen = new Pen(color, 2.5f);
@@ -1089,6 +1092,8 @@ public sealed class TimelineControl : Control
         var distanceY = point.Y - nearestY;
         return distanceX * distanceX + distanceY * distanceY;
     }
+
+    private static Color ToUiColor(RgbColor color) => Color.FromArgb(color.A, color.R, color.G, color.B);
 
     private void UpdateMovementReadout(Point? pointerLocation = null)
     {

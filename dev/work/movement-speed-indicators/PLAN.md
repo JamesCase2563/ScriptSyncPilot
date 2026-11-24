@@ -14,7 +14,7 @@ Make the average speed represented by funscript segments clear while editing, re
 
 - Show a numerical readout when hovering a segment and while dragging a point. Report elapsed time in milliseconds, absolute position change in percentage points, and average speed in percentage points per second.
 - For a selected or dragged point, show the speed of both its incoming and outgoing segments and refresh the values as the edit changes.
-- Add optional segment coloring on a scale independent of zoom and the visible time range. Use the decided vivid, ordered multi-hue palette, include a legend, and keep the numeric readout accurate even when colors saturate at the configured maximum.
+- Add optional segment coloring on a scale independent of zoom and the visible time range. Use the decided Jet-style rainbow palette, include a legend, and keep the numeric readout accurate even when colors saturate at the configured maximum.
 - Color the connecting segments first; add a narrow, time-aligned color strip below the waveform only if line coloring is not clear enough at practical zoom levels.
 - Treat duplicate or decreasing timestamps as invalid timing; do not calculate a finite speed for those segments.
 - Describe the values as script-space segment averages at normal (1x) playback. Do not characterize script values as safe/unsafe or imply that they measure physical device speed.
@@ -40,7 +40,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 - [x] M1.1 Inspect timeline hit-testing, selection, point dragging, and current status/help surfaces; confirm point targets have priority over segment hover and identify conflicts for readouts.
 - [x] M1.2 Resolve exact placement and context precedence for the compact main-form readout, numeric precision, in-progress drag values, invalid/zero-distance presentation, and preferences dialog behavior for manual limits, fit-to-script, and capped colors.
-- [x] M1.3 Decide and document the scale modes/default, P99 fitted upper bound rounded to the next 100 pp/s, fit timing, color-only clamping, and single vivid, ordered multi-hue palette. Capped values retain their actual numeric readout.
+- [x] M1.3 Decide and document the scale modes/default, P99 fitted upper bound rounded to the next 100 pp/s, fit timing, color-only clamping, and single Jet-style rainbow palette. Capped values retain their actual numeric readout.
 
 #### M1.1 inspection findings — 2026-11-23
 
@@ -76,7 +76,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 ### M4 — Add optional speed coloring
 
 - [x] M4.1 Implement the selected manual and/or whole-script-fit modes; derive fit values from all valid segments, not the viewport, and clamp speeds over the color maximum without altering reported speeds.
-- [ ] M4.2 Add the preferences controls and legend using the decided vivid, ordered multi-hue palette; ensure settings and readout remain usable in high-contrast mode.
+- [x] M4.2 Add the preferences controls and legend using the decided Jet-style rainbow palette; ensure settings and readout remain usable in high-contrast mode.
 - [ ] M4.3 Keep numeric values available and avoid safe/unsafe claims.
 
 ### M5 — Verify and document
@@ -116,6 +116,12 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - Added [`SegmentSpeedScaleCalculator`](../../../src/ScriptSyncPilot.FunscriptEditor/SegmentSpeedScale.cs), which fits the selected 0-to-P99 range from every valid adjacent segment in the script, independent of viewport and zoom. The P99 nearest-rank value is rounded up to the next 100 pp/s with a 100 pp/s minimum upper bound.
 - Added validated manual ranges and low/high clamp metadata. Clamping produces a normalized color position and cap direction while leaving the `SegmentSpeed` measurement and displayed pp/s unchanged.
 - Wired fit/manual mode, coloring enablement, and manual bounds through `EditorSettings`; script loads recalculate fit mode, while edits do not. The readout notes high/low color caps when coloring is enabled.
+
+#### M4.2 coloring and preferences — 2026-11-23
+
+- Timeline segments now use a vivid Jet-style navy/blue/cyan/green/yellow/orange/red ramp, mapped from the active Fit or Manual range. Invalid-timing segments keep the neutral line color; speeds outside the range use endpoint colors while readout values remain actual.
+- Added `Edit > Movement Speed Preferences…` with an on-by-default coloring toggle, Fit to script/Manual modes, validated manual bounds, and an explicit Fit to current script action. Existing `EditorSettings` persists the chosen mode, toggle, and limits.
+- Added a labeled numeric-range legend beside the fixed-height readout. In Windows high contrast, segment strokes use the system highlight color with system-color outlines; the legend identifies the system-color mode, while the numeric readout remains available. Dialog controls use system colors.
 
 ## Review feedback incorporated — 2026-11-23
 

@@ -36,7 +36,7 @@ The scale is independent of timeline zoom and visible time range. Fit mode is sc
 2. **Fit bounds:** set the lower color bound to `0 pp/s`. Find P99 using the nearest-rank percentile over valid segment speeds; round the upper bound up to the next `100 pp/s`. Enforce a minimum upper bound of `100 pp/s` so an empty or zero-speed script still has a usable range. Ignore invalid-timing segments for the percentile.
 3. **Manual range:** the preferences dialog lets the user set min/max values and saves them as application preferences. Use the same manual range across scripts. Require `min < max`; clamp values below/above the range to the endpoint colors.
 4. **Color saturation cap:** the maximum affects color mapping only. Speeds above the maximum use the top color; retain the action and show its actual numeric speed, with a note that its color is capped.
-5. **Palette:** use the single vivid, perceptually ordered multi-hue palette from low to high. No palette selector in the first release.
+5. **Palette:** use the single vivid Jet-style rainbow from low to high. No palette selector in the first release.
 
 ### Color saturation cap
 
@@ -57,11 +57,13 @@ The user-provided `SLR_WankzVR_Back in the Day_2160p_2767_LR.tempo.funscript` wa
 
 ### Palette choice
 
-**Status: Decided.** Use a vivid, perceptually ordered multi-hue palette, not a classic full-spectrum rainbow. Keep its lightness progression ordered from low to high, pair it with a labeled legend and numeric readout, and provide a high-contrast alternative. Color never stands alone as the value indication.
+**Status: Decided (updated 2026-11-24).** Use a vivid Jet-style rainbow from low to high to make adjacent speeds easier to distinguish by hue. Pair it with a labeled legend and numeric readout, and provide a high-contrast alternative. Color never stands alone as the value indication.
+
+The implemented low-to-high ramp uses Jet-style stops: navy `#000080`, blue `#0000FF`, azure `#007FFF`, cyan `#00FFFF`, green `#7FFF7F`, yellow `#FFFF00`, orange `#FF7F00`, red `#FF0000`, and dark red `#800000`, interpolated between stops. In Windows high contrast, segment strokes use the system highlight color with system-color outlines; the legend labels this simplified system-color treatment and directs users to the numeric hover readout.
 
 **Palette customization: Decided.** The first release uses the single selected palette; there is no user palette selector.
 
-This keeps the low-to-high interpretation, legend, and high-contrast presentation consistent. Revisit a small set of tested, perceptually ordered palettes only if users later need that choice.
+This keeps the low-to-high interpretation, legend, and high-contrast presentation consistent. Palette choice is fixed for the first release.
 
 The supplied sample's nearest-rank P99 is 680 pp/s, so its fitted range rounds to `0–700 pp/s`; about 0.2% of segments exceed 700. Its maximum, 1,882.4 pp/s, remains numerically visible but uses the top color.
 

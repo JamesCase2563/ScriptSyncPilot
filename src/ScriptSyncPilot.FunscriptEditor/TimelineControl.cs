@@ -74,6 +74,9 @@ public sealed class TimelineControl : Control
     public SegmentSpeedColorRange ManualSpeedColorRange => _manualSpeedColorRange;
 
     [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange FittedSpeedColorRange => _fittedSpeedColorRange;
+
+    [System.ComponentModel.Browsable(false)]
     public SegmentSpeedColorRange ActiveSpeedColorRange => _speedScaleMode == SegmentSpeedScaleMode.Manual
         ? _manualSpeedColorRange
         : _fittedSpeedColorRange;
@@ -516,19 +519,7 @@ public sealed class TimelineControl : Control
         if (actions.Count > 0)
         {
             var alignedActionIndex = FindPlayheadAlignedActionIndex(actions, _playheadSeconds);
-            using var linePen = new Pen(Color.FromArgb(90, 170, 255), 2);
-            var clipLeft = ContentLeft - 50f;
-            var clipRight = BarLeft + 50f;
-            PointF? prev = null;
-            for (var i = 0; i < actions.Count; i++)
-            {
-                var pt = new PointF((float)TimeToX(actions[i].At / 1000.0), (float)PosToY(actions[i].Pos));
-                // Draw whenever any part of the segment can be visible, otherwise a segment running to an
-                // off-screen neighbour is dropped and the line appears to stop at the window edge.
-                if (prev is { } p0 && Math.Max(p0.X, pt.X) >= clipLeft && Math.Min(p0.X, pt.X) <= clipRight)
-                    g.DrawLine(linePen, ClipX(p0, pt, clipLeft, clipRight), ClipX(pt, p0, clipLeft, clipRight));
-                prev = pt;
-            }
+            PaintActionSegments(g, actions);
 
             for (var i = 0; i < actions.Count; i++)
             {
@@ -567,6 +558,48 @@ public sealed class TimelineControl : Control
         g.Restore(paintState);
         base.OnPaint(e);
         PaintFocusIndicator(g);
+    }
+
+    private void PaintActionSegments(Graphics graphics, IReadOnlyList<FunscriptAction> actions)
+    {
+        var clipLeft = ContentLeft - 50f;
+        var clipRight = BarLeft + 50f;
+        var highContrast = SystemInformation.HighContrast;
+        var pens = new Dictionary<Color, Pen>();
+        using var contrastBackgroundPen = highContrast ? new Pen(SystemColors.Window, 4) : null;
+        using var contrastTextPen = highContrast ? new Pen(SystemColors.WindowText, 3) : null;
+        try
+        {
+            for (var i = 0; i < actions.Count - 1; i++)
+            {
+                var startAction = actions[i];
+                var endAction = actions[i + 1];
+                var start = new PointF((float)TimeToX(startAction.At / 1000.0), (float)PosToY(startAction.Pos));
+                var end = new PointF((float)TimeToX(endAction.At / 1000.0), (float)PosToY(endAction.Pos));
+                if (Math.Max(start.X, end.X) < clipLeft || Math.Min(start.X, end.X) > clipRight) continue;
+
+                var speed = SegmentSpeedCalculator.Calculate(startAction, endAction);
+                var mapping = MapSpeedColor(speed);
+                var color = mapping is { } mapped
+                    ? highContrast ? SegmentSpeedPalette.GetHighContrastColor() : SegmentSpeedPalette.GetColor(mapped.NormalizedPosition)
+                    : highContrast ? SystemColors.Highlight : Color.FromArgb(90, 170, 255);
+                if (!pens.TryGetValue(color, out var linePen))
+                    pens[color] = linePen = new Pen(color, 2.5f);
+
+                var clippedStart = ClipX(start, end, clipLeft, clipRight);
+                var clippedEnd = ClipX(end, start, clipLeft, clipRight);
+                if (contrastBackgroundPen is not null && contrastTextPen is not null)
+                {
+                    graphics.DrawLine(contrastBackgroundPen, clippedStart, clippedEnd);
+                    graphics.DrawLine(contrastTextPen, clippedStart, clippedEnd);
+                }
+                graphics.DrawLine(linePen, clippedStart, clippedEnd);
+            }
+        }
+        finally
+        {
+            foreach (var pen in pens.Values) pen.Dispose();
+        }
     }
 
     private void PaintFocusIndicator(Graphics graphics)

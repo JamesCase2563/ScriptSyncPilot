@@ -14,7 +14,7 @@
 - [ ] Value-bar preview shows the incoming/outgoing values that would result from insertion or replacement, without changing the script until clicked.
 - [ ] A segment with positive duration and zero position change reports `0.0 pp/s`; missing endpoint neighbors are labeled explicitly.
 - [ ] Duplicate or non-increasing timestamps show `Invalid timing` with zero or negative duration, omit speed, and never receive a speed color.
-- [ ] Coloring uses the single vivid, ordered multi-hue palette and has Fit to script as the default; fit uses all valid segments and P99 nearest-rank rounded up to the next 100 pp/s, with a 100 pp/s minimum upper bound.
+- [ ] Coloring uses the single Jet-style rainbow palette and has Fit to script as the default; fit uses all valid segments and P99 nearest-rank rounded up to the next 100 pp/s, with a 100 pp/s minimum upper bound.
 - [ ] Preferences expose an on-by-default coloring toggle, Fit/Manual scale choice, manual min/max pp/s, and Fit to current script. Toggle, mode, and manual limits persist through `EditorSettings`.
 - [ ] Manual range min/max preferences persist globally for cross-script comparisons; invalid `min >= max` is rejected without replacing the last valid range. Fit to script uses all valid segments, recalculates on script load or explicit invocation, and remains stable during edits/dragging.
 - [ ] Speeds above/below the configured color range use endpoint colors without being removed or changing the actual numeric readout, which marks the color as capped high/low.

@@ -30,6 +30,7 @@ public sealed class MainForm : Form
         TextAlign = ContentAlignment.MiddleLeft,
         Margin = new Padding(6, 3, 3, 3),
     };
+    private readonly SegmentSpeedLegend _speedLegend = new() { Dock = DockStyle.Fill, MinimumSize = new Size(220, 0) };
 
     private readonly TextBox _videoPathBox = new() { ReadOnly = true };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -116,6 +117,8 @@ public sealed class MainForm : Form
         _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
         _timeline.MovementReadoutChanged += UpdateMovementReadout;
+        _timeline.SpeedColorScaleChanged += (_, _) => UpdateSpeedLegend();
+        UpdateSpeedLegend();
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
         {
@@ -220,9 +223,32 @@ public sealed class MainForm : Form
         edit.DropDownItems.Add(redo);
         edit.DropDownItems.Add(new ToolStripSeparator());
         edit.DropDownItems.Add("Insert Pattern…", null, (_, _) => InsertPattern());
+        edit.DropDownItems.Add(new ToolStripSeparator());
+        edit.DropDownItems.Add("Movement Speed Preferences…", null, (_, _) => OpenMovementSpeedPreferences());
         menu.Items.Add(edit);
         return menu;
     }
+
+    private void OpenMovementSpeedPreferences()
+    {
+        using var dialog = new MovementSpeedPreferencesDialog(
+            _timeline.SpeedColoringEnabled,
+            _timeline.SpeedScaleMode,
+            _timeline.ManualSpeedColorRange,
+            _timeline.FittedSpeedColorRange,
+            _script.Actions,
+            _scriptPath is not null);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        _timeline.ConfigureSpeedColoring(
+            dialog.ColoringEnabled,
+            dialog.ScaleMode,
+            dialog.ManualMinimum,
+            dialog.ManualMaximum);
+    }
+
+    private void UpdateSpeedLegend() =>
+        _speedLegend.SetScale(_timeline.ActiveSpeedColorRange, _timeline.SpeedColoringEnabled);
 
     private void InsertPattern()
     {
@@ -369,7 +395,20 @@ public sealed class MainForm : Form
             MinimumSize = new Size(0, height),
             Margin = new Padding(0),
         };
-        bar.Controls.Add(_segmentSpeedReadout);
+        var contents = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        contents.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contents.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+        contents.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        contents.Controls.Add(_segmentSpeedReadout, 0, 0);
+        contents.Controls.Add(_speedLegend, 1, 0);
+        bar.Controls.Add(contents);
         return bar;
     }
 

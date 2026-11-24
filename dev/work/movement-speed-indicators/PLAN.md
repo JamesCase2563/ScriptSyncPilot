@@ -1,10 +1,10 @@
 # Movement Speed Indicators
 
-**Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)  
-**Affected project:** `ScriptSyncPilot.FunscriptEditor`  
-**Status:** Complete; implementation, verification, and documentation are complete.<br>
-**Priority:** Not set in the issue.  
-**Design decisions:** [DESIGN.md](DESIGN.md)
+- **Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)
+- **Affected project:** `ScriptSyncPilot.FunscriptEditor`
+- **Status:** Complete; implementation, verification, and documentation are complete.
+- **Priority:** Not set in the issue.
+- **Design decisions:** [DESIGN.md](DESIGN.md)
 
 ## Goal
 
@@ -169,3 +169,4 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - Added explicit hover precedence and in-progress drag values to M1 and M3.
 - Made fixed thresholds, labels, endpoint-color clamping, and high-contrast usability part of the scale design and implementation milestones.
 - Added direct zoom/viewport independence coverage for the segment color mapping to M6.
+- Addressed the 2026-11-24 review findings: point and segment hit-testing are limited to local time windows, value-bar preview no longer clones the full action list, invalid timing clears stale accessibility text, and reported Markdown whitespace is removed. See [`REVIEW.md`](REVIEW.md).

@@ -1,8 +1,8 @@
 # Movement Speed Indicators — Design Decisions
 
-**Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)  
-**Status:** In Progress; color-scale decisions are complete and device-limit warnings are deferred from issue #34.
-**Related plan:** [PLAN.md](PLAN.md)
+- **Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)
+- **Status:** Design decisions complete; device-limit warnings are deferred from issue #34.
+- **Related plan:** [PLAN.md](PLAN.md)
 
 ## Purpose and terminology
 

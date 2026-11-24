@@ -1043,10 +1043,13 @@ public sealed class TimelineControl : Control
     private int? HitTest(Point location)
     {
         var actions = _script.Actions;
-        for (var i = 0; i < actions.Count; i++)
+        var left = Math.Max(location.X - HitRadius, ContentLeft - HitRadius);
+        var right = Math.Min(location.X + HitRadius, ContentRight + HitRadius);
+        var startIndex = FindFirstActionAtOrAfterX(actions, left);
+        for (var i = startIndex; i < actions.Count; i++)
         {
             var x = TimeToX(actions[i].At / 1000.0);
-            if (x < ContentLeft - HitRadius || x > ContentRight + HitRadius) continue;
+            if (x > right) break;
             var y = PosToY(actions[i].Pos);
             var dx = x - location.X;
             var dy = y - location.Y;
@@ -1055,19 +1058,56 @@ public sealed class TimelineControl : Control
         return null;
     }
 
+    private int FindFirstActionAtOrAfterX(IReadOnlyList<FunscriptAction> actions, double x)
+    {
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var middle = low + (high - low) / 2;
+            if (TimeToX(actions[middle].At / 1000.0) < x)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+
+    private static int FindFirstActionAtOrAfterTime(IReadOnlyList<FunscriptAction> actions, int at)
+    {
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var middle = low + (high - low) / 2;
+            if (actions[middle].At < at)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+
     private int? FindHoveredSegmentIndex(Point location)
     {
         if (!TimelineContentBounds.Contains(location) || location.X >= BarLeft
-            || location.Y < TrackTop || location.Y > TrackBottom
-            || HitTest(location) is not null)
+            || location.Y < TrackTop || location.Y > TrackBottom)
             return null;
 
         var actions = _script.Actions;
+        var left = location.X - SegmentHoverRadius;
+        var right = location.X + SegmentHoverRadius;
+        var firstAction = FindFirstActionAtOrAfterX(actions, left);
+        var firstSegment = Math.Max(0, firstAction - 1);
         var bestDistanceSquared = SegmentHoverRadius * SegmentHoverRadius;
         int? bestIndex = null;
-        for (var i = 0; i < actions.Count - 1; i++)
+        for (var i = firstSegment; i < actions.Count - 1; i++)
         {
-            var start = new PointF((float)TimeToX(actions[i].At / 1000.0), (float)PosToY(actions[i].Pos));
+            var startX = TimeToX(actions[i].At / 1000.0);
+            if (startX > right) break;
+            var endX = TimeToX(actions[i + 1].At / 1000.0);
+            if (endX < left) continue;
+            var start = new PointF((float)startX, (float)PosToY(actions[i].Pos));
             var end = new PointF((float)TimeToX(actions[i + 1].At / 1000.0), (float)PosToY(actions[i + 1].Pos));
             var distanceSquared = DistanceSquaredToSegment(location, start, end);
             if (distanceSquared > bestDistanceSquared) continue;
@@ -1115,14 +1155,16 @@ public sealed class TimelineControl : Control
             return;
         }
 
+        int? hoveredPointIndex = null;
         if (pointIndex is null && canHover && pointerLocation!.Value.X < BarLeft)
-            pointIndex = HitTest(pointerLocation!.Value);
+            hoveredPointIndex = HitTest(pointerLocation.Value);
+        pointIndex ??= hoveredPointIndex;
 
         TimelineMovementReadout? nextReadout = pointIndex is { } point && point >= 0 && point < actions.Count
             ? CreatePointReadout(actions, point)
             : null;
 
-        if (nextReadout is null && canHover && pointIndex is null
+        if (nextReadout is null && canHover && hoveredPointIndex is null && _draggingIndex is null
             && FindHoveredSegmentIndex(pointerLocation!.Value) is { } segmentIndex)
         {
             var measurement = SegmentSpeedCalculator.Calculate(actions[segmentIndex], actions[segmentIndex + 1]);
@@ -1143,18 +1185,21 @@ public sealed class TimelineControl : Control
     {
         var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
         var candidate = new FunscriptAction(at, YToPos(location.Y));
-        var previewActions = _script.Actions.ToList();
-        var index = previewActions.FindIndex(action => action.At >= at);
-        if (index >= 0 && previewActions[index].At == at)
-            previewActions[index] = candidate;
-        else
-        {
-            if (index < 0) index = previewActions.Count;
-            previewActions.Insert(index, candidate);
-        }
-
-        var readout = CreatePointReadout(previewActions, index);
-        return readout with { Kind = TimelineMovementReadoutKind.ValueBarPreview };
+        var actions = _script.Actions;
+        var index = FindFirstActionAtOrAfterTime(actions, at);
+        var replacesExisting = index < actions.Count && actions[index].At == at;
+        var hasIncoming = index > 0;
+        var hasOutgoing = replacesExisting ? index < actions.Count - 1 : index < actions.Count;
+        SegmentSpeed? incoming = hasIncoming
+            ? SegmentSpeedCalculator.Calculate(actions[index - 1], candidate)
+            : null;
+        var nextIndex = replacesExisting ? index + 1 : index;
+        SegmentSpeed? outgoing = hasOutgoing
+            ? SegmentSpeedCalculator.Calculate(candidate, actions[nextIndex])
+            : null;
+        return new TimelineMovementReadout(
+            TimelineMovementReadoutKind.ValueBarPreview, candidate, null,
+            hasIncoming, incoming, hasOutgoing, outgoing);
     }
 
     private static TimelineMovementReadout CreatePointReadout(IReadOnlyList<FunscriptAction> actions, int index)

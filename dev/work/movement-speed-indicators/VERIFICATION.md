@@ -1,6 +1,6 @@
 # Movement Speed Indicators — Verification
 
-**Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)  
+**Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)
 **Status:** Complete; acceptance criteria were implemented and verified.
 
 ## Acceptance criteria
@@ -57,6 +57,7 @@ The focused calculator tests passed (5 passed, 0 failed, 2026-11-23). The full s
 - HandySync summarizes each waveform column with the **maximum valid speed among overlapping action segments**. It preserves the fastest movement in compressed columns, but does not represent the distribution or make slower overlapping segments individually visible. Invalid segments contribute no speed; columns without valid segments use the base waveform color. The overview still covers the full movie/script duration without zoom or pan; a detailed segment inspection belongs in the editor until a separate HandySync zoom feature is implemented.
 - Speed is calculated from adjacent script actions at 1x and is not a measurement of device motion. Fit-to-script intentionally limits the color maximum using P99 to reduce the influence of extreme authoring segments; speeds beyond the selected range keep their actual numeric value in the editor and use endpoint colors with clamp metadata.
 - The new fixed-column readout compiled successfully and the user confirmed its appearance after relaunch. The user also confirmed the speed-color settings persist and manually verified high-contrast behavior in both applications.
+- After the review fixes, the editor project builds with 0 warnings and 0 errors and `git diff --check` passes. The review's 383-test Release result predates the fixes; tests were not rerun after these performance/accessibility changes.
 
 ## M6 — Verification and documentation deliverables
 

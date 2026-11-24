@@ -541,6 +541,7 @@ public sealed class MainForm : Form
         if (value.AveragePercentagePointsPerSecond is not { } speedValue)
         {
             speed.Text = "Invalid timing";
+            speed.AccessibleDescription = null;
             return;
         }
 

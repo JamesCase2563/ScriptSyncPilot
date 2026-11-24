@@ -18,6 +18,7 @@ public sealed class TimelineControl : Control
     private const int PointRadius = 5;
     private const int PlayheadPointHaloRadius = PointRadius + 4;
     private const int HitRadius = 8;
+    private const double SegmentHoverRadius = 6;
     private const int TopMargin = 10;
     private const int BottomMargin = 24; // room for the scrollbar
     private const int ValueBarWidth = 40;
@@ -49,12 +50,36 @@ public sealed class TimelineControl : Control
     private bool _suppressPlaybackFollowUntilVisible;
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
+    private TimelineMovementReadout? _movementReadout;
+    private bool _speedColoringEnabled = true;
+    private SegmentSpeedScaleMode _speedScaleMode = SegmentSpeedScaleMode.FitToScript;
+    private SegmentSpeedColorRange _manualSpeedColorRange = new(0, 700);
+    private SegmentSpeedColorRange _fittedSpeedColorRange = new(0, 100);
 
     public event Action<double>? SeekRequested;
     public event EventHandler? PlayPauseRequested;
     public event EventHandler? ScriptChanged;
     public event EventHandler? ZoomChanged;
     public event EventHandler? NavigationAvailabilityChanged;
+    public event Action<TimelineMovementReadout?>? MovementReadoutChanged;
+    public event EventHandler? SpeedColorScaleChanged;
+
+    [System.ComponentModel.Browsable(false)]
+    public bool SpeedColoringEnabled => _speedColoringEnabled;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedScaleMode SpeedScaleMode => _speedScaleMode;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange ManualSpeedColorRange => _manualSpeedColorRange;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange FittedSpeedColorRange => _fittedSpeedColorRange;
+
+    [System.ComponentModel.Browsable(false)]
+    public SegmentSpeedColorRange ActiveSpeedColorRange => _speedScaleMode == SegmentSpeedScaleMode.Manual
+        ? _manualSpeedColorRange
+        : _fittedSpeedColorRange;
 
     [System.ComponentModel.Browsable(false)]
     public bool CanNavigateToPreviousAction => FindPreviousActionIndex() >= 0;
@@ -141,14 +166,50 @@ public sealed class TimelineControl : Control
     public void LoadScript(Funscript script)
     {
         PanEnd(suppressFollow: false);
+        _movementReadout = null;
+        MovementReadoutChanged?.Invoke(null);
         _suppressPlaybackFollowUntilVisible = false;
         _script = script;
+        FitSpeedColorScaleToCurrentScript();
         _selectedIndex = null;
         _draggingIndex = null;
         _dragBefore = null;
         History.Reset();
         ReclampZoom();
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void ConfigureSpeedColoring(bool enabled, SegmentSpeedScaleMode mode, double manualMinimum, double manualMaximum)
+    {
+        _speedColoringEnabled = enabled;
+        _speedScaleMode = Enum.IsDefined(mode) ? mode : SegmentSpeedScaleMode.FitToScript;
+        try
+        {
+            _manualSpeedColorRange = new SegmentSpeedColorRange(manualMinimum, manualMaximum);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            _manualSpeedColorRange = new SegmentSpeedColorRange(0, 700);
+        }
+
+        FitSpeedColorScaleToCurrentScript();
+    }
+
+    public void FitSpeedColorScaleToCurrentScript()
+    {
+        _fittedSpeedColorRange = SegmentSpeedScaleCalculator.FitToScript(_script.Actions);
+        SpeedColorScaleChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    public SegmentSpeedColorPosition? MapSpeedColor(SegmentSpeed? segment)
+        => GetSegmentSpeedColor(segment)?.Position;
+
+    internal SegmentSpeedColor? GetSegmentSpeedColor(SegmentSpeed? segment)
+    {
+        if (!_speedColoringEnabled || segment is not { HasValidTiming: true, AveragePercentagePointsPerSecond: { } speed })
+            return null;
+        return ActiveSpeedColorRange.MapColor(speed);
     }
 
     /// <summary>Replaces all actions as one history entry. Returns false for a no-op.</summary>
@@ -162,6 +223,7 @@ public sealed class TimelineControl : Control
 
         _scrubbing = false;
         _selectedIndex = edit is { Inserted.Count: > 0 } ? edit.Index : null;
+        UpdateMovementReadout();
 
         ScriptChanged?.Invoke(this, EventArgs.Empty);
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
@@ -179,6 +241,7 @@ public sealed class TimelineControl : Control
         if (step(_script) is not { } applied) return false;
         _scrubbing = false;
         _selectedIndex = applied.Inserted.Count > 0 ? applied.Index : null;
+        UpdateMovementReadout();
         ScriptChanged?.Invoke(this, EventArgs.Empty);
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -459,19 +522,7 @@ public sealed class TimelineControl : Control
         if (actions.Count > 0)
         {
             var alignedActionIndex = FindPlayheadAlignedActionIndex(actions, _playheadSeconds);
-            using var linePen = new Pen(Color.FromArgb(90, 170, 255), 2);
-            var clipLeft = ContentLeft - 50f;
-            var clipRight = BarLeft + 50f;
-            PointF? prev = null;
-            for (var i = 0; i < actions.Count; i++)
-            {
-                var pt = new PointF((float)TimeToX(actions[i].At / 1000.0), (float)PosToY(actions[i].Pos));
-                // Draw whenever any part of the segment can be visible, otherwise a segment running to an
-                // off-screen neighbour is dropped and the line appears to stop at the window edge.
-                if (prev is { } p0 && Math.Max(p0.X, pt.X) >= clipLeft && Math.Min(p0.X, pt.X) <= clipRight)
-                    g.DrawLine(linePen, ClipX(p0, pt, clipLeft, clipRight), ClipX(pt, p0, clipLeft, clipRight));
-                prev = pt;
-            }
+            PaintActionSegments(g, actions);
 
             for (var i = 0; i < actions.Count; i++)
             {
@@ -510,6 +561,48 @@ public sealed class TimelineControl : Control
         g.Restore(paintState);
         base.OnPaint(e);
         PaintFocusIndicator(g);
+    }
+
+    private void PaintActionSegments(Graphics graphics, IReadOnlyList<FunscriptAction> actions)
+    {
+        var clipLeft = ContentLeft - 50f;
+        var clipRight = BarLeft + 50f;
+        var highContrast = SystemInformation.HighContrast;
+        var pens = new Dictionary<Color, Pen>();
+        using var contrastBackgroundPen = highContrast ? new Pen(SystemColors.Window, 4) : null;
+        using var contrastTextPen = highContrast ? new Pen(SystemColors.WindowText, 3) : null;
+        try
+        {
+            for (var i = 0; i < actions.Count - 1; i++)
+            {
+                var startAction = actions[i];
+                var endAction = actions[i + 1];
+                var start = new PointF((float)TimeToX(startAction.At / 1000.0), (float)PosToY(startAction.Pos));
+                var end = new PointF((float)TimeToX(endAction.At / 1000.0), (float)PosToY(endAction.Pos));
+                if (Math.Max(start.X, end.X) < clipLeft || Math.Min(start.X, end.X) > clipRight) continue;
+
+                var speed = SegmentSpeedCalculator.Calculate(startAction, endAction);
+                var mapping = GetSegmentSpeedColor(speed);
+                var color = mapping is { } mapped
+                    ? highContrast ? SystemColors.Highlight : ToUiColor(mapped.Color)
+                    : highContrast ? SystemColors.Highlight : Color.FromArgb(90, 170, 255);
+                if (!pens.TryGetValue(color, out var linePen))
+                    pens[color] = linePen = new Pen(color, 2.5f);
+
+                var clippedStart = ClipX(start, end, clipLeft, clipRight);
+                var clippedEnd = ClipX(end, start, clipLeft, clipRight);
+                if (contrastBackgroundPen is not null && contrastTextPen is not null)
+                {
+                    graphics.DrawLine(contrastBackgroundPen, clippedStart, clippedEnd);
+                    graphics.DrawLine(contrastTextPen, clippedStart, clippedEnd);
+                }
+                graphics.DrawLine(linePen, clippedStart, clippedEnd);
+            }
+        }
+        finally
+        {
+            foreach (var pen in pens.Values) pen.Dispose();
+        }
     }
 
     private void PaintFocusIndicator(Graphics graphics)
@@ -650,6 +743,7 @@ public sealed class TimelineControl : Control
 
             if (_draggingIndex is not null || _scrubbing || e.X >= BarLeft) return;
             PanStart(e.X, MouseButtons.Middle);
+            UpdateMovementReadout(e.Location);
             Invalidate();
             return;
         }
@@ -661,6 +755,7 @@ public sealed class TimelineControl : Control
         if (e.X >= BarLeft)
         {
             InsertAtPlayhead(e.Y);
+            UpdateMovementReadout();
             return;
         }
 
@@ -680,6 +775,7 @@ public sealed class TimelineControl : Control
             _scrubbing = true;
             Seek(e.X);
         }
+        UpdateMovementReadout(e.Location);
         Invalidate();
     }
 
@@ -698,11 +794,16 @@ public sealed class TimelineControl : Control
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        if (UpdatePan(e.X, ModifierKeys)) return;
+        if (UpdatePan(e.X, ModifierKeys))
+        {
+            UpdateMovementReadout(e.Location);
+            return;
+        }
         if (e.X >= BarLeft && e.X < ContentRight && _draggingIndex is null && !_scrubbing)
         {
             _hoverBarPos = YToPos(e.Y);
             Cursor = Cursors.Hand;
+            UpdateMovementReadout(e.Location);
             Invalidate();
             return;
         }
@@ -719,16 +820,23 @@ public sealed class TimelineControl : Control
             _draggingIndex = newIndex;
             _selectedIndex = newIndex;
             NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+            UpdateMovementReadout(e.Location);
             Invalidate();
         }
         else if (_scrubbing)
         {
+            UpdateMovementReadout(e.Location);
             Seek(e.X);
+        }
+        else
+        {
+            UpdateMovementReadout(e.Location);
         }
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
+        UpdateMovementReadout();
         if (_hoverBarPos is not null)
         {
             _hoverBarPos = null;
@@ -753,6 +861,7 @@ public sealed class TimelineControl : Control
         }
         FinishDrag();
         _scrubbing = false;
+        UpdateMovementReadout(e.Location);
     }
 
     private void PanStart(int clientX, MouseButtons button)
@@ -762,6 +871,7 @@ public sealed class TimelineControl : Control
         _panStartSeconds = _viewStartSeconds;
         _panButton = button;
         _hoverBarPos = null;
+        UpdateMovementReadout();
         Cursor = Cursors.SizeWE;
         Capture = true;
     }
@@ -846,6 +956,7 @@ public sealed class TimelineControl : Control
             Commit(() => _script.RemoveAt(index));
             _selectedIndex = null;
             NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+            UpdateMovementReadout();
             Invalidate();
             e.Handled = true;
         }
@@ -925,22 +1036,181 @@ public sealed class TimelineControl : Control
             break;
         }
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+        UpdateMovementReadout();
         Invalidate();
     }
 
     private int? HitTest(Point location)
     {
         var actions = _script.Actions;
-        for (var i = 0; i < actions.Count; i++)
+        var left = Math.Max(location.X - HitRadius, ContentLeft - HitRadius);
+        var right = Math.Min(location.X + HitRadius, ContentRight + HitRadius);
+        var startIndex = FindFirstActionAtOrAfterX(actions, left);
+        for (var i = startIndex; i < actions.Count; i++)
         {
             var x = TimeToX(actions[i].At / 1000.0);
-            if (x < ContentLeft - HitRadius || x > ContentRight + HitRadius) continue;
+            if (x > right) break;
             var y = PosToY(actions[i].Pos);
             var dx = x - location.X;
             var dy = y - location.Y;
             if (dx * dx + dy * dy <= HitRadius * HitRadius) return i;
         }
         return null;
+    }
+
+    private int FindFirstActionAtOrAfterX(IReadOnlyList<FunscriptAction> actions, double x)
+    {
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var middle = low + (high - low) / 2;
+            if (TimeToX(actions[middle].At / 1000.0) < x)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+
+    private static int FindFirstActionAtOrAfterTime(IReadOnlyList<FunscriptAction> actions, int at)
+    {
+        var low = 0;
+        var high = actions.Count;
+        while (low < high)
+        {
+            var middle = low + (high - low) / 2;
+            if (actions[middle].At < at)
+                low = middle + 1;
+            else
+                high = middle;
+        }
+        return low;
+    }
+
+    private int? FindHoveredSegmentIndex(Point location)
+    {
+        if (!TimelineContentBounds.Contains(location) || location.X >= BarLeft
+            || location.Y < TrackTop || location.Y > TrackBottom)
+            return null;
+
+        var actions = _script.Actions;
+        var left = location.X - SegmentHoverRadius;
+        var right = location.X + SegmentHoverRadius;
+        var firstAction = FindFirstActionAtOrAfterX(actions, left);
+        var firstSegment = Math.Max(0, firstAction - 1);
+        var bestDistanceSquared = SegmentHoverRadius * SegmentHoverRadius;
+        int? bestIndex = null;
+        for (var i = firstSegment; i < actions.Count - 1; i++)
+        {
+            var startX = TimeToX(actions[i].At / 1000.0);
+            if (startX > right) break;
+            var endX = TimeToX(actions[i + 1].At / 1000.0);
+            if (endX < left) continue;
+            var start = new PointF((float)startX, (float)PosToY(actions[i].Pos));
+            var end = new PointF((float)TimeToX(actions[i + 1].At / 1000.0), (float)PosToY(actions[i + 1].Pos));
+            var distanceSquared = DistanceSquaredToSegment(location, start, end);
+            if (distanceSquared > bestDistanceSquared) continue;
+            bestDistanceSquared = distanceSquared;
+            bestIndex = i;
+        }
+
+        return bestIndex;
+    }
+
+    private static double DistanceSquaredToSegment(Point point, PointF start, PointF end)
+    {
+        var dx = end.X - start.X;
+        var dy = end.Y - start.Y;
+        var lengthSquared = dx * dx + dy * dy;
+        var projection = lengthSquared <= 0
+            ? 0
+            : Math.Clamp(((point.X - start.X) * dx + (point.Y - start.Y) * dy) / lengthSquared, 0, 1);
+        var nearestX = start.X + projection * dx;
+        var nearestY = start.Y + projection * dy;
+        var distanceX = point.X - nearestX;
+        var distanceY = point.Y - nearestY;
+        return distanceX * distanceX + distanceY * distanceY;
+    }
+
+    private static Color ToUiColor(RgbColor color) => Color.FromArgb(color.A, color.R, color.G, color.B);
+
+    private void UpdateMovementReadout(Point? pointerLocation = null)
+    {
+        var actions = _script.Actions;
+        int? pointIndex = _draggingIndex;
+        var canHover = _panStartX is null && !_scrubbing && pointerLocation is { } pointer
+            && TimelineContentBounds.Contains(pointer);
+
+        if (pointIndex is null && canHover && pointerLocation!.Value.X >= BarLeft
+            && pointerLocation.Value.X < ContentRight
+            && pointerLocation.Value.Y >= TrackTop && pointerLocation.Value.Y <= TrackBottom)
+        {
+            var preview = CreateValueBarPreview(pointerLocation.Value);
+            if (_movementReadout != preview)
+            {
+                _movementReadout = preview;
+                MovementReadoutChanged?.Invoke(preview);
+            }
+            return;
+        }
+
+        int? hoveredPointIndex = null;
+        if (pointIndex is null && canHover && pointerLocation!.Value.X < BarLeft)
+            hoveredPointIndex = HitTest(pointerLocation.Value);
+        pointIndex ??= hoveredPointIndex;
+
+        TimelineMovementReadout? nextReadout = pointIndex is { } point && point >= 0 && point < actions.Count
+            ? CreatePointReadout(actions, point)
+            : null;
+
+        if (nextReadout is null && canHover && hoveredPointIndex is null && _draggingIndex is null
+            && FindHoveredSegmentIndex(pointerLocation!.Value) is { } segmentIndex)
+        {
+            var measurement = SegmentSpeedCalculator.Calculate(actions[segmentIndex], actions[segmentIndex + 1]);
+            nextReadout = new TimelineMovementReadout(
+                TimelineMovementReadoutKind.Segment, null, measurement,
+                false, null, false, null);
+        }
+
+        if (nextReadout is null && _selectedIndex is { } selected && selected >= 0 && selected < actions.Count)
+            nextReadout = CreatePointReadout(actions, selected);
+
+        if (_movementReadout == nextReadout) return;
+        _movementReadout = nextReadout;
+        MovementReadoutChanged?.Invoke(nextReadout);
+    }
+
+    private TimelineMovementReadout CreateValueBarPreview(Point location)
+    {
+        var at = (int)Math.Round(Math.Clamp(_playheadSeconds, 0, DurationSeconds) * 1000);
+        var candidate = new FunscriptAction(at, YToPos(location.Y));
+        var actions = _script.Actions;
+        var index = FindFirstActionAtOrAfterTime(actions, at);
+        var replacesExisting = index < actions.Count && actions[index].At == at;
+        var hasIncoming = index > 0;
+        var hasOutgoing = replacesExisting ? index < actions.Count - 1 : index < actions.Count;
+        SegmentSpeed? incoming = hasIncoming
+            ? SegmentSpeedCalculator.Calculate(actions[index - 1], candidate)
+            : null;
+        var nextIndex = replacesExisting ? index + 1 : index;
+        SegmentSpeed? outgoing = hasOutgoing
+            ? SegmentSpeedCalculator.Calculate(candidate, actions[nextIndex])
+            : null;
+        return new TimelineMovementReadout(
+            TimelineMovementReadoutKind.ValueBarPreview, candidate, null,
+            hasIncoming, incoming, hasOutgoing, outgoing);
+    }
+
+    private static TimelineMovementReadout CreatePointReadout(IReadOnlyList<FunscriptAction> actions, int index)
+    {
+        var hasIncoming = index > 0;
+        var hasOutgoing = index < actions.Count - 1;
+        SegmentSpeed? incoming = hasIncoming ? SegmentSpeedCalculator.Calculate(actions[index - 1], actions[index]) : null;
+        SegmentSpeed? outgoing = hasOutgoing ? SegmentSpeedCalculator.Calculate(actions[index], actions[index + 1]) : null;
+        return new TimelineMovementReadout(
+            TimelineMovementReadoutKind.Point, actions[index], null,
+            hasIncoming, incoming, hasOutgoing, outgoing);
     }
 
     protected override void OnResize(EventArgs e)

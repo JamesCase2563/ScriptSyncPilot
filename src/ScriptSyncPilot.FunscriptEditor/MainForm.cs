@@ -21,6 +21,16 @@ public sealed class MainForm : Form
     private readonly Func<bool> _confirmDiscardChanges;
     private readonly TimelineControl _timeline = new() { Dock = DockStyle.Fill };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
+    private readonly Label _movementReadoutContext = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _incomingRelation = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _outgoingRelation = CreateReadoutLabel(ContentAlignment.MiddleLeft);
+    private readonly Label _incomingDuration = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _incomingDistance = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _incomingSpeed = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingDuration = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingDistance = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly Label _outgoingSpeed = CreateReadoutLabel(ContentAlignment.MiddleRight);
+    private readonly SegmentSpeedLegend _speedLegend = new() { Dock = DockStyle.Fill, MinimumSize = new Size(220, 0) };
 
     private readonly TextBox _videoPathBox = new() { ReadOnly = true };
     private readonly TextBox _scriptPathBox = new() { ReadOnly = true };
@@ -79,6 +89,11 @@ public sealed class MainForm : Form
     internal MainForm(EditorSettings settings, Func<bool>? confirmDiscardChanges = null)
     {
         _settings = settings;
+        _timeline.ConfigureSpeedColoring(
+            _settings.SpeedColoringEnabled,
+            _settings.SpeedScaleMode,
+            _settings.ManualSpeedMinimumPpS,
+            _settings.ManualSpeedMaximumPpS);
         _confirmDiscardChanges = confirmDiscardChanges ?? ConfirmDiscardChangesFromUser;
         Text = "ScriptSyncPilot – Funscript Editor";
         Width = 1100;
@@ -88,8 +103,7 @@ public sealed class MainForm : Form
         _pipeBox.Text = _settings.MpvIpcPipe;
 
         Controls.Add(_timeline);
-        Controls.Add(BuildPointNavigationBar());
-        Controls.Add(BuildStepBar());
+        Controls.Add(BuildTimelineFooter());
         Controls.Add(BuildZoomBar());
         Controls.Add(BuildTransportBar());
         Controls.Add(BuildFilesBar());
@@ -102,6 +116,9 @@ public sealed class MainForm : Form
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
+        _timeline.MovementReadoutChanged += UpdateMovementReadout;
+        _timeline.SpeedColorScaleChanged += (_, _) => UpdateSpeedLegend();
+        UpdateSpeedLegend();
         _timeline.ZoomChanged += (_, _) => SyncZoomSlider();
         _zoomSlider.ValueChanged += (_, _) =>
         {
@@ -156,6 +173,10 @@ public sealed class MainForm : Form
             _isClosing = true;
             _settings.LastVideoPath = _videoPathBox.Text;
             _settings.MpvIpcPipe = _pipeBox.Text;
+            _settings.SpeedColoringEnabled = _timeline.SpeedColoringEnabled;
+            _settings.SpeedScaleMode = _timeline.SpeedScaleMode;
+            _settings.ManualSpeedMinimumPpS = _timeline.ManualSpeedColorRange.Minimum;
+            _settings.ManualSpeedMaximumPpS = _timeline.ManualSpeedColorRange.Maximum;
             if (_scriptPath is not null) _settings.LastScriptPath = _scriptPath;
             _settings.Save();
             if (_wheelFilter is not null) Application.RemoveMessageFilter(_wheelFilter);
@@ -202,9 +223,32 @@ public sealed class MainForm : Form
         edit.DropDownItems.Add(redo);
         edit.DropDownItems.Add(new ToolStripSeparator());
         edit.DropDownItems.Add("Insert Pattern…", null, (_, _) => InsertPattern());
+        edit.DropDownItems.Add(new ToolStripSeparator());
+        edit.DropDownItems.Add("Movement Speed Preferences…", null, (_, _) => OpenMovementSpeedPreferences());
         menu.Items.Add(edit);
         return menu;
     }
+
+    private void OpenMovementSpeedPreferences()
+    {
+        using var dialog = new MovementSpeedPreferencesDialog(
+            _timeline.SpeedColoringEnabled,
+            _timeline.SpeedScaleMode,
+            _timeline.ManualSpeedColorRange,
+            _timeline.FittedSpeedColorRange,
+            _script.Actions,
+            _scriptPath is not null);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        _timeline.ConfigureSpeedColoring(
+            dialog.ColoringEnabled,
+            dialog.ScaleMode,
+            dialog.ManualMinimum,
+            dialog.ManualMaximum);
+    }
+
+    private void UpdateSpeedLegend() =>
+        _speedLegend.SetScale(_timeline.ActiveSpeedColorRange, _timeline.SpeedColoringEnabled);
 
     private void InsertPattern()
     {
@@ -318,6 +362,198 @@ public sealed class MainForm : Form
         speedControls.Controls.Add(_speedLabel);
         bar.Controls.Add(speedControls);
         return bar;
+    }
+
+    private Control BuildTimelineFooter()
+    {
+        var footer = new TableLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 3,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (var row = 0; row < footer.RowCount; row++)
+            footer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        footer.Controls.Add(BuildSegmentSpeedReadoutBar(), 0, 0);
+        footer.Controls.Add(BuildStepBar(), 0, 1);
+        footer.Controls.Add(BuildPointNavigationBar(), 0, 2);
+        return footer;
+    }
+
+    private Control BuildSegmentSpeedReadoutBar()
+    {
+        var height = _movementReadoutContext.Font.Height * 4 + 8;
+        var bar = new Panel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = height,
+            MinimumSize = new Size(0, height),
+            Margin = new Padding(0),
+        };
+        var contents = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+        };
+        contents.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        contents.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
+        contents.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        var readout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 4,
+            Margin = new Padding(0),
+            Padding = new Padding(6, 2, 6, 2),
+        };
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
+        readout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27));
+        for (var row = 0; row < readout.RowCount; row++)
+            readout.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+
+        _movementReadoutContext.Margin = new Padding(3, 0, 3, 0);
+        readout.Controls.Add(_movementReadoutContext, 0, 0);
+        readout.SetColumnSpan(_movementReadoutContext, 4);
+        AddReadoutHeader(readout, "Segment", 0, 1);
+        AddReadoutHeader(readout, "Time", 1, 1);
+        AddReadoutHeader(readout, "Value", 2, 1);
+        AddReadoutHeader(readout, "Speed", 3, 1);
+        AddReadoutCell(readout, _incomingRelation, 0, 2, "Incoming");
+        AddReadoutCell(readout, _incomingDuration, 1, 2);
+        AddReadoutCell(readout, _incomingDistance, 2, 2);
+        AddReadoutCell(readout, _incomingSpeed, 3, 2);
+        AddReadoutCell(readout, _outgoingRelation, 0, 3, "Outgoing");
+        AddReadoutCell(readout, _outgoingDuration, 1, 3);
+        AddReadoutCell(readout, _outgoingDistance, 2, 3);
+        AddReadoutCell(readout, _outgoingSpeed, 3, 3);
+        contents.Controls.Add(readout, 0, 0);
+        contents.Controls.Add(_speedLegend, 1, 0);
+        bar.Controls.Add(contents);
+        ClearMovementReadout();
+        return bar;
+    }
+
+    private void UpdateMovementReadout(TimelineMovementReadout? readout)
+    {
+        if (readout is not { } value)
+        {
+            ClearMovementReadout();
+            return;
+        }
+
+        if (value.Kind == TimelineMovementReadoutKind.Segment && value.Segment is { } segment)
+        {
+            _movementReadoutContext.Text = "Hovered segment · script average at 1x";
+            _incomingRelation.Text = "Segment";
+            _outgoingRelation.Text = "";
+            SetMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed, true, segment);
+            ClearMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed);
+            return;
+        }
+
+        if (value.Kind is TimelineMovementReadoutKind.Point or TimelineMovementReadoutKind.ValueBarPreview
+            && value.PointAction is { } point)
+        {
+            var at = point.At.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var position = point.Pos.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var context = value.Kind == TimelineMovementReadoutKind.ValueBarPreview
+                ? "Value preview"
+                : "Point";
+            _movementReadoutContext.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "{0} at {1} ms · {2} pp · script average at 1x", context, at, position);
+            SetMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed,
+                value.HasIncomingSegment, value.IncomingSegment);
+            SetMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed,
+                value.HasOutgoingSegment, value.OutgoingSegment);
+        }
+    }
+
+    private static Label CreateReadoutLabel(ContentAlignment alignment) => new()
+    {
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        ForeColor = SystemColors.ControlText,
+        TextAlign = alignment,
+        Margin = new Padding(3, 0, 3, 0),
+        AutoEllipsis = true,
+    };
+
+    private static void AddReadoutHeader(TableLayoutPanel readout, string text, int column, int row)
+    {
+        var header = CreateReadoutLabel(column == 0 ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleRight);
+        header.Text = text;
+        header.ForeColor = SystemColors.GrayText;
+        header.Font = new Font(header.Font, FontStyle.Bold);
+        AddReadoutCell(readout, header, column, row);
+    }
+
+    private static void AddReadoutCell(TableLayoutPanel readout, Control control, int column, int row, string? text = null)
+    {
+        if (text is not null && control is Label label) label.Text = text;
+        readout.Controls.Add(control, column, row);
+    }
+
+    private void ClearMovementReadout()
+    {
+        _movementReadoutContext.Text = "Movement speed: hover over a segment or point";
+        _incomingRelation.Text = "Incoming";
+        _outgoingRelation.Text = "Outgoing";
+        ClearMeasurement(_incomingDuration, _incomingDistance, _incomingSpeed);
+        ClearMeasurement(_outgoingDuration, _outgoingDistance, _outgoingSpeed);
+    }
+
+    private static void ClearMeasurement(Label duration, Label distance, Label speed)
+    {
+        duration.Text = "—";
+        distance.Text = "—";
+        speed.Text = "—";
+        duration.AccessibleDescription = distance.AccessibleDescription = speed.AccessibleDescription = null;
+    }
+
+    private void SetMeasurement(Label duration, Label distance, Label speed, bool exists, SegmentSpeed? measurement)
+    {
+        if (!exists)
+        {
+            ClearMeasurement(duration, distance, speed);
+            speed.Text = "No segment";
+            return;
+        }
+
+        if (measurement is not { } value)
+        {
+            ClearMeasurement(duration, distance, speed);
+            speed.Text = "Invalid timing";
+            return;
+        }
+
+        duration.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} ms", value.ElapsedMilliseconds);
+        distance.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} pp", value.DistancePercentagePoints);
+        if (value.AveragePercentagePointsPerSecond is not { } speedValue)
+        {
+            speed.Text = "Invalid timing";
+            speed.AccessibleDescription = null;
+            return;
+        }
+
+        var capNote = _timeline.MapSpeedColor(value)?.Clamp switch
+        {
+            SegmentSpeedClamp.High => " · capped high",
+            SegmentSpeedClamp.Low => " · capped low",
+            _ => "",
+        };
+        speed.Text = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "{0:0.0} pp/s{1}", speedValue, capNote);
+        speed.AccessibleDescription = speed.Text;
     }
 
     private Control BuildZoomBar()

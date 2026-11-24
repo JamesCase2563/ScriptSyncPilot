@@ -116,6 +116,11 @@ public sealed class MainForm : Form
         _reportSettingsError = reportSettingsError ?? (message => ReportSettingsErrorInline(message));
         _disconnectDrainTimeout = disconnectDrainTimeout ?? DisconnectDrainTimeout;
         _settingsLoadError = settingsLoadError;
+        _waveform.ConfigureSpeedColoring(
+            _settings.SpeedColoringEnabled,
+            _settings.SpeedScaleMode,
+            _settings.ManualSpeedMinimumPpS,
+            _settings.ManualSpeedMaximumPpS);
         Text = "ScriptSyncPilot – Handy Sync";
         Width = 720;
         Height = 560;
@@ -155,6 +160,8 @@ public sealed class MainForm : Form
                 LoadScript(dlg.FileName);
             }
         };
+        var speedColorsButton = new Button { Text = "Speed colors…", AutoSize = true };
+        speedColorsButton.Click += (_, _) => ShowSpeedColorPreferences();
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 3, AutoSize = true, Padding = new Padding(8) };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -195,6 +202,7 @@ public sealed class MainForm : Form
         buttons.Controls.Add(new Label { Text = "Handy", AutoSize = true, Margin = new Padding(12, 8, 2, 3) });
         buttons.Controls.Add(_connectButton);
         buttons.Controls.Add(_disconnectButton);
+        buttons.Controls.Add(speedColorsButton);
         buttons.Controls.Add(_status);
 
         Controls.Add(_log);
@@ -247,6 +255,10 @@ public sealed class MainForm : Form
             _settings.DeviceOffsetMs = _offsetSlider.LowerValue;
             _settings.StrokeMinPercent = _strokeSlider.LowerValue;
             _settings.StrokeMaxPercent = _strokeSlider.UpperValue;
+            _settings.SpeedColoringEnabled = _waveform.SpeedColoringEnabled;
+            _settings.SpeedScaleMode = _waveform.SpeedScaleMode;
+            _settings.ManualSpeedMinimumPpS = _waveform.ManualSpeedRange.Minimum;
+            _settings.ManualSpeedMaximumPpS = _waveform.ManualSpeedRange.Maximum;
             if (_settingsLoadError is null)
             {
                 try
@@ -325,6 +337,28 @@ public sealed class MainForm : Form
         {
             // The handle can be destroyed after the checks above while deferred cleanup is logging.
         }
+    }
+
+    private void ShowSpeedColorPreferences()
+    {
+        using var dialog = new SpeedColorPreferencesDialog(
+            _waveform.SpeedColoringEnabled,
+            _waveform.SpeedScaleMode,
+            _waveform.ManualSpeedRange,
+            _waveform.FittedSpeedRange,
+            _script?.Actions ?? [],
+            _script is not null);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        _settings.SpeedColoringEnabled = dialog.ColoringEnabled;
+        _settings.SpeedScaleMode = dialog.ScaleMode;
+        _settings.ManualSpeedMinimumPpS = dialog.ManualMinimum;
+        _settings.ManualSpeedMaximumPpS = dialog.ManualMaximum;
+        _waveform.ConfigureSpeedColoring(
+            dialog.ColoringEnabled,
+            dialog.ScaleMode,
+            dialog.ManualMinimum,
+            dialog.ManualMaximum);
     }
 
     private void SetStatus(string text)

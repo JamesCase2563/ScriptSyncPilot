@@ -4,7 +4,7 @@
 
 - **FunscriptEditor:** WinForms editor for timestamp/position actions. It can launch owned mpv or attach to an external player.
 - **HandySync:** WinForms application observing mpv and controlling a Handy using REST API v3, script hosting, and HSSP.
-- **Common:** Shared `Funscript`, `MpvSession`, and `AppLog` facilities. It does not own device connections or schedule hardware output.
+- **Common:** Shared `Funscript`, `MpvSession`, `AppLog`, and platform-neutral script-segment speed/color calculations. It does not own device connections, UI rendering, or schedule hardware output.
 - **mpv:** External source of playback position, pause state, and media duration. VR projection belongs to the external player, such as VR-Flat-Player.
 
 ```text

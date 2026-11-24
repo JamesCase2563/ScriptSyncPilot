@@ -1,0 +1,172 @@
+# Movement Speed Indicators
+
+- **Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)
+- **Affected project:** `ScriptSyncPilot.FunscriptEditor`
+- **Status:** Complete; implementation, verification, and documentation are complete.
+- **Priority:** Not set in the issue.
+- **Design decisions:** [DESIGN.md](DESIGN.md)
+
+## Goal
+
+Make the average speed represented by funscript segments clear while editing, regardless of timeline zoom. The segment slope on screen is not a speed indicator because zoom changes its apparent angle.
+
+## Scope
+
+- Show a numerical readout when hovering a segment and while dragging a point. Report elapsed time in milliseconds, absolute position change in percentage points, and average speed in percentage points per second.
+- For a selected or dragged point, show the speed of both its incoming and outgoing segments and refresh the values as the edit changes.
+- Add optional segment coloring on a scale independent of zoom and the visible time range. Use the decided Jet-style rainbow palette, include a legend, and keep the numeric readout accurate even when colors saturate at the configured maximum.
+- Color the connecting segments first; add a narrow, time-aligned color strip below the waveform only if line coloring is not clear enough at practical zoom levels.
+- Treat duplicate or decreasing timestamps as invalid timing; do not calculate a finite speed for those segments.
+- Describe the values as script-space segment averages at normal (1x) playback. Do not characterize script values as safe/unsafe or imply that they measure physical device speed.
+
+## Out of scope
+
+- Measuring actual movement speed from a device or media playback.
+- Device-limit detection or alerting; deferred from issue #34. Users may choose a manual script-speed color range, but the editor does not validate it against a device.
+- Accounting for playback-rate changes, configured stroke range, interpolation, or device behavior in the script-space calculation.
+- A derived speed-graph track. That remains a possible follow-up under [Multiple Tracks and Project Format](../../FunscriptEditor/BACKLOG.md#multiple-tracks-and-project-format).
+
+## Decisions to settle before implementation
+
+- Color and legend treatment for Windows high-contrast mode; color must remain supplemental to the numeric readout.
+
+## Timing invariants
+
+Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input but retains duplicate timestamps, so decreasing input order is normalized while duplicate-time segments can still reach the feature. Atomic action-list replacement rejects duplicate or decreasing timestamps. The speed calculation must nevertheless validate each adjacent pair itself: a non-increasing pair is invalid and has no finite speed. Cover decreasing timestamps directly at the pure calculator boundary, since normal loaded scripts sort them before calculation.
+
+## Milestones
+
+### M1 — Confirm interaction and presentation
+
+- [x] M1.1 Inspect timeline hit-testing, selection, point dragging, and current status/help surfaces; confirm point targets have priority over segment hover and identify conflicts for readouts.
+- [x] M1.2 Resolve exact placement and context precedence for the compact main-form readout, numeric precision, in-progress drag values, invalid/zero-distance presentation, and preferences dialog behavior for manual limits, fit-to-script, and capped colors.
+- [x] M1.3 Decide and document the scale modes/default, P99 fitted upper bound rounded to the next 100 pp/s, fit timing, color-only clamping, and single Jet-style rainbow palette. Capped values retain their actual numeric readout.
+
+#### M1.1 inspection findings — 2026-11-23
+
+- [`TimelineControl.HitTest`](../../../src/ScriptSyncPilot.FunscriptEditor/TimelineControl.cs) checks action points within an 8-pixel radius. On left mouse-down the point hit test runs before empty-space scrubbing; a hit selects and starts dragging that point. Double-click insertion also rejects point hits. Segment hover is not implemented yet.
+- Preserve that precedence by checking point targets before segment hover and suppressing segment hover during point drag, scrubbing, panning, or value-bar interaction. Hover must not change selection or capture a drag.
+- The point-navigation and seek rows already display keyboard hints. The transport row's `_timeLabel` is dedicated to current video time/duration, and the bottom `_log` is an append-only diagnostic log. Neither is a dedicated transient segment-readout surface. M1.2 fixed the compact readout placement and behavior (see presentation decisions below).
+- Existing value-bar hover uses the playhead timestamp and maps pointer Y to the candidate position; clicking inserts/replaces at that time. The new readout can preview duration/distance/speed for the candidate without editing or changing selection.
+- Point hover must show the point under the pointer even if another point remains selected. During drag, readouts use in-progress values. For overlapping point hit regions, existing hit testing returns the first action in timestamp order.
+- Segment lines are the first color surface. If the lines prove hard to distinguish at practical zoom, use a narrow strip aligned to timeline time and reusing the same segment colors; this is a fallback, not a separate speed graph.
+
+#### M1.2 presentation decisions — 2026-11-23
+
+- Place a compact, persistent readout row directly below the timeline and above the seek and point-navigation controls. Keep it separate from the transport time label, so transient segment context does not overwrite playback time. Include a concise label identifying the values as script-space average speed at 1x.
+- Context precedence is: (1) active point drag, (2) value-bar insertion/replacement preview under the pointer, (3) point under the pointer, (4) segment under the pointer, (5) selected point when the pointer is over no other meaningful target. If none applies, clear the readout. Hover and preview never change selection or the script; during pan/scrub suppress hover contexts and retain only selected-point fallback, if any.
+- A point context displays incoming and outgoing rows. A segment context displays that segment. Format duration as whole milliseconds, absolute distance as whole percentage points (`pp`), and speed to one decimal percentage point per second (`pp/s`). Use invariant numeric formatting and include units in the readout.
+- During point drag, calculate from the current in-progress action list and refresh both adjacent rows on each edit. At either endpoint show `No incoming segment` or `No outgoing segment`. For positive duration and no position change show `0.0 pp/s`. For duplicate/non-increasing timestamps show `Invalid timing (0 ms)` or `Invalid timing (negative duration)` and omit speed; do not assign a speed color. If a computed speed is outside the selected color range, retain its actual numeric value and append `color capped` (or `color capped low`) to that row.
+- The Preferences dialog includes a segment-coloring toggle (on by default), a scale-mode choice (`Fit to script` or `Manual`), manual minimum/maximum pp/s fields, and a `Fit to current script` command. Manual limits persist application-wide and apply across scripts. Entering Fit mode or invoking Fit recalculates against all valid segments in the current script; Fit mode also recalculates when another script is loaded, but not continuously while editing/dragging. Manual mode retains its entered bounds across script loads. Validate `minimum < maximum`; reject invalid values with an inline/error message and keep the last valid range. Values above/below the range clamp to endpoint colors only, with the numeric readout indicating the cap.
+- Fit is unavailable when there is no loaded script; retain the last valid fitted range/legend until a script is loaded, while keeping segment coloring inactive without segment data. The coloring toggle, mode, and manual bounds are saved through the existing `EditorSettings` application settings file.
+- Preserve the selected palette and legend decisions in DESIGN. In Windows high contrast, use system-derived contrasting line/legend treatment and keep labels and numeric values visible; color remains supplemental.
+
+### M2 — Calculate script-space segment speeds
+
+- [x] M2.1 Add a pure calculation for elapsed milliseconds, absolute position distance, and average percentage-points-per-second.
+- [x] M2.2 Validate adjacent timestamps in the calculation itself; represent duplicate/decreasing times as invalid, and positive-duration zero-distance segments as zero speed.
+- [x] M2.3 Add focused automated coverage for normal, rising, falling, zero-distance, duplicate-time, and synthetic decreasing-time cases.
+
+### M3 — Show numerical movement details
+
+- [x] M3.1 Show segment values on hover, including duration, absolute distance, and average speed, without stealing point hit targets.
+- [x] M3.2 Show incoming/outgoing values for the dragged or hovered point using in-progress values; use the selected point as readout fallback and handle missing endpoints.
+- [x] M3.3 Keep the readout legible and non-obstructive while preserving existing selection, drag, and zoom behavior.
+
+### M4 — Add optional speed coloring
+
+- [x] M4.1 Implement the selected manual and/or whole-script-fit modes; derive fit values from all valid segments, not the viewport, and clamp speeds over the color maximum without altering reported speeds.
+- [x] M4.2 Add the preferences controls and legend using the decided Jet-style rainbow palette; ensure settings and readout remain usable in high-contrast mode.
+- [x] M4.3 Keep numeric values available and avoid safe/unsafe claims.
+
+### M5 — Share speed colors with HandySync
+
+- [x] M5.1 Decide HandySync column aggregation and confirm each app keeps its own settings file with the same speed-color settings structure.
+- [x] M5.2 Move the pure segment calculation, Fit/Manual range fitting, square-root mapping, clamp metadata, and Jet palette data into `ScriptSyncPilot.Common`, with no WinForms or `System.Drawing` dependency.
+- [x] M5.3 Update the editor and HandySync renderers to consume the same Common speed-color model and preference structure; keep drawing and high-contrast adaptation in each UI project.
+
+### M6 — Verify and document
+
+- [x] M6.1 Run focused Common calculation/scale tests, HandySync waveform-column aggregation tests, and cross-app mapping parity tests; then run the relevant editor and HandySync test suites.
+- [x] M6.2 Manually verify editor hover/selection/drag updates, invalid timing, color toggle, legend, zoom independence, HandySync maximum-speed column colors, and high-contrast behavior in both apps.
+- [x] M6.3 Update permanent editor, Common, and HandySync architecture documentation; record verification evidence and limitations, including the maximum-speed column summary, here and in `VERIFICATION.md`.
+
+#### M5 architecture recommendation — 2026-11-24
+
+- Put only UI-independent measurements, range fitting, transfer mapping, and palette RGB data in Common. Keep GDI painting, hover/readout controls, legend drawing, and high-contrast outlines in each app.
+- The apps keep separate settings data. Add the same speed-color preference fields (enabled, scale mode, manual minimum, manual maximum) to each app's existing `settings.json` structure; no shared settings file or runtime synchronization is needed.
+- HandySync currently aggregates action positions into per-pixel min/max columns. Assign each column the maximum valid segment speed whose time interval overlaps it, so the most interesting fast movement remains visible in a compressed overview. This preserves the shared speed-to-color mapping while documenting that the overview summarizes multiple script segments.
+
+#### M5.1 settings and aggregation decision — 2026-11-24
+
+- **Decided:** Editor and HandySync each store their own speed-color settings in their existing settings JSON, using matching field names and meanings. The values do not need to be shared or synchronized.
+- **Decided:** each HandySync pixel column uses the maximum valid speed among segments overlapping its time interval.
+
+#### M5.2 shared model extraction — 2026-11-24
+
+- Moved `SegmentSpeedCalculator`, `SegmentSpeedScaleCalculator`, the Fit/Manual scale and clamp types, and `SegmentSpeedPalette` into `ScriptSyncPilot.Common`.
+- Replaced `System.Drawing.Color` in the shared palette with the UI-neutral `RgbColor` value type. Editor painting and legend code convert the shared RGB result to WinForms `Color`; Common has no WinForms or `System.Drawing` dependency.
+
+#### M5.3 HandySync integration — 2026-11-24
+
+- Added matching `SpeedColoringEnabled`, `SpeedScaleMode`, `ManualSpeedMinimumPpS`, and `ManualSpeedMaximumPpS` fields to HandySync's own settings JSON structure and a Speed colors dialog to configure them.
+- HandySync's waveform bins the maximum valid overlapping segment speed into each pixel column, then uses Common's active range and Jet/square-root mapping. Existing per-column position min/max rendering remains intact.
+- High-contrast line outlines and system highlight adaptation remain in `ScriptWaveformControl`; the settings dialog uses system colors and explains the column-max summary.
+
+#### M2.1 implementation — 2026-11-23
+
+- Added [`SegmentSpeedCalculator`](../../../src/ScriptSyncPilot.Common/SegmentSpeedCalculator.cs), a pure calculation over two `FunscriptAction` values. It returns signed elapsed milliseconds, absolute position distance in percentage points, and nullable average pp/s (`distance * 1000 / elapsed`). Non-positive elapsed time yields no speed; M2.3 covers these cases with focused automated tests.
+
+#### M2.2 implementation — 2026-11-23
+
+- The calculation now returns an explicit timing status: `Valid`, `DuplicateTimestamp`, or `DecreasingTimestamp`. Both invalid cases retain signed elapsed milliseconds and absolute distance but have no speed; a positive-duration zero-distance pair has valid timing and speed `0`.
+
+#### M2.3 automated coverage — 2026-11-23
+
+- Added [`SegmentSpeedCalculatorTests`](../../../src/tests/ScriptSyncPilot.FunscriptEditor.Tests/SegmentSpeedCalculatorTests.cs) for rising and falling position changes, duration/distance/speed values, zero-distance movement, duplicate timestamps, and a synthetic decreasing-time pair at the calculator boundary.
+
+#### M3.1 implementation — 2026-11-23
+
+- Added passive segment-line hover detection with a 6-pixel tolerance. Existing point hit testing runs first, so point targets suppress segment hover. Hover is also cleared/suppressed during drag, scrub, pan, value-bar interaction, and pointer exit.
+- Added a compact readout below the timeline that displays duration in ms, absolute distance in pp, and average speed to one decimal pp/s. Invalid timing displays its measured duration/distance and `Invalid timing` without a speed value.
+
+#### M3.2 implementation — 2026-11-23
+
+- The timeline now resolves readout context in priority order: active dragged point, value-bar insertion/replacement preview, point under the pointer, nearby segment, then selected point. The value-bar preview uses a hypothetical action list and does not mutate the script; hover does not alter selection. Pan/scrub suppress hover contexts and retain selected-point fallback.
+- Point readouts show separate incoming/outgoing measurements from the current action list, so both values update as a dragged point moves. First/last points show `No incoming segment` / `No outgoing segment`; invalid adjacent timing shows its duration and distance without a speed.
+
+#### M3.3 layout and readout clarity — 2026-11-23 / 2026-11-24
+
+- The readout occupies a fixed-height area, so switching among segment, point, preview, and drag contexts does not change the footer height or resize the timeline.
+- On 2026-11-24, replaced the variable-width combined text with a fixed-column table for relation, duration, distance, and speed. Point contexts use Incoming/Outgoing rows; segment hover uses one Segment row. The editor build passes, and the user confirmed the refreshed layout looks good.
+
+#### M6.3 architecture and verification record — 2026-11-24
+
+- Updated [`dev/ARCHITECTURE.md`](../../ARCHITECTURE.md) and the Common, FunscriptEditor, and HandySync architecture documents with component ownership, speed calculation and scale rules, renderer integration, and settings boundaries.
+- Documented HandySync's per-column maximum valid overlapping segment speed, including its compression tradeoff: slower overlapping segments disappear from the speed color summary, and the full-duration overview still has no zoom/pan or per-segment numeric readout.
+- Verification evidence and remaining limitations are recorded in [`VERIFICATION.md`](VERIFICATION.md). M6.1 automated tests passed; the user manually confirmed the planned editor and HandySync behaviors and visually reviewed the refreshed fixed-column editor readout.
+
+#### M4.1 scale implementation — 2026-11-23
+
+- Added [`SegmentSpeedScaleCalculator`](../../../src/ScriptSyncPilot.Common/SegmentSpeedScale.cs), which fits the selected 0-to-P99 range from every valid adjacent segment in the script, independent of viewport and zoom. The P99 nearest-rank value is rounded up to the next 100 pp/s with a 100 pp/s minimum upper bound.
+- Added validated manual ranges and low/high clamp metadata. Clamping produces a normalized color position and cap direction while leaving the `SegmentSpeed` measurement and displayed pp/s unchanged.
+- Wired fit/manual mode, coloring enablement, and manual bounds through `EditorSettings`; script loads recalculate fit mode, while edits do not. The readout notes high/low color caps when coloring is enabled.
+
+#### M4.2 coloring and preferences — 2026-11-23
+
+- Timeline segments now use a vivid Jet-style navy/blue/cyan/green/yellow/orange/red ramp, mapped from the active Fit or Manual range. Invalid-timing segments keep the neutral line color; speeds outside the range use endpoint colors while readout values remain actual.
+- Added `Edit > Movement Speed Preferences…` with an on-by-default coloring toggle, Fit to script/Manual modes, validated manual bounds, and an explicit Fit to current script action. Existing `EditorSettings` persists the chosen mode, toggle, and limits.
+- Added a labeled numeric-range legend beside the fixed-height readout. In Windows high contrast, segment strokes use the system highlight color with system-color outlines; the legend identifies the system-color mode, while the numeric readout remains available. Dialog controls use system colors.
+
+#### M4.3 readout and scale clarification — 2026-11-24
+
+- The readout continues to show actual calculated pp/s, with only a color-cap note added when relevant. The preferences help text identifies the color range as script speed and explicitly says it does not describe device capability; no safe/unsafe wording is used.
+- Applied the agreed square-root transfer to normalized color positions and to the legend ramp. The legend labels the scale so its non-linear spacing is clear.
+
+## Review feedback incorporated — 2026-11-23
+
+- Documented load sorting, duplicate preservation, atomic replacement validation, and calculator-level rejection of non-increasing adjacent timestamps.
+- Added explicit hover precedence and in-progress drag values to M1 and M3.
+- Made fixed thresholds, labels, endpoint-color clamping, and high-contrast usability part of the scale design and implementation milestones.
+- Added direct zoom/viewport independence coverage for the segment color mapping to M6.
+- Addressed the 2026-11-24 review findings: point and segment hit-testing are limited to local time windows, value-bar preview no longer clones the full action list, invalid timing clears stale accessibility text, and reported Markdown whitespace is removed. See [`REVIEW.md`](REVIEW.md).

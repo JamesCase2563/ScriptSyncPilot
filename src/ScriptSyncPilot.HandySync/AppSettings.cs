@@ -89,6 +89,10 @@ public sealed class AppSettings
     public int StrokeMinPercent { get; set; }
     public int StrokeMaxPercent { get; set; } = 100;
     public string LastScriptPath { get; set; } = "";
+    public bool SpeedColoringEnabled { get; set; } = true;
+    public SegmentSpeedScaleMode SpeedScaleMode { get; set; } = SegmentSpeedScaleMode.FitToScript;
+    public double ManualSpeedMinimumPpS { get; set; }
+    public double ManualSpeedMaximumPpS { get; set; } = 700;
 
     private static string FilePath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -127,7 +131,11 @@ public sealed class AppSettings
                 DeviceOffsetMs = stored.DeviceOffsetMs,
                 StrokeMinPercent = stored.StrokeMinPercent,
                 StrokeMaxPercent = stored.StrokeMaxPercent,
-                LastScriptPath = stored.LastScriptPath
+                LastScriptPath = stored.LastScriptPath,
+                SpeedColoringEnabled = stored.SpeedColoringEnabled,
+                SpeedScaleMode = stored.SpeedScaleMode,
+                ManualSpeedMinimumPpS = stored.ManualSpeedMinimumPpS,
+                ManualSpeedMaximumPpS = stored.ManualSpeedMaximumPpS,
             };
             var ids = new HashSet<Guid>();
             foreach (var entry in keys)
@@ -187,7 +195,11 @@ public sealed class AppSettings
                 DeviceOffsetMs = DeviceOffsetMs,
                 StrokeMinPercent = StrokeMinPercent,
                 StrokeMaxPercent = StrokeMaxPercent,
-                LastScriptPath = LastScriptPath
+                LastScriptPath = LastScriptPath,
+                SpeedColoringEnabled = SpeedColoringEnabled,
+                SpeedScaleMode = SpeedScaleMode,
+                ManualSpeedMinimumPpS = ManualSpeedMinimumPpS,
+                ManualSpeedMaximumPpS = ManualSpeedMaximumPpS,
             };
             var json = JsonSerializer.Serialize(stored, new JsonSerializerOptions { WriteIndented = true });
             return json;
@@ -207,6 +219,10 @@ public sealed class AppSettings
         public int StrokeMinPercent { get; set; }
         public int StrokeMaxPercent { get; set; } = 100;
         public string LastScriptPath { get; set; } = "";
+        public bool SpeedColoringEnabled { get; set; } = true;
+        public SegmentSpeedScaleMode SpeedScaleMode { get; set; } = SegmentSpeedScaleMode.FitToScript;
+        public double ManualSpeedMinimumPpS { get; set; }
+        public double ManualSpeedMaximumPpS { get; set; } = 700;
     }
 
     private static void LogDiscardedLegacyOffset(string json, Action<string> log)

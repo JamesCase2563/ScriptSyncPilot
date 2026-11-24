@@ -2,7 +2,7 @@
 
 **Issue:** [#34 — Movement Speed Indicators](https://github.com/Frank-Yong/ScriptSyncPilot/issues/34)  
 **Affected project:** `ScriptSyncPilot.FunscriptEditor`  
-**Status:** In Progress; implementation has not started.<br>
+**Status:** Complete; implementation, verification, and documentation are complete.<br>
 **Priority:** Not set in the issue.  
 **Design decisions:** [DESIGN.md](DESIGN.md)
 

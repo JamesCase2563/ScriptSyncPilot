@@ -39,7 +39,8 @@ public readonly record struct SegmentSpeedColorRange
 
         if (speed < Minimum) return new SegmentSpeedColorPosition(0, SegmentSpeedClamp.Low);
         if (speed > Maximum) return new SegmentSpeedColorPosition(1, SegmentSpeedClamp.High);
-        return new SegmentSpeedColorPosition((speed - Minimum) / (Maximum - Minimum), SegmentSpeedClamp.None);
+        var linearPosition = (speed - Minimum) / (Maximum - Minimum);
+        return new SegmentSpeedColorPosition(Math.Sqrt(linearPosition), SegmentSpeedClamp.None);
     }
 }
 

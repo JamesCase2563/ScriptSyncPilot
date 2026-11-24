@@ -36,7 +36,8 @@ The scale is independent of timeline zoom and visible time range. Fit mode is sc
 2. **Fit bounds:** set the lower color bound to `0 pp/s`. Find P99 using the nearest-rank percentile over valid segment speeds; round the upper bound up to the next `100 pp/s`. Enforce a minimum upper bound of `100 pp/s` so an empty or zero-speed script still has a usable range. Ignore invalid-timing segments for the percentile.
 3. **Manual range:** the preferences dialog lets the user set min/max values and saves them as application preferences. Use the same manual range across scripts. Require `min < max`; clamp values below/above the range to the endpoint colors.
 4. **Color saturation cap:** the maximum affects color mapping only. Speeds above the maximum use the top color; retain the action and show its actual numeric speed, with a note that its color is capped.
-5. **Palette:** use the single vivid Jet-style rainbow from low to high. No palette selector in the first release.
+5. **Color transfer:** use a square-root transform within the selected range so low-to-middle speeds occupy more of the palette. Preserve the minimum and maximum endpoints; show actual pp/s in the readout.
+6. **Palette:** use the single vivid Jet-style rainbow from low to high. No palette selector in the first release.
 
 ### Color saturation cap
 
@@ -70,6 +71,8 @@ The supplied sample's nearest-rank P99 is 680 pp/s, so its fitted range rounds t
 The palette communicates increasing script-space speed only, not device capability or safety. Pair it with a labeled legend and numeric readout, and provide a high-contrast alternative.
 
 The implemented scale model fits from every valid adjacent segment in the loaded script, regardless of viewport or zoom. It calculates nearest-rank P99, rounds the upper bound up to the next 100 pp/s, and uses a 100 pp/s minimum upper bound. Manual bounds are validated and persisted through `EditorSettings`. A color mapping returns a normalized position plus low/high clamp status; it never changes the segment's measured speed. Fit mode recalculates on script load or explicit Fit invocation, not while editing.
+
+**Non-linear mapping decision — 2026-11-24:** after endpoint clamping, transform the linear normalized position with `sqrt(position)`. For the example 0–700 pp/s range, 150 pp/s moves from 21% to about 46% through the palette. The legend samples this same transform and labels it `sqrt scale`; the numeric readout remains the actual segment speed.
 
 ## Decision 2: Device capability warnings
 

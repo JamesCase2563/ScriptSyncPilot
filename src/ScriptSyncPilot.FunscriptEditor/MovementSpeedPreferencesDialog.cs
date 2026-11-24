@@ -89,7 +89,7 @@ public sealed class MovementSpeedPreferencesDialog : Form
         content.Controls.Add(_maximum, 1, 5);
         var help = new Label
         {
-            Text = "Fit uses all valid script segments. Values outside the range use an endpoint color; the readout keeps the actual speed.",
+            Text = "Fit uses all valid script segments. The square-root color scale shows script speed, not device capability; colors clamp at the range ends while the readout keeps the actual speed.",
             AutoSize = true,
             MaximumSize = new Size(430, 0),
             ForeColor = SystemColors.ControlText,

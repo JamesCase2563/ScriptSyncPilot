@@ -18,6 +18,7 @@
 - [ ] Preferences expose an on-by-default coloring toggle, Fit/Manual scale choice, manual min/max pp/s, and Fit to current script. Toggle, mode, and manual limits persist through `EditorSettings`.
 - [ ] Manual range min/max preferences persist globally for cross-script comparisons; invalid `min >= max` is rejected without replacing the last valid range. Fit to script uses all valid segments, recalculates on script load or explicit invocation, and remains stable during edits/dragging.
 - [ ] Speeds above/below the configured color range use endpoint colors without being removed or changing the actual numeric readout, which marks the color as capped high/low.
+- [ ] Color positions use the square root of the normalized, clamped speed; the legend gradient uses the same transform while numeric readouts remain actual pp/s.
 - [ ] Within a script, zooming and scrolling do not change its fitted range or a segment's color; manual-range colors remain comparable across scripts.
 - [ ] Segment line coloring remains distinguishable at practical zoom; if not, a narrow aligned color strip uses the same time segments and mapping without acting as a separate speed graph.
 - [ ] The legend and numeric readout remain usable in Windows high-contrast mode.

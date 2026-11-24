@@ -77,7 +77,7 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 
 - [x] M4.1 Implement the selected manual and/or whole-script-fit modes; derive fit values from all valid segments, not the viewport, and clamp speeds over the color maximum without altering reported speeds.
 - [x] M4.2 Add the preferences controls and legend using the decided Jet-style rainbow palette; ensure settings and readout remain usable in high-contrast mode.
-- [ ] M4.3 Keep numeric values available and avoid safe/unsafe claims.
+- [x] M4.3 Keep numeric values available and avoid safe/unsafe claims.
 
 ### M5 — Verify and document
 
@@ -122,6 +122,11 @@ Actions in a loaded `Funscript` are sorted by timestamp. Loading sorts the input
 - Timeline segments now use a vivid Jet-style navy/blue/cyan/green/yellow/orange/red ramp, mapped from the active Fit or Manual range. Invalid-timing segments keep the neutral line color; speeds outside the range use endpoint colors while readout values remain actual.
 - Added `Edit > Movement Speed Preferences…` with an on-by-default coloring toggle, Fit to script/Manual modes, validated manual bounds, and an explicit Fit to current script action. Existing `EditorSettings` persists the chosen mode, toggle, and limits.
 - Added a labeled numeric-range legend beside the fixed-height readout. In Windows high contrast, segment strokes use the system highlight color with system-color outlines; the legend identifies the system-color mode, while the numeric readout remains available. Dialog controls use system colors.
+
+#### M4.3 readout and scale clarification — 2026-11-24
+
+- The readout continues to show actual calculated pp/s, with only a color-cap note added when relevant. The preferences help text identifies the color range as script speed and explicitly says it does not describe device capability; no safe/unsafe wording is used.
+- Applied the agreed square-root transfer to normalized color positions and to the legend ramp. The legend labels the scale so its non-linear spacing is clear.
 
 ## Review feedback incorporated — 2026-11-23
 

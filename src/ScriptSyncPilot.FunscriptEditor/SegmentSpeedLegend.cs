@@ -44,7 +44,7 @@ public sealed class SegmentSpeedLegend : Control
             return;
         }
 
-        graphics.DrawString(highContrast ? "Speed (pp/s) · system color" : "Speed (pp/s)", font, textBrush, 3, 1);
+        graphics.DrawString(highContrast ? "Speed · sqrt scale · system color" : "Speed (pp/s) · sqrt scale", font, textBrush, 3, 1);
         var bar = new Rectangle(4, font.Height + 3, Math.Max(1, Width - 8), Math.Max(6, font.Height / 2));
         if (highContrast)
         {
@@ -55,7 +55,10 @@ public sealed class SegmentSpeedLegend : Control
         {
             for (var x = 0; x < bar.Width; x++)
             {
-                using var brush = new SolidBrush(SegmentSpeedPalette.GetColor(bar.Width <= 1 ? 0 : x / (double)(bar.Width - 1)));
+                var linearPosition = bar.Width <= 1 ? 0 : x / (double)(bar.Width - 1);
+                var speed = _range.Minimum + linearPosition * (_range.Maximum - _range.Minimum);
+                var mapped = _range.Map(speed);
+                using var brush = new SolidBrush(SegmentSpeedPalette.GetColor(mapped.NormalizedPosition));
                 graphics.FillRectangle(brush, bar.X + x, bar.Y, 1, bar.Height);
             }
         }

@@ -14,6 +14,6 @@
 
 ## Verification
 
-- The review's full Release solution test run reported **383 passed** — 99 Common and 284 FunscriptEditor; 0 failed or skipped. That run predates the review fixes and was not repeated afterward.
-- Post-fix editor build passed with 0 warnings and 0 errors. `git diff --check` passes.
-- No interactive UI session was performed after these review fixes.
+- The pre-fix full Release solution test run reported **383 passed** — 99 Common and 284 FunscriptEditor; 0 failed or skipped.
+- Post-fix Release `FunscriptEditor.Tests`: **284 passed**, 0 failed or skipped. The test run also built the editor and its dependencies.
+- `git diff --check` passes. No interactive UI session was performed after these review fixes.

@@ -7,6 +7,8 @@ namespace ScriptSyncPilot.Common;
 /// <summary>A funscript: a time-ordered list of (time, position) actions.</summary>
 public sealed class Funscript
 {
+    private const int ReplaceFileUnableToRemoveReplacedError = 1175;
+    private const int ReplaceRetryCount = 3;
     private List<FunscriptAction> _actions;
     private readonly Dictionary<string, JsonElement> _extensionData;
 
@@ -76,7 +78,7 @@ public sealed class Funscript
             }
 
             if (File.Exists(destination))
-                File.Replace(temporaryPath, destination, null);
+                ReplaceWithTransientRetry(temporaryPath, destination);
             else
                 File.Move(temporaryPath, destination);
             ownsTemporaryFile = false;
@@ -87,6 +89,26 @@ public sealed class Funscript
             {
                 try { File.Delete(temporaryPath); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+    }
+
+    private static void ReplaceWithTransientRetry(string temporaryPath, string destination)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                File.Replace(temporaryPath, destination, null);
+                return;
+            }
+            catch (IOException ex) when (attempt < ReplaceRetryCount
+                && (ex.HResult & 0xFFFF) == ReplaceFileUnableToRemoveReplacedError)
+            {
+                // A short-lived handle can prevent Windows from removing the old
+                // destination during ReplaceFile. Keep the staged file and retry
+                // only this specific error; other failures still surface at once.
+                Thread.Sleep(50 << attempt);
             }
         }
     }

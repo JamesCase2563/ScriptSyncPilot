@@ -26,6 +26,7 @@ public sealed class TimelineControl : Control
     private const int ScrollbarUnitsPerSecond = 1000;
     private const double AbsoluteMaxPixelsPerSecond = 2000;
     private const double FallbackDurationSeconds = 60;
+    private const int OutOfMovieOverlayAlpha = 125;
 
     private readonly HScrollBar _scrollBar = new() { Height = 17 };
 
@@ -162,7 +163,7 @@ public sealed class TimelineControl : Control
         _scrollBar.Scroll += (_, _) =>
         {
             if (_suppressScrollEvent) return;
-            _viewStartSeconds = _scrollBar.Value / (double)ScrollbarUnitsPerSecond;
+            _viewStartSeconds = _scrollBar.Value / (double)ScrollbarUnitsPerSecond - ViewportSeconds();
             Invalidate();
         };
     }
@@ -457,8 +458,9 @@ public sealed class TimelineControl : Control
 
     private void ClampViewStart()
     {
-        var maxStart = Math.Max(0, DurationSeconds - ViewportSeconds());
-        _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, maxStart);
+        // Keep a full viewport of scrollable space before time zero and after the
+        // final script/media time, so movie boundaries need not clamp the view.
+        _viewStartSeconds = Math.Clamp(_viewStartSeconds, -ViewportSeconds(), DurationSeconds);
     }
 
     private void UpdateScrollBar()
@@ -466,11 +468,13 @@ public sealed class TimelineControl : Control
         _suppressScrollEvent = true;
         var viewport = ViewportSeconds();
         _scrollBar.Minimum = 0;
-        _scrollBar.Maximum = (int)Math.Ceiling(DurationSeconds * ScrollbarUnitsPerSecond);
+        // Scrollbar values map to viewStart + viewport, giving the thumb a full
+        // viewport of travel on either side of the content duration.
+        _scrollBar.Maximum = (int)Math.Ceiling((DurationSeconds + 2 * viewport) * ScrollbarUnitsPerSecond);
         _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport * ScrollbarUnitsPerSecond));
         _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20 * ScrollbarUnitsPerSecond));
         _scrollBar.Value = Math.Clamp(
-            (int)Math.Round(_viewStartSeconds * ScrollbarUnitsPerSecond),
+            (int)Math.Round((_viewStartSeconds + viewport) * ScrollbarUnitsPerSecond),
             0,
             Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
         _suppressScrollEvent = false;
@@ -551,6 +555,8 @@ public sealed class TimelineControl : Control
         }
 
         PaintPatternActions(g);
+        PaintOutOfMovieRegions(g);
+        PaintMovieBoundaryLines(g);
 
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
@@ -564,6 +570,42 @@ public sealed class TimelineControl : Control
         g.Restore(paintState);
         base.OnPaint(e);
         PaintFocusIndicator(g);
+    }
+
+    private void PaintOutOfMovieRegions(Graphics graphics)
+    {
+        if (_mediaDurationSeconds <= 0) return;
+
+        var movieStartX = TimeToX(0);
+        var movieEndX = TimeToX(_mediaDurationSeconds);
+        var overlayColor = SystemInformation.HighContrast
+            ? SystemColors.Window
+            : Color.Black;
+        using var overlayBrush = new SolidBrush(Color.FromArgb(OutOfMovieOverlayAlpha, overlayColor));
+
+        var left = (float)Math.Clamp(movieStartX, ContentLeft, BarLeft);
+        if (left > ContentLeft)
+            graphics.FillRectangle(overlayBrush, ContentLeft, TrackTop, left - ContentLeft, TrackHeight);
+
+        var right = (float)Math.Clamp(movieEndX, ContentLeft, BarLeft);
+        if (right < BarLeft)
+            graphics.FillRectangle(overlayBrush, right, TrackTop, BarLeft - right, TrackHeight);
+    }
+
+    private void PaintMovieBoundaryLines(Graphics graphics)
+    {
+        if (_mediaDurationSeconds <= 0) return;
+
+        var startX = TimeToX(0);
+        var endX = TimeToX(_mediaDurationSeconds);
+        var lineColor = SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(255, 205, 90);
+        using var startPen = new Pen(lineColor, 2);
+        using var endPen = new Pen(lineColor, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+
+        if (startX >= ContentLeft && startX <= BarLeft)
+            graphics.DrawLine(startPen, (float)startX, TrackTop, (float)startX, TrackBottom);
+        if (endX >= ContentLeft && endX <= BarLeft)
+            graphics.DrawLine(endPen, (float)endX, TrackTop, (float)endX, TrackBottom);
     }
 
     private void PaintActionSegments(Graphics graphics, IReadOnlyList<FunscriptAction> actions)

@@ -2,7 +2,7 @@
 
 - **Issue:** [#52 — Keep the playhead centered while following playback](https://github.com/JamesCase2563/ScriptSyncPilot/issues/52)
 - **Affected project:** `ScriptSyncPilot.FunscriptEditor`
-- **Status:** Planning; implementation has not started.
+- **Status:** In Progress.
 
 ## Goal
 
@@ -60,13 +60,13 @@ Keep the playhead marker at a user-set horizontal anchor while active playback a
 
 ### M2 — Implement adjustable-anchor follow
 
-- [ ] M2.1 Keep the playhead at the active horizontal anchor on eligible follow updates, including when that anchor is offscreen, while preserving movie-speed scrolling, pixels per second, and avoiding script edits or additional seeks.
+- [x] M2.1 Keep the playhead at the active horizontal anchor on eligible follow updates, including when that anchor is offscreen, while preserving movie-speed scrolling, pixels per second, and avoiding script edits or additional seeks.
 - [ ] M2.2 Support out-of-movie transparent viewport regions and clear movie start/end boundary lines without changing the zoom.
-- [ ] M2.3 Apply the agreed anchor updates for timeline clicks, pan, zoom, scrubbing, point navigation, pause, and Center Playhead.
+- [ ] M2.3 Complete anchor updates for timeline clicks, zoom, scrubbing, point navigation, pause, and Center Playhead; pan release/capture-loss anchor tracking is implemented in M2.1.
 
 ### M3 — Verify and document
 
-- [ ] M3.1 Add focused automated coverage for continuous centering, seeking, zoom preservation, boundary clamping, and manual interaction suppression/resumption.
+- [ ] M3.1 Add focused automated coverage for anchor updates, seeking, zoom preservation, boundary rendering, and offscreen follow after manual interaction.
 - [ ] M3.2 Run the relevant FunscriptEditor test suite and manually check normal playback, forward/back seeks, start/end, zoom, pan, and selection.
 - [ ] M3.3 Update the FunscriptEditor architecture documentation and record results and limitations in `VERIFICATION.md`.
 

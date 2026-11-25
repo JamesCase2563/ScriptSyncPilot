@@ -39,6 +39,7 @@ public sealed class TimelineControl : Control
     private double? _videoFrameRate;
     private double _viewStartSeconds;
     private double _playheadSeconds;
+    private double? _followAnchorX;
 
     private int? _draggingIndex;
     private FunscriptAction[]? _dragBefore;
@@ -47,7 +48,6 @@ public sealed class TimelineControl : Control
     private int? _panStartX;
     private double _panStartSeconds;
     private MouseButtons? _panButton;
-    private bool _suppressPlaybackFollowUntilVisible;
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
     private TimelineMovementReadout? _movementReadout;
@@ -92,6 +92,10 @@ public sealed class TimelineControl : Control
 
     [System.ComponentModel.Browsable(false)]
     public double PlayheadSeconds => _playheadSeconds;
+
+    /// <summary>Horizontal client coordinate where eligible playback updates hold the playhead.</summary>
+    [System.ComponentModel.Browsable(false)]
+    public double FollowAnchorX => _followAnchorX ?? ContentLeft + TrackAreaWidth / 2.0;
 
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -165,10 +169,9 @@ public sealed class TimelineControl : Control
 
     public void LoadScript(Funscript script)
     {
-        PanEnd(suppressFollow: false);
+        PanEnd(setFollowAnchor: false);
         _movementReadout = null;
         MovementReadoutChanged?.Invoke(null);
-        _suppressPlaybackFollowUntilVisible = false;
         _script = script;
         FitSpeedColorScaleToCurrentScript();
         _selectedIndex = null;
@@ -276,18 +279,22 @@ public sealed class TimelineControl : Control
     {
         _playheadSeconds = seconds;
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
-        if (_suppressPlaybackFollowUntilVisible && IsPlayheadInViewport())
-            _suppressPlaybackFollowUntilVisible = false;
-
-        if (followPlayback && !_suppressPlaybackFollowUntilVisible
-            && _panStartX is null && _draggingIndex is null && !_scrubbing
-            && (seconds < _viewStartSeconds || seconds >= _viewStartSeconds + ViewportSeconds()))
+        if (followPlayback && _panStartX is null && _draggingIndex is null && !_scrubbing)
         {
-            _viewStartSeconds = seconds - ViewportSeconds() / 2;
-            ClampViewStart();
+            // Position the viewport from the active anchor on every playback update.
+            // Do not clamp here: an anchor may be outside the viewport, and following
+            // must keep scrolling at the movie's rate even while the playhead is unseen.
+            _viewStartSeconds = seconds - (FollowAnchorX - ContentLeft) / _pixelsPerSecond;
             UpdateScrollBar();
         }
         Invalidate();
+    }
+
+    /// <summary>Sets the horizontal follow anchor. The coordinate may lie outside the viewport.</summary>
+    internal void SetFollowAnchorX(double clientX)
+    {
+        if (!double.IsFinite(clientX)) throw new ArgumentOutOfRangeException(nameof(clientX));
+        _followAnchorX = clientX;
     }
 
     /// <summary>Moves to the closest action strictly before the playhead and requests a seek.</summary>
@@ -419,10 +426,6 @@ public sealed class TimelineControl : Control
     private double CenterSeconds() => _viewStartSeconds + ViewportSeconds() / 2;
 
     private double ViewportSeconds() => Math.Max(1, TrackAreaWidth) / _pixelsPerSecond;
-
-    private bool IsPlayheadInViewport() =>
-        _playheadSeconds >= _viewStartSeconds
-        && _playheadSeconds < _viewStartSeconds + ViewportSeconds();
 
     private void SetZoom(double pixelsPerSecond, double centerSeconds)
     {
@@ -911,11 +914,11 @@ public sealed class TimelineControl : Control
         return true;
     }
 
-    private void PanEnd(bool suppressFollow = true)
+    private void PanEnd(bool setFollowAnchor = true)
     {
         if (_panStartX is null) return;
-        if (suppressFollow)
-            _suppressPlaybackFollowUntilVisible = !IsPlayheadInViewport();
+        if (setFollowAnchor)
+            SetFollowAnchorX(TimeToX(_playheadSeconds));
         _panStartX = null;
         _panButton = null;
         Cursor = Cursors.Default;

@@ -1,7 +1,7 @@
 # Adjustable Playhead Follow Anchor — Verification
 
 - **Issue:** [#52 — Keep the playhead centered while following playback](https://github.com/JamesCase2563/ScriptSyncPilot/issues/52)
-- **Status:** In Progress; M2.1 and M2.2 are implemented, verification is pending.
+- **Status:** In Progress; M2 is implemented, verification is pending.
 
 ## Acceptance criteria
 
@@ -42,4 +42,6 @@
 
 `TimelineControl.SetPlayhead` now positions the viewport from `FollowAnchorX` on every eligible playback update, without changing pixels per second or clamping the resulting viewport start. This keeps the playhead at the same screen coordinate (including an offscreen coordinate) while the timeline advances at mpv's reported movie-time rate. The former pan suppression-until-visible behavior is removed; ending or losing capture during a pan records the playhead's resulting screen coordinate as the follow anchor. These paths do not issue seeks or mutate script actions.
 
-M2.2 extends the scrollable viewport by one viewport width before time zero and after the final timeline time. The out-of-movie graph regions receive a translucent overlay, with a solid movie-start line and a dashed movie-end line. These changes do not modify pixels per second. The scrollbar maps to the extended viewport range. M2.3 still needs to connect the remaining interactions to the anchor, including click/scrub, zoom, and Center Playhead. `dotnet build src/ScriptSyncPilot.slnx --no-restore --verbosity minimal` succeeded with zero warnings and errors. Automated tests and manual runtime checks have not been run.
+M2.2 extends the scrollable viewport by one viewport width before time zero and after the final timeline time. The out-of-movie graph regions receive a translucent overlay, with a solid movie-start line and a dashed movie-end line. These changes do not modify pixels per second. The scrollbar maps to the extended viewport range.
+
+M2.3 connects timeline clicks and scrubbing to the pointer anchor, updates the anchor to the playhead's resulting screen position after zoom, and keeps point and numeric seeks at the existing anchor. The Center Playhead button resets the anchor and view to the track center. Paused relative transport/frame steps query mpv after the command and align the confirmed position to the anchor; passive paused position notifications and pausing alone do not move the viewport. `dotnet build src/ScriptSyncPilot.slnx --no-restore --verbosity minimal` succeeded with zero warnings and errors. Automated tests and manual runtime checks have not been run.

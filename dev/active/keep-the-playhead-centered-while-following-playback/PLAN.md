@@ -62,7 +62,7 @@ Keep the playhead marker at a user-set horizontal anchor while active playback a
 
 - [x] M2.1 Keep the playhead at the active horizontal anchor on eligible follow updates, including when that anchor is offscreen, while preserving movie-speed scrolling, pixels per second, and avoiding script edits or additional seeks.
 - [x] M2.2 Support out-of-movie transparent viewport regions and clear movie start/end boundary lines without changing the zoom.
-- [ ] M2.3 Complete anchor updates for timeline clicks, zoom, scrubbing, point navigation, pause, and Center Playhead; pan release/capture-loss anchor tracking is implemented in M2.1.
+- [x] M2.3 Complete anchor updates for timeline clicks, zoom, scrubbing, point navigation, pause, and Center Playhead; pan release/capture-loss anchor tracking is implemented in M2.1.
 
 ### M3 — Verify and document
 

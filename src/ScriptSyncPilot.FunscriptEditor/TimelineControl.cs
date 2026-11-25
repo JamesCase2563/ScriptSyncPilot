@@ -291,6 +291,29 @@ public sealed class TimelineControl : Control
         Invalidate();
     }
 
+    /// <summary>Applies an explicit seek position at the current follow anchor, including while paused.</summary>
+    public void SetPlayheadAtFollowAnchor(double seconds)
+    {
+        _playheadSeconds = seconds;
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+        PositionViewAtFollowAnchor(seconds);
+        Invalidate();
+    }
+
+    /// <summary>Moves the view to the current playhead and resets the anchor to the track center.</summary>
+    public void CenterPlayhead()
+    {
+        SetFollowAnchorX(ContentLeft + TrackAreaWidth / 2.0);
+        PositionViewAtFollowAnchor(_playheadSeconds);
+        Invalidate();
+    }
+
+    private void PositionViewAtFollowAnchor(double seconds)
+    {
+        _viewStartSeconds = seconds - (FollowAnchorX - ContentLeft) / _pixelsPerSecond;
+        UpdateScrollBar();
+    }
+
     /// <summary>Sets the horizontal follow anchor. The coordinate may lie outside the viewport.</summary>
     internal void SetFollowAnchorX(double clientX)
     {
@@ -324,7 +347,7 @@ public sealed class TimelineControl : Control
     private bool NavigateToAction(FunscriptAction action)
     {
         var seconds = action.At / 1000.0;
-        SetPlayhead(seconds);
+        SetPlayheadAtFollowAnchor(seconds);
         SeekRequested?.Invoke(seconds);
         return true;
     }
@@ -433,6 +456,7 @@ public sealed class TimelineControl : Control
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
         _viewStartSeconds = centerSeconds - ViewportSeconds() / 2;
         ClampViewStart();
+        SetFollowAnchorX(TimeToX(_playheadSeconds));
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -444,6 +468,7 @@ public sealed class TimelineControl : Control
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
         _viewStartSeconds = anchorSeconds - (anchorX - ContentLeft) / _pixelsPerSecond;
         ClampViewStart();
+        SetFollowAnchorX(TimeToX(_playheadSeconds));
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -905,6 +930,11 @@ public sealed class TimelineControl : Control
             return;
         }
         FinishDrag();
+        if (_scrubbing)
+        {
+            SetFollowAnchorX(e.X);
+            PositionViewAtFollowAnchor(_playheadSeconds);
+        }
         _scrubbing = false;
         UpdateMovementReadout(e.Location);
     }
@@ -1060,6 +1090,8 @@ public sealed class TimelineControl : Control
     {
         var seconds = Math.Clamp(XToTime(x), 0, DurationSeconds);
         _playheadSeconds = seconds;
+        SetFollowAnchorX(x);
+        PositionViewAtFollowAnchor(seconds);
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         SeekRequested?.Invoke(seconds);
         Invalidate();

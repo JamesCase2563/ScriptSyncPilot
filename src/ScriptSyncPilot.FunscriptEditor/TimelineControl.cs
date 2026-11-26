@@ -27,6 +27,7 @@ public sealed class TimelineControl : Control
     private const double AbsoluteMaxPixelsPerSecond = 2000;
     private const double FallbackDurationSeconds = 60;
     private const int OutOfMovieOverlayAlpha = 125;
+    private const int MaximumScrollbarValue = int.MaxValue - 2;
 
     private readonly HScrollBar _scrollBar = new() { Height = 17 };
 
@@ -41,6 +42,7 @@ public sealed class TimelineControl : Control
     private double _viewStartSeconds;
     private double _playheadSeconds;
     private double? _followAnchorX;
+    private double _scrollbarUnitsPerSecond = ScrollbarUnitsPerSecond;
 
     private int? _draggingIndex;
     private FunscriptAction[]? _dragBefore;
@@ -163,7 +165,7 @@ public sealed class TimelineControl : Control
         _scrollBar.Scroll += (_, _) =>
         {
             if (_suppressScrollEvent) return;
-            _viewStartSeconds = _scrollBar.Value / (double)ScrollbarUnitsPerSecond - ViewportSeconds();
+            _viewStartSeconds = _scrollBar.Value / _scrollbarUnitsPerSecond - ViewportSeconds();
             Invalidate();
         };
     }
@@ -433,7 +435,9 @@ public sealed class TimelineControl : Control
 
     public void UpdateDuration(double mediaDurationSeconds)
     {
-        _mediaDurationSeconds = mediaDurationSeconds > 0 ? mediaDurationSeconds : 0;
+        _mediaDurationSeconds = double.IsFinite(mediaDurationSeconds) && mediaDurationSeconds > 0
+            ? mediaDurationSeconds
+            : 0;
         ReclampZoom();
     }
 
@@ -495,17 +499,40 @@ public sealed class TimelineControl : Control
     {
         _suppressScrollEvent = true;
         var viewport = ViewportSeconds();
+        var scrollableSeconds = DurationSeconds + 2 * viewport;
+        _scrollbarUnitsPerSecond = Math.Min(
+            ScrollbarUnitsPerSecond,
+            MaximumScrollbarValue / scrollableSeconds);
+        if (!double.IsFinite(_scrollbarUnitsPerSecond) || _scrollbarUnitsPerSecond <= 0)
+            _scrollbarUnitsPerSecond = double.Epsilon;
+
+        var maximum = ToScrollbarValue(scrollableSeconds * _scrollbarUnitsPerSecond);
+        var largeChange = ToScrollbarIncrement(viewport * _scrollbarUnitsPerSecond, maximum);
+        var smallChange = ToScrollbarIncrement(viewport / 20 * _scrollbarUnitsPerSecond, maximum);
         _scrollBar.Minimum = 0;
         // Scrollbar values map to viewStart + viewport, giving the thumb a full
-        // viewport of travel on either side of the content duration.
-        _scrollBar.Maximum = (int)Math.Ceiling((DurationSeconds + 2 * viewport) * ScrollbarUnitsPerSecond);
-        _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport * ScrollbarUnitsPerSecond));
-        _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20 * ScrollbarUnitsPerSecond));
+        // viewport of travel on either side of the content duration. Scale units
+        // down for very long media/scripts so every assigned value fits WinForms' int range.
+        _scrollBar.Maximum = maximum;
+        _scrollBar.LargeChange = largeChange;
+        _scrollBar.SmallChange = smallChange;
         _scrollBar.Value = Math.Clamp(
-            (int)Math.Round((_viewStartSeconds + viewport) * ScrollbarUnitsPerSecond),
+            ToScrollbarValue((_viewStartSeconds + viewport) * _scrollbarUnitsPerSecond),
             0,
             Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
         _suppressScrollEvent = false;
+    }
+
+    private static int ToScrollbarValue(double value)
+    {
+        if (!double.IsFinite(value)) return value < 0 ? 0 : MaximumScrollbarValue;
+        return (int)Math.Clamp(Math.Round(value), 0, MaximumScrollbarValue);
+    }
+
+    private static int ToScrollbarIncrement(double value, int maximum)
+    {
+        if (!double.IsFinite(value)) return maximum;
+        return (int)Math.Clamp(Math.Ceiling(value), 1, maximum);
     }
 
     private int TrackTop => Padding.Top + TopMargin;

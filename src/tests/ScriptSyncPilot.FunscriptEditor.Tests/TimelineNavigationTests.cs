@@ -377,6 +377,36 @@ public sealed class TimelineNavigationTests
         form.Close();
     }
 
+    [STATestMethod]
+    public void CenterPlayheadButton_ResetsAnchorAndCentersCurrentPositionWithoutSeeking()
+    {
+        using var form = new MainForm(new EditorSettings());
+        var timeline = GetField<TimelineControl>(form, "_timeline");
+        var centerButton = GetField<Button>(form, "_centerPlayheadButton");
+        form.Show();
+        timeline.UpdateDuration(60);
+        timeline.PixelsPerSecond = 100;
+        timeline.SetFollowAnchorX(timeline.Padding.Left + 100);
+        timeline.SetPlayheadAtFollowAnchor(20);
+        var seeks = 0;
+        timeline.SeekRequested += _ => seeks++;
+
+        centerButton.PerformClick();
+
+        var centerX = timeline.Padding.Left
+            + (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0) / 2;
+        var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+            / timeline.PixelsPerSecond;
+        var viewStartSeconds = timeline.Controls.OfType<HScrollBar>().Single().Value / 1000.0 - viewportSeconds;
+        var expectedViewStart = timeline.PlayheadSeconds - (centerX - timeline.Padding.Left) / timeline.PixelsPerSecond;
+        Assert.AreEqual(centerX, timeline.FollowAnchorX, 0.001);
+        Assert.AreEqual(expectedViewStart, viewStartSeconds, 0.001);
+        Assert.AreEqual(20.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+        Assert.AreEqual(0, seeks);
+        form.Close();
+    }
+
     private static TimelineControl CreateTimeline() => new() { Size = new Size(1040, 200) };
 
     private static Funscript CreateScript(params int[] timestamps)

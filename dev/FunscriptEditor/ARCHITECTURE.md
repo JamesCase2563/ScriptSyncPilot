@@ -21,7 +21,7 @@ High-contrast adaptation remains in the editor: timeline segments use system hig
 
 Actions use milliseconds and 0-100 positions. Common preserves unknown root JSON properties. Empty/new documents are valid. ScriptChanged marks edits and refreshes timeline zoom, viewport, and scrollbar limits.
 
-The timeline spans the longer of media and script duration, with a 60-second minimum without media. Its scrollbar uses millisecond units and permits up to one viewport of overscroll before time zero and after the timeline's final time. Deleting selection clears drag state. The right value bar inserts at the playhead and draws a hover guide across the visible graph.
+The timeline spans the longer of media and script duration, with a 60-second minimum without media. Its scrollbar permits up to one viewport of overscroll before time zero and after the timeline's final time. It uses millisecond units for ordinary durations and scales them down for very long media/scripts to stay within WinForms' integer range. Deleting selection clears drag state. The right value bar inserts at the playhead and draws a hover guide across the visible graph.
 
 ## Keyboard Position Entry
 

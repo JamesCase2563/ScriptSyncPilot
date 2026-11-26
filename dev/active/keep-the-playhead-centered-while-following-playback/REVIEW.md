@@ -4,10 +4,10 @@ Reviewed branch `issue/#52-keep-the-playhead-centered-while-following-playback` 
 
 ## Findings
 
-- **[P3] Keep the extended scrollbar range within `int` limits** — `src/ScriptSyncPilot.FunscriptEditor/TimelineControl.cs:501`. The new range converts `(DurationSeconds + 2 * viewport) * 1000` to `int`; `LargeChange` and `SmallChange` are converted similarly. For sufficiently long media or scripts, these values exceed the `HScrollBar` integer range. The conversion can produce an invalid range, causing the scrollbar update (and timeline load/duration update) to fail. Scale the scrollbar units to the duration or otherwise bound all three values before assigning them.
-- **[P3] Reconcile the verification checklist with its complete status** — `dev/active/keep-the-playhead-centered-while-following-playback/VERIFICATION.md`. The document says **Complete** and records successful automated/manual verification, but every acceptance criterion remains unchecked. Mark verified criteria or clarify which were not evaluated.
+- [x] **[P3] Keep the extended scrollbar range within `int` limits — FIXED.** `TimelineControl.UpdateScrollBar` now scales scrollbar units to keep the extended range within bounds and safely converts the range and increments. A regression test covers a 3,000,000-second duration and a non-finite duration.
+- [x] **[P3] Reconcile the verification checklist with its complete status — FIXED.** `VERIFICATION.md` now marks the verified acceptance criteria and explicitly identifies the paused relative-transport/frame-step alignment criterion that was not separately verified.
 
 ## Verification
 
-- `dotnet test src\tests\ScriptSyncPilot.FunscriptEditor.Tests\ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore --verbosity quiet` — **288 passed, 0 failed, 0 skipped**.
+- `dotnet test src\tests\ScriptSyncPilot.FunscriptEditor.Tests\ScriptSyncPilot.FunscriptEditor.Tests.csproj --no-restore --verbosity quiet` — **290 passed, 0 failed, 0 skipped**.
 - `git diff --check origin/main...HEAD` — clean.

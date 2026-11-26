@@ -134,6 +134,31 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
+    public void LongMediaDuration_ScalesScrollbarValuesWithoutOverflow()
+    {
+        RunSta(() =>
+        {
+            using var timeline = new TimelineControl { Size = new Size(1040, 200) };
+            timeline.LoadScript(new Funscript());
+            timeline.UpdateDuration(3_000_000);
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+
+            Assert.IsTrue(scrollbar.Maximum > 0);
+            Assert.IsTrue(scrollbar.Maximum <= int.MaxValue);
+            Assert.IsTrue(scrollbar.LargeChange > 0 && scrollbar.LargeChange <= scrollbar.Maximum);
+            Assert.IsTrue(scrollbar.SmallChange > 0 && scrollbar.SmallChange <= scrollbar.Maximum);
+
+            timeline.SetPlayhead(2_000_000, followPlayback: true);
+
+            Assert.IsTrue(scrollbar.Value >= 0 && scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            timeline.UpdateDuration(double.PositiveInfinity);
+            Assert.IsTrue(scrollbar.Value >= 0 && scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+        });
+    }
+
+    [TestMethod]
     public void DeleteDuringActionDrag_EndsDragAndCannotMutateNextAction()
     {
         RunSta(() =>

@@ -1,20 +1,22 @@
 # Adjustable Playhead Follow Anchor — Verification
 
 - **Issue:** [#52 — Keep the playhead centered while following playback](https://github.com/JamesCase2563/ScriptSyncPilot/issues/52)
-- **Status:** Complete.
+- **Status:** Complete; explicit paused relative-transport alignment was not separately verified.
 
 ## Acceptance criteria
 
-- [ ] During eligible follow updates, the playhead remains at the active user-set horizontal anchor while the timeline moves underneath.
-- [ ] Timeline click-to-seek sets the anchor to the clicked X position; playback holds the marker there without an unexpected jump to center.
-- [ ] Pan and zoom update the anchor to the playhead's resulting X position. If panned offscreen, the playhead remains offscreen while the waveform continues scrolling at movie speed; there is no suspend/re-entry snap.
-- [ ] Center Playhead returns the current playhead to center and resumes follow.
-- [ ] Follow updates and seeks preserve the selected zoom level and do not mutate script actions or issue an additional seek.
+- [x] During eligible follow updates, the playhead remains at the active user-set horizontal anchor while the timeline moves underneath.
+- [x] Timeline click-to-seek sets the anchor to the clicked X position; playback holds the marker there without an unexpected jump to center.
+- [x] Pan and zoom update the anchor to the playhead's resulting X position. If panned offscreen, the playhead remains offscreen while the waveform continues scrolling at movie speed; there is no suspend/re-entry snap.
+- [x] Center Playhead returns the current playhead to center and resumes follow.
+- [x] Follow updates and seeks preserve the selected zoom level and do not mutate script actions or issue an additional seek.
 - [ ] Explicit seeks, including while paused, use the active anchor; passive paused-position refreshes do not move the viewport.
-- [ ] At the beginning/end, the viewport can extend beyond the movie range; out-of-movie time is transparent and start/end boundary lines are visible.
-- [ ] Pausing alone does not move the viewport; timeline scrubbing remains pointer-driven, and point-navigation seeks follow the M1 rules.
-- [ ] Manual pan and zoom set the anchor without stopping movie-speed scrolling; the playhead line can remain offscreen until the anchor is changed or Center Playhead is pressed.
-- [ ] Point selection remains associated with the same action as the viewport moves.
+- [x] At the beginning/end, the viewport can extend beyond the movie range; out-of-movie time is transparent and start/end boundary lines are visible.
+- [x] Pausing alone does not move the viewport; timeline scrubbing remains pointer-driven, and point-navigation seeks follow the M1 rules.
+- [x] Manual pan and zoom set the anchor without stopping movie-speed scrolling; the playhead line can remain offscreen until the anchor is changed or Center Playhead is pressed.
+- [x] Point selection remains associated with the same action as the viewport moves.
+
+Criterion 6 remains unchecked: passive paused-position behavior is covered by the timeline tests, but the paused relative transport/frame-step query and anchor alignment was not separately exercised in the manual verification reported so far.
 
 ## Automated verification plan
 
@@ -46,4 +48,4 @@ M2.2 extends the scrollable viewport by one viewport width before time zero and 
 
 M2.3 connects timeline clicks and scrubbing to the pointer anchor, updates the anchor to the playhead's resulting screen position after zoom, and keeps point and numeric seeks at the existing anchor. The Center Playhead button resets the anchor and view to the track center. Paused relative transport/frame steps query mpv after the command and align the confirmed position to the anchor; passive paused position notifications and pausing alone do not move the viewport.
 
-M3.1 adds focused coverage for continuous follow, offscreen anchors, pan release, scrubbing, zoom, explicit seeks, center reset, and movie boundary rendering. The focused timeline tests passed: **29 passed, 0 failed**. M3.2's full FunscriptEditor suite passed: **288 passed, 0 failed, 0 skipped**. The solution build also succeeded with zero warnings and errors. `dev/FunscriptEditor/ARCHITECTURE.md` documents the anchor and movie-boundary behavior. The user manually verified normal playback, forward/backward seeks, start/end behavior, zoom, pan, and selection, and reported that each works correctly.
+M3.1 adds focused coverage for continuous follow, offscreen anchors, pan release, scrubbing, zoom, explicit seeks, center reset, movie boundary rendering, and long-duration scrollbar bounds. The focused timeline tests passed: **31 passed, 0 failed**. M3.2's full FunscriptEditor suite passed: **290 passed, 0 failed, 0 skipped**. The solution build also succeeded with zero warnings and errors. `dev/FunscriptEditor/ARCHITECTURE.md` documents the anchor, movie-boundary behavior, and adaptive scrollbar scale. The user manually verified normal playback, forward/backward seeks, start/end behavior, zoom, pan, and selection, and reported that each works correctly. Paused relative transport/frame-step alignment was not separately reported as tested.

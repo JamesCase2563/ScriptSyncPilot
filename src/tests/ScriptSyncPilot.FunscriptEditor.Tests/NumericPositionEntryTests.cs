@@ -11,6 +11,18 @@ public sealed class NumericPositionEntryTests
     private static long KeyData(int scanCode, bool repeated = false, bool extended = false) =>
         ((long)scanCode << 16) | (repeated ? 1L << 30 : 0) | (extended ? 1L << 24 : 0) | 1;
 
+    private static double ViewportSeconds(TimelineControl timeline) =>
+        (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0) / timeline.PixelsPerSecond;
+
+    private static double ViewStartSeconds(TimelineControl timeline) =>
+        timeline.Controls.OfType<HScrollBar>().Single().Value / 1000.0 - ViewportSeconds(timeline);
+
+    private static int ScrollbarValueForViewStart(TimelineControl timeline, double viewStartSeconds) =>
+        (int)Math.Round((viewStartSeconds + ViewportSeconds(timeline)) * 1000);
+
+    private static int TimelineX(TimelineControl timeline, double seconds) =>
+        (int)Math.Round(timeline.Padding.Left + (seconds - ViewStartSeconds(timeline)) * timeline.PixelsPerSecond);
+
     [TestMethod]
     public void Decoder_MapsAllElevenPhysicalPositionsAndConsumesRepeats()
     {
@@ -97,7 +109,8 @@ public sealed class NumericPositionEntryTests
 
             timeline.PixelsPerSecond = 0.0001;
             Assert.AreEqual(timeline.MinPixelsPerSecond, timeline.PixelsPerSecond, 0.000001);
-            Assert.AreEqual(0, scrollbar.Value);
+            Assert.AreEqual((int)Math.Round(ViewportSeconds(timeline) * 1000), scrollbar.Value,
+                "The minimum zoom should still fit the full movie from its start boundary.");
             Assert.IsTrue(scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
 
             timeline.PixelsPerSecond = double.MaxValue;
@@ -121,6 +134,31 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
+    public void LongMediaDuration_ScalesScrollbarValuesWithoutOverflow()
+    {
+        RunSta(() =>
+        {
+            using var timeline = new TimelineControl { Size = new Size(1040, 200) };
+            timeline.LoadScript(new Funscript());
+            timeline.UpdateDuration(3_000_000);
+            timeline.PixelsPerSecond = 100;
+            var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+
+            Assert.IsTrue(scrollbar.Maximum > 0);
+            Assert.IsTrue(scrollbar.Maximum <= int.MaxValue);
+            Assert.IsTrue(scrollbar.LargeChange > 0 && scrollbar.LargeChange <= scrollbar.Maximum);
+            Assert.IsTrue(scrollbar.SmallChange > 0 && scrollbar.SmallChange <= scrollbar.Maximum);
+
+            timeline.SetPlayhead(2_000_000, followPlayback: true);
+
+            Assert.IsTrue(scrollbar.Value >= 0 && scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            timeline.UpdateDuration(double.PositiveInfinity);
+            Assert.IsTrue(scrollbar.Value >= 0 && scrollbar.Value <= scrollbar.Maximum - scrollbar.LargeChange);
+        });
+    }
+
+    [TestMethod]
     public void DeleteDuringActionDrag_EndsDragAndCannotMutateNextAction()
     {
         RunSta(() =>
@@ -134,8 +172,9 @@ public sealed class NumericPositionEntryTests
             timeline.LoadScript(script);
             form.Show();
             timeline.PixelsPerSecond = 100;
+            timeline.SetPlayheadAtFollowAnchor(5);
 
-            var x = timeline.Padding.Left + 500;
+            var x = TimelineX(timeline, 5);
             var trackTop = timeline.Padding.Top + 10;
             var trackBottom = timeline.Height - timeline.Padding.Bottom - 24 - 10;
             var y = (int)Math.Round(trackBottom - 0.5 * (trackBottom - trackTop));
@@ -272,8 +311,9 @@ public sealed class NumericPositionEntryTests
 
             Mouse("OnMouseDown", MouseButtons.Middle, 150);
             Assert.IsTrue(timeline.Capture);
+            var initialOffset = scrollbar.Value;
             Mouse("OnMouseMove", MouseButtons.Middle, 50);
-            Assert.AreEqual(1000, scrollbar.Value);
+            Assert.AreEqual(initialOffset + 1000, scrollbar.Value);
             Mouse("OnMouseMove", MouseButtons.Middle, -100000);
             Assert.IsTrue(scrollbar.Value > 1000);
             var end = scrollbar.Value;
@@ -320,7 +360,7 @@ public sealed class NumericPositionEntryTests
             timeline.ScriptChanged += (_, _) => changes++;
             var start = new MouseEventArgs(MouseButtons.Left, 1, 500, 30, 0);
             var actionPoint = new MouseEventArgs(
-                MouseButtons.Left, 1, timeline.Padding.Left,
+                MouseButtons.Left, 1, TimelineX(timeline, 0),
                 timeline.Height - timeline.Padding.Bottom - 24 - 10, 0);
 
             Assert.IsFalse(timeline.TryStartShiftPan(actionPoint, Keys.Shift));
@@ -367,7 +407,7 @@ public sealed class NumericPositionEntryTests
             timeline.PixelsPerSecond = 100;
             var trackBottom = timeline.Height - timeline.Padding.Bottom - 24 - 10;
             var trackTop = timeline.Padding.Top + 10;
-            var x = timeline.Padding.Left + 100;
+            var x = TimelineX(timeline, 1);
             var y = (int)Math.Round(trackBottom - (trackBottom - trackTop) / 2.0);
             var down = new MouseEventArgs(MouseButtons.Left, 1, x, y, 0);
             var seeks = 0;
@@ -423,7 +463,7 @@ public sealed class NumericPositionEntryTests
     }
 
     [TestMethod]
-    public void PlaybackFollow_RecentersOutsideEitherEdgeWithoutSeekingOrChangingZoom()
+    public void PlaybackFollow_HoldsTheActiveAnchorOnEveryUpdateAndPreservesZoom()
     {
         RunSta(() =>
         {
@@ -432,40 +472,54 @@ public sealed class NumericPositionEntryTests
             timeline.LoadScript(script);
             timeline.PixelsPerSecond = 100;
             var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
-            var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
-                / timeline.PixelsPerSecond;
             var seeks = 0;
             timeline.SeekRequested += _ => seeks++;
+            var anchorX = timeline.FollowAnchorX;
+            var anchorOffsetSeconds = (anchorX - timeline.Padding.Left) / timeline.PixelsPerSecond;
             timeline.SetPlayhead(9.9, followPlayback: true);
-            Assert.AreEqual(0, scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 9.9 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(10, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((10 - viewportSeconds / 2) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 10 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(14.9, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((10 - viewportSeconds / 2) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 14.9 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(15, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((15 - viewportSeconds / 2) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 15 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(40);
-            Assert.AreEqual((int)Math.Round((15 - viewportSeconds / 2) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 15 - anchorOffsetSeconds), scrollbar.Value,
+                "A passive position update must not move the viewport.");
             timeline.SetPlayhead(59, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 59 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(1);
-            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 59 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(55, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((60 - viewportSeconds) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 55 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(49, followPlayback: true);
-            Assert.AreEqual((int)Math.Round((49 - viewportSeconds / 2) * 1000), scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, 49 - anchorOffsetSeconds), scrollbar.Value);
             timeline.SetPlayhead(0, followPlayback: true);
-            Assert.AreEqual(0, scrollbar.Value);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, -anchorOffsetSeconds), scrollbar.Value);
             Assert.AreEqual(100.0, timeline.PixelsPerSecond);
             Assert.AreEqual(0.0, timeline.PlayheadSeconds);
             Assert.AreEqual(0, seeks);
             Assert.IsFalse(timeline.History.CanUndo);
             Assert.AreEqual(0, script.Actions.Count);
+
+            var offscreenAnchorX = timeline.Padding.Left - 80;
+            timeline.SetFollowAnchorX(offscreenAnchorX);
+            timeline.SetPlayhead(20, followPlayback: true);
+            var offscreenViewStart = 20 - (offscreenAnchorX - timeline.Padding.Left) / timeline.PixelsPerSecond;
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, offscreenViewStart), scrollbar.Value);
+            Assert.IsTrue(timeline.PlayheadSeconds < ViewStartSeconds(timeline),
+                "An offscreen anchor must remain offscreen while follow continues.");
+            timeline.SetPlayhead(21, followPlayback: true);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, offscreenViewStart + 1), scrollbar.Value,
+                "The viewport should scroll by one movie second at unchanged zoom.");
+            Assert.AreEqual(offscreenAnchorX, timeline.FollowAnchorX);
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
         });
     }
 
     [TestMethod]
-    public void PlaybackFollow_ManualPanSuppressesUntilPlayheadReentersViewport()
+    public void PlaybackFollow_ManualPanSetsOffscreenAnchorAndKeepsScrollingAtMovieSpeed()
     {
         RunSta(() =>
         {
@@ -485,26 +539,144 @@ public sealed class NumericPositionEntryTests
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                 .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, -500, 30, 0)]);
             var manuallyPannedOffset = scrollbar.Value;
-            Assert.IsTrue(manuallyPannedOffset > 30000);
-            var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
-                / timeline.PixelsPerSecond;
+            Assert.IsTrue(manuallyPannedOffset > 40000);
+            var panAnchorX = timeline.FollowAnchorX;
+            Assert.IsTrue(panAnchorX < timeline.Padding.Left,
+                "The pan should place the playhead's anchor outside the visible track.");
 
             timeline.SetPlayhead(31, followPlayback: true);
-            Assert.AreEqual(manuallyPannedOffset, scrollbar.Value,
-                "Playback follow should not undo the manual pan while the playhead is outside the viewport.");
-
-            timeline.SetPlayhead(manuallyPannedOffset / 1000.0 + 0.1, followPlayback: true);
-            Assert.AreEqual(manuallyPannedOffset, scrollbar.Value,
-                "Re-entering the viewport should clear suppression without recentering immediately.");
-
-            var playheadOutsideViewport = manuallyPannedOffset / 1000.0 + viewportSeconds + 0.1;
-            timeline.SetPlayhead(playheadOutsideViewport, followPlayback: true);
-            var expectedFollowOffset = (int)Math.Round((playheadOutsideViewport - viewportSeconds / 2) * 1000);
-            Assert.AreEqual(expectedFollowOffset, scrollbar.Value,
-                "After re-entry, playback follow should resume when the playhead leaves the viewport again.");
+            var expectedStart = 31 - (panAnchorX - timeline.Padding.Left) / timeline.PixelsPerSecond;
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, expectedStart), scrollbar.Value,
+                "The waveform should continue scrolling while the playhead remains offscreen.");
+            timeline.SetPlayhead(32, followPlayback: true);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline, expectedStart + 1), scrollbar.Value,
+                "A one-second position change should move the view by one second.");
             Assert.AreEqual(100.0, timeline.PixelsPerSecond);
             form.Close();
         });
+    }
+
+    [TestMethod]
+    public void ScrubAndCenterPlayhead_UpdateAnchorWithoutExtraSeekOrZoomChange()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            timeline.LoadScript(new Funscript());
+            timeline.UpdateDuration(60);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            var seeks = new List<double>();
+            timeline.SeekRequested += seeks.Add;
+            var start = new MouseEventArgs(MouseButtons.Left, 1, 250, 30, 0);
+            timeline.HandleMouseDown(start, Keys.None);
+            typeof(TimelineControl).GetMethod("OnMouseMove",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, 300, 30, 0)]);
+            var playheadAtRelease = timeline.PlayheadSeconds;
+            typeof(TimelineControl).GetMethod("OnMouseUp",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, 320, 30, 0)]);
+
+            Assert.AreEqual(320.0, timeline.FollowAnchorX);
+            Assert.AreEqual(playheadAtRelease, timeline.PlayheadSeconds);
+            Assert.AreEqual(2, seeks.Count, "Mouse-up should not send a duplicate seek.");
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+
+            timeline.CenterPlayhead();
+            Assert.AreEqual(timeline.Padding.Left + (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0) / 2,
+                timeline.FollowAnchorX, 0.001);
+            Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+            Assert.AreEqual(ScrollbarValueForViewStart(timeline,
+                    timeline.PlayheadSeconds - (timeline.FollowAnchorX - timeline.Padding.Left) / timeline.PixelsPerSecond),
+                timeline.Controls.OfType<HScrollBar>().Single().Value);
+            Assert.AreEqual(2, seeks.Count, "Centering the playhead must not seek mpv.");
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void Zoom_ReanchorsAtThePlayheadsResultingScreenPosition()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            var script = new Funscript();
+            script.AddOrReplace(new FunscriptAction(1000, 20));
+            script.AddOrReplace(new FunscriptAction(30000, 80));
+            timeline.LoadScript(script);
+            timeline.UpdateDuration(60);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            timeline.SetPlayheadAtFollowAnchor(20);
+            timeline.SetPlayhead(25);
+            var seeks = 0;
+            timeline.SeekRequested += _ => seeks++;
+
+            timeline.ZoomByWheel(120, timeline.Padding.Left + 300);
+
+            var resultingPlayheadX = timeline.Padding.Left
+                + (timeline.PlayheadSeconds - ViewStartSeconds(timeline)) * timeline.PixelsPerSecond;
+            Assert.AreEqual(resultingPlayheadX, timeline.FollowAnchorX, 0.1,
+                "The scrollbar exposes time to the nearest millisecond.");
+            Assert.AreEqual(25.0, timeline.PlayheadSeconds);
+            Assert.AreEqual(115.0, timeline.PixelsPerSecond, 0.001);
+            Assert.AreEqual(0, seeks);
+            Assert.IsFalse(timeline.History.CanUndo);
+            CollectionAssert.AreEqual(new[] { new FunscriptAction(1000, 20), new FunscriptAction(30000, 80) }, script.Actions.ToArray());
+            form.Close();
+        });
+    }
+
+    [TestMethod]
+    public void OutOfMovieRegions_AreDimmedAndMovieBoundaryLinesAreDrawn()
+    {
+        RunSta(() =>
+        {
+            using var form = new Form { ClientSize = new Size(1040, 200) };
+            using var timeline = new TimelineControl { Dock = DockStyle.Fill };
+            form.Controls.Add(timeline);
+            timeline.LoadScript(new Funscript());
+            timeline.UpdateDuration(30);
+            form.Show();
+            timeline.PixelsPerSecond = 100;
+            timeline.SetPlayheadAtFollowAnchor(0);
+            timeline.SetPlayhead(1);
+
+            using var bitmap = new Bitmap(timeline.Width, timeline.Height);
+            timeline.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            var outside = bitmap.GetPixel(timeline.Padding.Left + 8, timeline.Padding.Top + 14);
+            var inside = bitmap.GetPixel((int)Math.Round(timeline.FollowAnchorX + 100), timeline.Padding.Top + 14);
+            Assert.IsTrue(outside.R < inside.R,
+                $"Out-of-movie area should be dimmed by a translucent overlay (outside={outside}, inside={inside}).");
+            Assert.IsTrue(ContainsBoundaryColor(bitmap, (int)Math.Round(timeline.FollowAnchorX), timeline),
+                "The movie-start line should be visible.");
+
+            timeline.SetPlayheadAtFollowAnchor(30);
+            timeline.SetPlayhead(29);
+            timeline.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            Assert.IsTrue(ContainsBoundaryColor(bitmap, (int)Math.Round(timeline.FollowAnchorX), timeline),
+                "The movie-end line should be visible.");
+        });
+    }
+
+    private static bool ContainsBoundaryColor(Bitmap bitmap, int x, TimelineControl timeline)
+    {
+        var expected = SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(255, 205, 90);
+        for (var sampleX = Math.Max(0, x - 2); sampleX <= Math.Min(bitmap.Width - 1, x + 2); sampleX++)
+        for (var y = timeline.Padding.Top + 10; y < timeline.Height - timeline.Padding.Bottom - 24; y++)
+        {
+            var actual = bitmap.GetPixel(sampleX, y);
+            if (Math.Abs(actual.R - expected.R) <= 4
+                && Math.Abs(actual.G - expected.G) <= 4
+                && Math.Abs(actual.B - expected.B) <= 4)
+                return true;
+        }
+        return false;
     }
 
     private static void RunSta(Action action)

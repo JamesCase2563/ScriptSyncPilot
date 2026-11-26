@@ -26,6 +26,8 @@ public sealed class TimelineControl : Control
     private const int ScrollbarUnitsPerSecond = 1000;
     private const double AbsoluteMaxPixelsPerSecond = 2000;
     private const double FallbackDurationSeconds = 60;
+    private const int OutOfMovieOverlayAlpha = 125;
+    private const int MaximumScrollbarValue = int.MaxValue - 2;
 
     private readonly HScrollBar _scrollBar = new() { Height = 17 };
 
@@ -39,6 +41,8 @@ public sealed class TimelineControl : Control
     private double? _videoFrameRate;
     private double _viewStartSeconds;
     private double _playheadSeconds;
+    private double? _followAnchorX;
+    private double _scrollbarUnitsPerSecond = ScrollbarUnitsPerSecond;
 
     private int? _draggingIndex;
     private FunscriptAction[]? _dragBefore;
@@ -47,7 +51,6 @@ public sealed class TimelineControl : Control
     private int? _panStartX;
     private double _panStartSeconds;
     private MouseButtons? _panButton;
-    private bool _suppressPlaybackFollowUntilVisible;
     private bool _suppressScrollEvent;
     private int? _hoverBarPos;
     private TimelineMovementReadout? _movementReadout;
@@ -92,6 +95,10 @@ public sealed class TimelineControl : Control
 
     [System.ComponentModel.Browsable(false)]
     public double PlayheadSeconds => _playheadSeconds;
+
+    /// <summary>Horizontal client coordinate where eligible playback updates hold the playhead.</summary>
+    [System.ComponentModel.Browsable(false)]
+    public double FollowAnchorX => _followAnchorX ?? ContentLeft + TrackAreaWidth / 2.0;
 
     [System.ComponentModel.Browsable(false)]
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -158,17 +165,16 @@ public sealed class TimelineControl : Control
         _scrollBar.Scroll += (_, _) =>
         {
             if (_suppressScrollEvent) return;
-            _viewStartSeconds = _scrollBar.Value / (double)ScrollbarUnitsPerSecond;
+            _viewStartSeconds = _scrollBar.Value / _scrollbarUnitsPerSecond - ViewportSeconds();
             Invalidate();
         };
     }
 
     public void LoadScript(Funscript script)
     {
-        PanEnd(suppressFollow: false);
+        PanEnd(setFollowAnchor: false);
         _movementReadout = null;
         MovementReadoutChanged?.Invoke(null);
-        _suppressPlaybackFollowUntilVisible = false;
         _script = script;
         FitSpeedColorScaleToCurrentScript();
         _selectedIndex = null;
@@ -276,18 +282,45 @@ public sealed class TimelineControl : Control
     {
         _playheadSeconds = seconds;
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
-        if (_suppressPlaybackFollowUntilVisible && IsPlayheadInViewport())
-            _suppressPlaybackFollowUntilVisible = false;
-
-        if (followPlayback && !_suppressPlaybackFollowUntilVisible
-            && _panStartX is null && _draggingIndex is null && !_scrubbing
-            && (seconds < _viewStartSeconds || seconds >= _viewStartSeconds + ViewportSeconds()))
+        if (followPlayback && _panStartX is null && _draggingIndex is null && !_scrubbing)
         {
-            _viewStartSeconds = seconds - ViewportSeconds() / 2;
-            ClampViewStart();
+            // Position the viewport from the active anchor on every playback update.
+            // Do not clamp here: an anchor may be outside the viewport, and following
+            // must keep scrolling at the movie's rate even while the playhead is unseen.
+            _viewStartSeconds = seconds - (FollowAnchorX - ContentLeft) / _pixelsPerSecond;
             UpdateScrollBar();
         }
         Invalidate();
+    }
+
+    /// <summary>Applies an explicit seek position at the current follow anchor, including while paused.</summary>
+    public void SetPlayheadAtFollowAnchor(double seconds)
+    {
+        _playheadSeconds = seconds;
+        NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+        PositionViewAtFollowAnchor(seconds);
+        Invalidate();
+    }
+
+    /// <summary>Moves the view to the current playhead and resets the anchor to the track center.</summary>
+    public void CenterPlayhead()
+    {
+        SetFollowAnchorX(ContentLeft + TrackAreaWidth / 2.0);
+        PositionViewAtFollowAnchor(_playheadSeconds);
+        Invalidate();
+    }
+
+    private void PositionViewAtFollowAnchor(double seconds)
+    {
+        _viewStartSeconds = seconds - (FollowAnchorX - ContentLeft) / _pixelsPerSecond;
+        UpdateScrollBar();
+    }
+
+    /// <summary>Sets the horizontal follow anchor. The coordinate may lie outside the viewport.</summary>
+    internal void SetFollowAnchorX(double clientX)
+    {
+        if (!double.IsFinite(clientX)) throw new ArgumentOutOfRangeException(nameof(clientX));
+        _followAnchorX = clientX;
     }
 
     /// <summary>Moves to the closest action strictly before the playhead and requests a seek.</summary>
@@ -316,7 +349,7 @@ public sealed class TimelineControl : Control
     private bool NavigateToAction(FunscriptAction action)
     {
         var seconds = action.At / 1000.0;
-        SetPlayhead(seconds);
+        SetPlayheadAtFollowAnchor(seconds);
         SeekRequested?.Invoke(seconds);
         return true;
     }
@@ -402,7 +435,9 @@ public sealed class TimelineControl : Control
 
     public void UpdateDuration(double mediaDurationSeconds)
     {
-        _mediaDurationSeconds = mediaDurationSeconds > 0 ? mediaDurationSeconds : 0;
+        _mediaDurationSeconds = double.IsFinite(mediaDurationSeconds) && mediaDurationSeconds > 0
+            ? mediaDurationSeconds
+            : 0;
         ReclampZoom();
     }
 
@@ -420,15 +455,15 @@ public sealed class TimelineControl : Control
 
     private double ViewportSeconds() => Math.Max(1, TrackAreaWidth) / _pixelsPerSecond;
 
-    private bool IsPlayheadInViewport() =>
-        _playheadSeconds >= _viewStartSeconds
-        && _playheadSeconds < _viewStartSeconds + ViewportSeconds();
-
     private void SetZoom(double pixelsPerSecond, double centerSeconds)
     {
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
-        _viewStartSeconds = centerSeconds - ViewportSeconds() / 2;
-        ClampViewStart();
+        _viewStartSeconds = ViewportSeconds() >= DurationSeconds
+            ? 0
+            : centerSeconds - ViewportSeconds() / 2;
+        if (ViewportSeconds() < DurationSeconds)
+            ClampViewStart();
+        SetFollowAnchorX(TimeToX(_playheadSeconds));
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -440,6 +475,7 @@ public sealed class TimelineControl : Control
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
         _viewStartSeconds = anchorSeconds - (anchorX - ContentLeft) / _pixelsPerSecond;
         ClampViewStart();
+        SetFollowAnchorX(TimeToX(_playheadSeconds));
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);
         Invalidate();
@@ -454,23 +490,49 @@ public sealed class TimelineControl : Control
 
     private void ClampViewStart()
     {
-        var maxStart = Math.Max(0, DurationSeconds - ViewportSeconds());
-        _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, maxStart);
+        // Keep a full viewport of scrollable space before time zero and after the
+        // final script/media time, so movie boundaries need not clamp the view.
+        _viewStartSeconds = Math.Clamp(_viewStartSeconds, -ViewportSeconds(), DurationSeconds);
     }
 
     private void UpdateScrollBar()
     {
         _suppressScrollEvent = true;
         var viewport = ViewportSeconds();
+        var scrollableSeconds = DurationSeconds + 2 * viewport;
+        _scrollbarUnitsPerSecond = Math.Min(
+            ScrollbarUnitsPerSecond,
+            MaximumScrollbarValue / scrollableSeconds);
+        if (!double.IsFinite(_scrollbarUnitsPerSecond) || _scrollbarUnitsPerSecond <= 0)
+            _scrollbarUnitsPerSecond = double.Epsilon;
+
+        var maximum = ToScrollbarValue(scrollableSeconds * _scrollbarUnitsPerSecond);
+        var largeChange = ToScrollbarIncrement(viewport * _scrollbarUnitsPerSecond, maximum);
+        var smallChange = ToScrollbarIncrement(viewport / 20 * _scrollbarUnitsPerSecond, maximum);
         _scrollBar.Minimum = 0;
-        _scrollBar.Maximum = (int)Math.Ceiling(DurationSeconds * ScrollbarUnitsPerSecond);
-        _scrollBar.LargeChange = Math.Max(1, (int)Math.Ceiling(viewport * ScrollbarUnitsPerSecond));
-        _scrollBar.SmallChange = Math.Max(1, (int)Math.Ceiling(viewport / 20 * ScrollbarUnitsPerSecond));
+        // Scrollbar values map to viewStart + viewport, giving the thumb a full
+        // viewport of travel on either side of the content duration. Scale units
+        // down for very long media/scripts so every assigned value fits WinForms' int range.
+        _scrollBar.Maximum = maximum;
+        _scrollBar.LargeChange = largeChange;
+        _scrollBar.SmallChange = smallChange;
         _scrollBar.Value = Math.Clamp(
-            (int)Math.Round(_viewStartSeconds * ScrollbarUnitsPerSecond),
+            ToScrollbarValue((_viewStartSeconds + viewport) * _scrollbarUnitsPerSecond),
             0,
             Math.Max(0, _scrollBar.Maximum - _scrollBar.LargeChange));
         _suppressScrollEvent = false;
+    }
+
+    private static int ToScrollbarValue(double value)
+    {
+        if (!double.IsFinite(value)) return value < 0 ? 0 : MaximumScrollbarValue;
+        return (int)Math.Clamp(Math.Round(value), 0, MaximumScrollbarValue);
+    }
+
+    private static int ToScrollbarIncrement(double value, int maximum)
+    {
+        if (!double.IsFinite(value)) return maximum;
+        return (int)Math.Clamp(Math.Ceiling(value), 1, maximum);
     }
 
     private int TrackTop => Padding.Top + TopMargin;
@@ -548,6 +610,8 @@ public sealed class TimelineControl : Control
         }
 
         PaintPatternActions(g);
+        PaintOutOfMovieRegions(g);
+        PaintMovieBoundaryLines(g);
 
         using (var playPen = new Pen(Color.Red, 1.5f))
         {
@@ -561,6 +625,42 @@ public sealed class TimelineControl : Control
         g.Restore(paintState);
         base.OnPaint(e);
         PaintFocusIndicator(g);
+    }
+
+    private void PaintOutOfMovieRegions(Graphics graphics)
+    {
+        if (_mediaDurationSeconds <= 0) return;
+
+        var movieStartX = TimeToX(0);
+        var movieEndX = TimeToX(_mediaDurationSeconds);
+        var overlayColor = SystemInformation.HighContrast
+            ? SystemColors.Window
+            : Color.Black;
+        using var overlayBrush = new SolidBrush(Color.FromArgb(OutOfMovieOverlayAlpha, overlayColor));
+
+        var left = (float)Math.Clamp(movieStartX, ContentLeft, BarLeft);
+        if (left > ContentLeft)
+            graphics.FillRectangle(overlayBrush, ContentLeft, TrackTop, left - ContentLeft, TrackHeight);
+
+        var right = (float)Math.Clamp(movieEndX, ContentLeft, BarLeft);
+        if (right < BarLeft)
+            graphics.FillRectangle(overlayBrush, right, TrackTop, BarLeft - right, TrackHeight);
+    }
+
+    private void PaintMovieBoundaryLines(Graphics graphics)
+    {
+        if (_mediaDurationSeconds <= 0) return;
+
+        var startX = TimeToX(0);
+        var endX = TimeToX(_mediaDurationSeconds);
+        var lineColor = SystemInformation.HighContrast ? SystemColors.Highlight : Color.FromArgb(255, 205, 90);
+        using var startPen = new Pen(lineColor, 2);
+        using var endPen = new Pen(lineColor, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+
+        if (startX >= ContentLeft && startX <= BarLeft)
+            graphics.DrawLine(startPen, (float)startX, TrackTop, (float)startX, TrackBottom);
+        if (endX >= ContentLeft && endX <= BarLeft)
+            graphics.DrawLine(endPen, (float)endX, TrackTop, (float)endX, TrackBottom);
     }
 
     private void PaintActionSegments(Graphics graphics, IReadOnlyList<FunscriptAction> actions)
@@ -860,6 +960,11 @@ public sealed class TimelineControl : Control
             return;
         }
         FinishDrag();
+        if (_scrubbing)
+        {
+            SetFollowAnchorX(e.X);
+            PositionViewAtFollowAnchor(_playheadSeconds);
+        }
         _scrubbing = false;
         UpdateMovementReadout(e.Location);
     }
@@ -911,11 +1016,11 @@ public sealed class TimelineControl : Control
         return true;
     }
 
-    private void PanEnd(bool suppressFollow = true)
+    private void PanEnd(bool setFollowAnchor = true)
     {
         if (_panStartX is null) return;
-        if (suppressFollow)
-            _suppressPlaybackFollowUntilVisible = !IsPlayheadInViewport();
+        if (setFollowAnchor)
+            SetFollowAnchorX(TimeToX(_playheadSeconds));
         _panStartX = null;
         _panButton = null;
         Cursor = Cursors.Default;
@@ -1015,6 +1120,8 @@ public sealed class TimelineControl : Control
     {
         var seconds = Math.Clamp(XToTime(x), 0, DurationSeconds);
         _playheadSeconds = seconds;
+        SetFollowAnchorX(x);
+        PositionViewAtFollowAnchor(seconds);
         NavigationAvailabilityChanged?.Invoke(this, EventArgs.Empty);
         SeekRequested?.Invoke(seconds);
         Invalidate();

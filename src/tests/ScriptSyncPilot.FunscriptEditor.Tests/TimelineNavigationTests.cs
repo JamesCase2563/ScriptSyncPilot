@@ -44,6 +44,33 @@ public sealed class TimelineNavigationTests
     }
 
     [STATestMethod]
+    public void PointNavigation_UsesTheExistingFollowAnchorWithoutChangingZoom()
+    {
+        using var timeline = CreateTimeline();
+        var script = CreateScript(1000, 2000, 3000);
+        timeline.LoadScript(script);
+        timeline.UpdateDuration(10);
+        timeline.PixelsPerSecond = 100;
+        timeline.SetFollowAnchorX(timeline.Padding.Left + 125);
+        var originalActions = script.Actions.ToArray();
+        var seeks = new List<double>();
+        timeline.SeekRequested += seeks.Add;
+
+        Assert.IsTrue(timeline.NavigateToNextAction());
+
+        var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+            / timeline.PixelsPerSecond;
+        var expectedViewStart = 1 - (timeline.FollowAnchorX - timeline.Padding.Left) / timeline.PixelsPerSecond;
+        var scrollbar = timeline.Controls.OfType<HScrollBar>().Single();
+        Assert.AreEqual((int)Math.Round((expectedViewStart + viewportSeconds) * 1000), scrollbar.Value);
+        Assert.AreEqual(1.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+        CollectionAssert.AreEqual(new[] { 1.0 }, seeks);
+        CollectionAssert.AreEqual(originalActions, script.Actions.ToArray());
+        Assert.IsFalse(timeline.History.CanUndo);
+    }
+
+    [STATestMethod]
     public void PreviousAndNext_DoNotWrapAtBoundaries()
     {
         using var timeline = CreateTimeline();
@@ -125,6 +152,7 @@ public sealed class TimelineNavigationTests
         Assert.IsFalse(timeline.NavigateToSelectedAction());
         Assert.AreEqual(0, seeks.Count);
 
+        timeline.CenterPlayhead();
         SelectAction(timeline, 2000);
         var actions = script.Actions.ToArray();
         var zoom = timeline.PixelsPerSecond;
@@ -326,7 +354,10 @@ public sealed class TimelineNavigationTests
         Assert.AreEqual(3.0, timeline.PlayheadSeconds);
         Assert.AreEqual(3.0, seeks[^1]);
 
+        timeline.CenterPlayhead();
         SelectAction(timeline, 2000);
+        Assert.IsTrue(timeline.CanNavigateToSelectedAction, "The action under the pointer should be selected.");
+        Assert.IsTrue(selected.Enabled, "The selected-point button should follow selection availability.");
         timeline.SetPlayhead(5);
         selected.PerformClick();
         Assert.AreEqual(2.0, timeline.PlayheadSeconds);
@@ -346,6 +377,36 @@ public sealed class TimelineNavigationTests
         form.Close();
     }
 
+    [STATestMethod]
+    public void CenterPlayheadButton_ResetsAnchorAndCentersCurrentPositionWithoutSeeking()
+    {
+        using var form = new MainForm(new EditorSettings());
+        var timeline = GetField<TimelineControl>(form, "_timeline");
+        var centerButton = GetField<Button>(form, "_centerPlayheadButton");
+        form.Show();
+        timeline.UpdateDuration(60);
+        timeline.PixelsPerSecond = 100;
+        timeline.SetFollowAnchorX(timeline.Padding.Left + 100);
+        timeline.SetPlayheadAtFollowAnchor(20);
+        var seeks = 0;
+        timeline.SeekRequested += _ => seeks++;
+
+        centerButton.PerformClick();
+
+        var centerX = timeline.Padding.Left
+            + (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0) / 2;
+        var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+            / timeline.PixelsPerSecond;
+        var viewStartSeconds = timeline.Controls.OfType<HScrollBar>().Single().Value / 1000.0 - viewportSeconds;
+        var expectedViewStart = timeline.PlayheadSeconds - (centerX - timeline.Padding.Left) / timeline.PixelsPerSecond;
+        Assert.AreEqual(centerX, timeline.FollowAnchorX, 0.001);
+        Assert.AreEqual(expectedViewStart, viewStartSeconds, 0.001);
+        Assert.AreEqual(20.0, timeline.PlayheadSeconds);
+        Assert.AreEqual(100.0, timeline.PixelsPerSecond);
+        Assert.AreEqual(0, seeks);
+        form.Close();
+    }
+
     private static TimelineControl CreateTimeline() => new() { Size = new Size(1040, 200) };
 
     private static Funscript CreateScript(params int[] timestamps)
@@ -358,13 +419,21 @@ public sealed class TimelineNavigationTests
 
     private static void SelectAction(TimelineControl timeline, int timestamp)
     {
-        var x = timeline.Padding.Left + (int)Math.Round(timestamp / 1000.0 * timeline.PixelsPerSecond);
+        var viewportSeconds = (timeline.ClientSize.Width - timeline.Padding.Horizontal - 40.0)
+            / timeline.PixelsPerSecond;
+        var viewStartSeconds = timeline.Controls.OfType<HScrollBar>().Single().Value / 1000.0 - viewportSeconds;
+        var x = (int)Math.Round(timeline.Padding.Left
+            + (timestamp / 1000.0 - viewStartSeconds) * timeline.PixelsPerSecond);
         var trackTop = timeline.Padding.Top + 10;
         var trackBottom = timeline.Height - timeline.Padding.Bottom - 24 - 10;
         var y = (int)Math.Round(trackBottom - (trackBottom - trackTop) / 2.0);
+        var hit = typeof(TimelineControl).GetMethod("HitTest", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(timeline, [new Point(x, y)]);
         timeline.HandleMouseDown(new MouseEventArgs(MouseButtons.Left, 1, x, y, 0), Keys.None);
         typeof(TimelineControl).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(timeline, [new MouseEventArgs(MouseButtons.Left, 1, x, y, 0)]);
+        if (hit is null)
+            Assert.Fail($"Expected hit at action {timestamp} ms; x={x}, y={y}, width={timeline.ClientSize.Width}, height={timeline.Height}, scroll={timeline.Controls.OfType<HScrollBar>().Single().Value}, viewport={viewportSeconds}, anchor={timeline.FollowAnchorX}, pps={timeline.PixelsPerSecond}.");
     }
 
     private static bool IsInputKey(TimelineControl timeline, Keys keyData) =>

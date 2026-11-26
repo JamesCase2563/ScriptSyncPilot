@@ -53,6 +53,7 @@ public sealed class MainForm : Form
     private readonly Button _resetSpeedButton = new() { Text = "1x", AutoSize = true, Enabled = false, AccessibleName = "Reset playback speed to normal" };
     private readonly Label _speedLabel = new() { AutoSize = true, Text = "Player rate: unknown", MinimumSize = new Size(140, 0), Margin = new Padding(6, 8, 3, 0) };
     private readonly TrackBar _zoomSlider = new() { Minimum = 5, Maximum = 2000, TickStyle = TickStyle.None, Value = 100 };
+    private readonly Button _centerPlayheadButton = new() { Text = "Center Playhead", AutoSize = true, AccessibleDescription = "Center the current playhead and resume timeline follow." };
 
     private readonly Button _back10SButton = new() { Text = "◀◀ 10s", Enabled = false };
     private readonly Button _back1SButton = new() { Text = "◀ 1s", Enabled = false };
@@ -115,6 +116,7 @@ public sealed class MainForm : Form
 
         _timeline.SeekRequested += OnSeekRequested;
         _timeline.PlayPauseRequested += async (_, _) => await TogglePlayPauseAsync();
+        _centerPlayheadButton.Click += (_, _) => _timeline.CenterPlayhead();
         _timeline.ScriptChanged += (_, _) => UpdateTitle();
         _timeline.MovementReadoutChanged += UpdateMovementReadout;
         _timeline.SpeedColorScaleChanged += (_, _) => UpdateSpeedLegend();
@@ -558,17 +560,20 @@ public sealed class MainForm : Form
 
     private Control BuildZoomBar()
     {
-        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 3, RowCount = 1, AutoSize = true, Padding = new Padding(6, 0, 6, 0) };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, RowCount = 1, AutoSize = true, Padding = new Padding(6, 0, 6, 0) };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = "Zoom", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 12, 6, 3) }, 0, 0);
         _zoomSlider.Dock = DockStyle.Fill;
         layout.Controls.Add(_zoomSlider, 1, 0);
 
+        _centerPlayheadButton.Margin = new Padding(6, 8, 3, 3);
+        layout.Controls.Add(_centerPlayheadButton, 2, 0);
         var fit = new Button { Text = "Fit All", AutoSize = true, Margin = new Padding(6, 8, 3, 3) };
         fit.Click += (_, _) => _timeline.ZoomToFit();
-        layout.Controls.Add(fit, 2, 0);
+        layout.Controls.Add(fit, 3, 0);
         return layout;
     }
 
@@ -975,10 +980,15 @@ public sealed class MainForm : Form
     // Relative seek by whole seconds (positive or negative); single-frame steps go through StepFrameAsync.
     private async Task StepAsync(double deltaSeconds)
     {
-        if (_mpv is null) return;
+        var session = _mpv;
+        if (session is null) return;
+        var cancellationToken = _lifetimeCts.Token;
+        var generation = BeginRelativeSeek();
         try
         {
-            await _mpv.SeekRelativeAsync(deltaSeconds, _lifetimeCts.Token);
+            await session.SeekRelativeAsync(deltaSeconds, cancellationToken);
+            if (session.IsPaused)
+                await AlignPausedTransportSeekAsync(session, generation, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
@@ -988,14 +998,53 @@ public sealed class MainForm : Form
 
     private async Task StepFrameAsync(bool forward)
     {
-        if (_mpv is null) return;
+        var session = _mpv;
+        if (session is null) return;
+        var cancellationToken = _lifetimeCts.Token;
+        var generation = BeginRelativeSeek();
         try
         {
-            await _mpv.StepFrameAsync(forward, _lifetimeCts.Token);
+            await session.StepFrameAsync(forward, cancellationToken);
+            if (session.IsPaused)
+                await AlignPausedTransportSeekAsync(session, generation, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or OperationCanceledException)
         {
             Log($"Frame step failed: {ex.Message}");
+        }
+    }
+
+    private long BeginRelativeSeek()
+    {
+        var generation = ++_mpvSeekGeneration;
+        _pendingMpvSeek = null;
+        return generation;
+    }
+
+    private async Task AlignPausedTransportSeekAsync(MpvSession session, long generation, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(PendingSeekVerificationDelayMs, cancellationToken);
+            using var queryTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            queryTimeout.CancelAfter(PendingSeekQueryTimeoutMs);
+            var actualSeconds = await session.GetPositionAsync(queryTimeout.Token);
+            if (cancellationToken.IsCancellationRequested
+                || generation != _mpvSeekGeneration
+                || !ReferenceEquals(_mpv, session)
+                || !session.IsPaused)
+                return;
+
+            _timeline.SetPlayheadAtFollowAnchor(actualSeconds);
+            _timeLabel.Text = $"{actualSeconds:0.000} / {session.DurationSeconds:0.000} s";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            if (generation == _mpvSeekGeneration && ReferenceEquals(_mpv, session))
+                Log($"Could not update the paused seek position: {ex.Message}");
         }
     }
 
@@ -1122,7 +1171,7 @@ public sealed class MainForm : Form
 
     private void MovePlayheadTo(double seconds)
     {
-        _timeline.SetPlayhead(seconds);
+        _timeline.SetPlayheadAtFollowAnchor(seconds);
         OnSeekRequested(seconds);
     }
 
@@ -1140,7 +1189,7 @@ public sealed class MainForm : Form
             if (pendingSeek is not null && IsCurrentPendingSeek(pendingSeek))
             {
                 _pendingMpvSeek = null;
-                _timeline.SetPlayhead(session.PositionSeconds);
+                _timeline.SetPlayheadAtFollowAnchor(session.PositionSeconds);
             }
         }
     }
@@ -1167,7 +1216,7 @@ public sealed class MainForm : Form
                     if (IsPositionNearSeekTarget(pendingSeek.TargetSeconds, actualSeconds, pendingSeek.Session.FrameRate))
                     {
                         _pendingMpvSeek = null;
-                        _timeline.SetPlayhead(actualSeconds);
+                        _timeline.SetPlayheadAtFollowAnchor(actualSeconds);
                         _timeLabel.Text = $"{actualSeconds:0.000} / {pendingSeek.Session.DurationSeconds:0.000} s";
                         return;
                     }

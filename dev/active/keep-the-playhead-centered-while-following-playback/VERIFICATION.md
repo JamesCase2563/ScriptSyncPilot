@@ -1,7 +1,7 @@
 # Adjustable Playhead Follow Anchor — Verification
 
 - **Issue:** [#52 — Keep the playhead centered while following playback](https://github.com/JamesCase2563/ScriptSyncPilot/issues/52)
-- **Status:** In Progress; implementation and automated verification are complete, manual runtime verification remains pending.
+- **Status:** Complete.
 
 ## Acceptance criteria
 
@@ -46,4 +46,4 @@ M2.2 extends the scrollable viewport by one viewport width before time zero and 
 
 M2.3 connects timeline clicks and scrubbing to the pointer anchor, updates the anchor to the playhead's resulting screen position after zoom, and keeps point and numeric seeks at the existing anchor. The Center Playhead button resets the anchor and view to the track center. Paused relative transport/frame steps query mpv after the command and align the confirmed position to the anchor; passive paused position notifications and pausing alone do not move the viewport.
 
-M3.1 adds focused coverage for continuous follow, offscreen anchors, pan release, scrubbing, zoom, explicit seeks, center reset, and movie boundary rendering. The focused timeline tests passed: **29 passed, 0 failed**. M3.2's full FunscriptEditor suite passed: **288 passed, 0 failed, 0 skipped**. The solution build also succeeded with zero warnings and errors. `dev/FunscriptEditor/ARCHITECTURE.md` now documents the anchor and movie-boundary behavior. Manual playback and visual checks were not performed; they remain for user verification because computer control was previously stopped at the user's request.
+M3.1 adds focused coverage for continuous follow, offscreen anchors, pan release, scrubbing, zoom, explicit seeks, center reset, and movie boundary rendering. The focused timeline tests passed: **29 passed, 0 failed**. M3.2's full FunscriptEditor suite passed: **288 passed, 0 failed, 0 skipped**. The solution build also succeeded with zero warnings and errors. `dev/FunscriptEditor/ARCHITECTURE.md` documents the anchor and movie-boundary behavior. The user manually verified normal playback, forward/backward seeks, start/end behavior, zoom, pan, and selection, and reported that each works correctly.

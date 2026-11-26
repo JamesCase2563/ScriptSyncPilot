@@ -454,8 +454,11 @@ public sealed class TimelineControl : Control
     private void SetZoom(double pixelsPerSecond, double centerSeconds)
     {
         _pixelsPerSecond = Math.Clamp(pixelsPerSecond, MinPixelsPerSecond, MaxPixelsPerSecond);
-        _viewStartSeconds = centerSeconds - ViewportSeconds() / 2;
-        ClampViewStart();
+        _viewStartSeconds = ViewportSeconds() >= DurationSeconds
+            ? 0
+            : centerSeconds - ViewportSeconds() / 2;
+        if (ViewportSeconds() < DurationSeconds)
+            ClampViewStart();
         SetFollowAnchorX(TimeToX(_playheadSeconds));
         UpdateScrollBar();
         ZoomChanged?.Invoke(this, EventArgs.Empty);

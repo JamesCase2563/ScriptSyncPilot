@@ -21,7 +21,7 @@ High-contrast adaptation remains in the editor: timeline segments use system hig
 
 Actions use milliseconds and 0-100 positions. Common preserves unknown root JSON properties. Empty/new documents are valid. ScriptChanged marks edits and refreshes timeline zoom, viewport, and scrollbar limits.
 
-The timeline spans media/script duration, with a 60-second minimum without media. Scrollbar units are milliseconds. Deleting selection clears drag state. The right value bar inserts at the playhead and draws a hover guide across the visible graph.
+The timeline spans the longer of media and script duration, with a 60-second minimum without media. Its scrollbar uses millisecond units and permits up to one viewport of overscroll before time zero and after the timeline's final time. Deleting selection clears drag state. The right value bar inserts at the playhead and draws a hover guide across the visible graph.
 
 ## Keyboard Position Entry
 
@@ -31,11 +31,11 @@ With the timeline focused, eleven physical top-row scan codes insert positions a
 
 Keyboard and value-bar entry share `InsertPositionAtPlayhead`, which validates 0-100, captures/clamps/rounds the playhead using the existing timestamp policy, and commits through AddOrReplace and action history. An existing timestamp is updated without duplicates; identical values do not create history or invalidate redo. The affected point is selected. Automated editor tests and user-performed manual checks cover this behavior.
 
-Middle-button dragging in the timeline pans the viewport horizontally without seeking or editing actions. Panning uses mouse capture, clamps to existing viewport bounds, and updates the scrollbar; release, capture loss, or document loading ends it. Left-button point dragging and scrubbing retain their existing behavior.
+Middle-button dragging in the timeline pans the viewport horizontally without seeking or editing actions. Panning uses mouse capture, clamps to the extended viewport bounds, and updates the scrollbar; release, capture loss, or document loading ends it. Pan release and capture loss retain the playhead's resulting screen X as the follow anchor. Left-button point dragging and scrubbing retain their existing behavior.
 
 ## Playback Lifecycle
 
-During active playback, reaching the visible timeline's right edge recenters the viewport on the playhead without changing zoom or seeking. Existing timeline bounds limit centering near the end. Auto-follow is suppressed during panning, point dragging, or scrubbing; paused/manual playhead updates do not recenter.
+`TimelineControl` keeps a horizontal follow anchor in client coordinates, defaulting to the track center. Every eligible active-playback position update moves the viewport so the playhead remains at that X while the timeline scrolls at the observed movie-time rate; following does not change zoom, edit script actions, or issue seeks. The anchor may be outside the visible track, so playback continues scrolling even while the playhead line is offscreen. Panning updates the anchor to the playhead's resulting screen X. Timeline clicks/scrub movement use the pointer X, with scrub release establishing the final anchor. Zoom updates the anchor to the playhead's resulting screen X. Explicit point and time seeks preserve the current anchor, including while paused; passive paused position observations and pausing alone do not move the view. Paused relative transport/frame steps query mpv for the resulting position and align that explicit seek to the active anchor. The Center Playhead button places the playhead at track center and resets the anchor there. A translucent overlay marks viewport time outside the media duration, with a solid start boundary and dashed end boundary; these movie boundaries remain distinct from the longer script timeline when a script extends beyond its video.
 
 Playback speed is controlled independently of funscript actions/history and media-time coordinates. The transport provides a 0.10-5.00x input in 0.05x steps and a 1x reset; the displayed rate follows mpv observations, including external changes and values outside the editor input range. Attaching preserves an external player's current rate; editor-launched mpv starts paused at 1x. Speed is not persisted or applied on reconnect. Queued observations and write failures are guarded by session identity and form lifetime.
 

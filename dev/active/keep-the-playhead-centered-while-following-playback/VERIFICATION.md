@@ -1,7 +1,7 @@
 # Adjustable Playhead Follow Anchor — Verification
 
 - **Issue:** [#52 — Keep the playhead centered while following playback](https://github.com/JamesCase2563/ScriptSyncPilot/issues/52)
-- **Status:** In Progress; M2 is implemented, verification is pending.
+- **Status:** In Progress; implementation and automated verification are complete, manual runtime verification remains pending.
 
 ## Acceptance criteria
 
@@ -38,10 +38,12 @@
 
 ## Results and limitations
 
-**M1.1 source trace complete. M2.1 implemented; automated and runtime verification are pending.** Playback observations and direct mpv position changes arrive through `MpvSession.PositionChanged` → `MainForm.OnMpvPositionChanged` → `TimelineControl.SetPlayhead`; only unpaused observations currently request follow. Timeline clicks/scrubs and point-navigation actions update the timeline immediately and emit `SeekRequested`; transport/frame stepping send relative mpv commands and wait for position observations. Numeric seek-to-time from `PatternInsertionDialog` uses `MainForm.MovePlayheadTo`. Paused absolute seeks use generation-correlated verification, which remains unchanged. See M1.1 in `PLAN.md` for the full route trace and anchor implications.
+**M1.1 source trace complete.** Playback observations and direct mpv position changes arrive through `MpvSession.PositionChanged` → `MainForm.OnMpvPositionChanged`; only unpaused observations request follow. Timeline clicks/scrubs and point-navigation actions update the timeline immediately and emit `SeekRequested`; transport/frame stepping send relative mpv commands. Numeric seek-to-time from `PatternInsertionDialog` uses `MainForm.MovePlayheadTo`. Paused absolute seeks use generation-correlated verification. See M1.1 in `PLAN.md` for the full route trace and anchor implications.
 
 `TimelineControl.SetPlayhead` now positions the viewport from `FollowAnchorX` on every eligible playback update, without changing pixels per second or clamping the resulting viewport start. This keeps the playhead at the same screen coordinate (including an offscreen coordinate) while the timeline advances at mpv's reported movie-time rate. The former pan suppression-until-visible behavior is removed; ending or losing capture during a pan records the playhead's resulting screen coordinate as the follow anchor. These paths do not issue seeks or mutate script actions.
 
 M2.2 extends the scrollable viewport by one viewport width before time zero and after the final timeline time. The out-of-movie graph regions receive a translucent overlay, with a solid movie-start line and a dashed movie-end line. These changes do not modify pixels per second. The scrollbar maps to the extended viewport range.
 
-M2.3 connects timeline clicks and scrubbing to the pointer anchor, updates the anchor to the playhead's resulting screen position after zoom, and keeps point and numeric seeks at the existing anchor. The Center Playhead button resets the anchor and view to the track center. Paused relative transport/frame steps query mpv after the command and align the confirmed position to the anchor; passive paused position notifications and pausing alone do not move the viewport. `dotnet build src/ScriptSyncPilot.slnx --no-restore --verbosity minimal` succeeded with zero warnings and errors. Automated tests and manual runtime checks have not been run.
+M2.3 connects timeline clicks and scrubbing to the pointer anchor, updates the anchor to the playhead's resulting screen position after zoom, and keeps point and numeric seeks at the existing anchor. The Center Playhead button resets the anchor and view to the track center. Paused relative transport/frame steps query mpv after the command and align the confirmed position to the anchor; passive paused position notifications and pausing alone do not move the viewport.
+
+M3.1 adds focused coverage for continuous follow, offscreen anchors, pan release, scrubbing, zoom, explicit seeks, center reset, and movie boundary rendering. The focused timeline tests passed: **29 passed, 0 failed**. M3.2's full FunscriptEditor suite passed: **288 passed, 0 failed, 0 skipped**. The solution build also succeeded with zero warnings and errors. `dev/FunscriptEditor/ARCHITECTURE.md` now documents the anchor and movie-boundary behavior. Manual playback and visual checks were not performed; they remain for user verification because computer control was previously stopped at the user's request.

@@ -66,9 +66,9 @@ Keep the playhead marker at a user-set horizontal anchor while active playback a
 
 ### M3 — Verify and document
 
-- [ ] M3.1 Add focused automated coverage for anchor updates, seeking, zoom preservation, boundary rendering, and offscreen follow after manual interaction.
-- [ ] M3.2 Run the relevant FunscriptEditor test suite and manually check normal playback, forward/back seeks, start/end, zoom, pan, and selection.
-- [ ] M3.3 Update the FunscriptEditor architecture documentation and record results and limitations in `VERIFICATION.md`.
+- [x] M3.1 Add focused automated coverage for anchor updates, seeking, zoom preservation, boundary rendering, and offscreen follow after manual interaction.
+- [x] M3.2 Run the FunscriptEditor test suite and manually check normal playback, forward/back seeks, start/end, zoom, pan, and selection. Automated and user-performed manual checks passed.
+- [x] M3.3 Update the FunscriptEditor architecture documentation and record automated results and remaining limitations in `VERIFICATION.md`.
 
 ## Verification approach
 

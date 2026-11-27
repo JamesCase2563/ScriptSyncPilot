@@ -38,7 +38,7 @@ Save after each pass. Before pass 4, also save a copy (for example `<movie>.mark
 State: Scenes
 Filename: `<movie>.scenes.funscript`
 
-Play at 2x and press `5` at each cut or pause; press `0` at a change of scene. Skip this pass for short videos or a single continuous take.
+Play at 2x-5x and press `5` at each cut or pause; press `0` at a change of scene. Skip this pass for short videos or a single continuous take.
 
 | Key | When |
 | --- | ---- |
